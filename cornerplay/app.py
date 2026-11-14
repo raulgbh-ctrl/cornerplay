@@ -3012,7 +3012,36 @@ class AioLaunch(QObject):
             from . import speech
             speech.say(text)
 
-    speechAvailable = Property(bool, lambda s: __import__("cornerplay.speech", fromlist=["x"]).available(), constant=True)
+    speechChanged = Signal()
+    speechAvailable = Property(bool, lambda s: __import__("cornerplay.speech", fromlist=["x"]).available(), notify=speechChanged)
+    canGetVoice = Property(bool, lambda s: __import__("cornerplay.speech", fromlist=["x"]).can_fetch(), constant=True)
+
+    @Slot()
+    def getVoice(self):
+        """Read aloud with nothing installed: download Cornerplay's own eSpeak NG (speech.py)."""
+        if self._sys_busy.__contains__("voice"):
+            return
+        self._sys_busy.add("voice")
+        self.systemChanged.emit()
+        self.toast.emit("Downloading a voice (10 MB)…")
+
+        def work():
+            from . import speech
+            try:
+                speech.fetch()
+                msg = "Voice ready: Read aloud works now"
+            except Exception as e:
+                msg = f"Could not get a voice: {e}"
+
+            def done():
+                self._sys_busy.discard("voice")
+                self.systemChanged.emit()
+                self.speechChanged.emit()
+                self.toast.emit(msg)
+                if "ready" in msg:
+                    self.say(_t("Read aloud is on"))
+            return done
+        self._bg(work)
 
     light = Property(bool, lambda s: s._per_settings["light"] if "light" in s._per_settings
                      else s._per_settings.setdefault("light", s._light()), notify=settingsChanged)

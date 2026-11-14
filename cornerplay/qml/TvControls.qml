@@ -226,9 +226,12 @@ QtObject {
               set: v => app.setSetting("a11y_colours", v) },
             setting(qsTr("Moving"), qsTr("Reduce motion"), "pause", "a11y_motion", qsTr("No sliding, zooming, drifting art or trailers")),
             { group: qsTr("Hearing"), label: qsTr("Read aloud"), icon: "volume-2", on: !!st.a11y_speak,
-              sub: app.speechAvailable ? qsTr("Says what is selected as you move") : qsTr("Needs speech-dispatcher and espeak-ng installed"),
+              sub: app.speechAvailable ? qsTr("Says what is selected as you move") : qsTr("Needs a voice: get one below"),
               set: v => { app.setSetting("a11y_speak", v); if (v) Qt.callLater(() => app.say(qsTr("Read aloud is on"))) } }
-        ]
+        ].concat(!app.speechAvailable && app.canGetVoice
+            ? [{ group: qsTr("Hearing"), label: busy.indexOf("voice") !== -1 ? qsTr("Downloading a voice…") : qsTr("Get a voice"),
+                 icon: "download", sub: qsTr("eSpeak NG, 10 MB, every language (no password needed)"), act: "getvoice", busy: busy.indexOf("voice") !== -1 }]
+            : [])
     }
 
     // ------------------------------------------------------------ TV mode, people, power
@@ -321,6 +324,7 @@ QtObject {
         else if (row.act === "leave") leave(row.how)
         else if (row.act === "wifiscan") app.scanNetworks()
         else if (row.act === "padtest") padTest()
+        else if (row.act === "getvoice") app.getVoice()
         else if (row.act === "buzz") pad.buzz(80)
         else if (row.act === "wifi") {
             const w = row.net

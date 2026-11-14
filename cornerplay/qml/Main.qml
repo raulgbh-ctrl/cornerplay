@@ -6002,10 +6002,15 @@ ApplicationWindow {
                             }
                             Row2 {
                                 label: qsTr("Accessibility")
-                                hint: qsTr("Interface size above makes text and buttons bigger. Read aloud works in TV mode and needs speech-dispatcher and espeak-ng.")
+                                hint: qsTr("Interface size above makes text and buttons bigger. Read aloud uses your system's voice (speech-dispatcher or espeak-ng), or one Cornerplay downloads for you.")
                                 Toggle { label: qsTr("High contrast: text, outlines and edges toward black and white"); settingKey: "a11y_contrast" }
                                 Toggle { label: qsTr("Reduce motion: no sliding, zooming, drifting art or trailers"); settingKey: "a11y_motion" }
-                                Toggle { label: qsTr("Read aloud in TV mode: what is selected, as you move") + (app.speechAvailable ? "" : qsTr(" (no speech engine found)")); settingKey: "a11y_speak" }
+                                RowLayout {
+                                    spacing: 10
+                                    Toggle { Layout.fillWidth: true; label: qsTr("Read aloud in TV mode: what is selected, as you move"); settingKey: "a11y_speak" }
+                                    KButton { theme: win.theme; visible: !app.speechAvailable && app.canGetVoice; text: qsTr("Get a voice (10 MB)"); iconName: "download"
+                                              onClicked: app.getVoice() }
+                                }
                                 RowLayout {
                                     spacing: 10
                                     Text { text: qsTr("Colour-blind friendly colours"); color: theme.onSurface; font.pixelSize: 13; Layout.fillWidth: true }
