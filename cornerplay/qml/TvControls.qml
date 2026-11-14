@@ -110,6 +110,11 @@ QtObject {
             setting(group, qsTr("MangoHud overlay"), "cpu", "mangohud"),
             setting(group, qsTr("GameMode"), "zap", "gamemode", qsTr("Feral's CPU and GPU boost while you play"))
         ]
+        const w = qsTr("While you play")
+        out.push(setting(w, qsTr("Do not disturb"), "bell", "focus_dnd", qsTr("Notifications wait (on Ryoku: its Game Mode)")))
+        out.push(setting(w, qsTr("Keep awake"), "sun", "focus_awake", qsTr("No screen blanking or sleep mid-game")))
+        out.push(setting(w, qsTr("Performance power mode"), "zap", "focus_power", qsTr("Back to yours when the game closes")))
+        out.push(setting(w, qsTr("Pause downloads"), "download", "focus_downloads", qsTr("They carry on when the game closes")))
         if (app.hasGamescope && !g.active)
             out.push({ group: group, kind: "choice", label: qsTr("gamescope"), icon: "monitor", cur: st.gamescope || "",
                        options: [{ v: "", t: qsTr("Off") }, { v: "fullscreen", t: qsTr("Full screen") }, { v: "fsr", t: qsTr("FSR upscaling") }],

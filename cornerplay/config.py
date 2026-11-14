@@ -134,6 +134,11 @@ DEFAULTS = {
     "gs_sharpness": 18,        # FSR / NIS sharpness, 0..20 (higher is sharper)
     "gs_tearing": False,       # allow tearing (lower latency)
     "gs_hdr": False,           # gamescope's HDR output, when the screen supports it
+    # Focus while playing (focus.py)
+    "focus_dnd": True,         # hold notifications back (Ryoku: its Game Mode)
+    "focus_awake": True,       # keep the screen on and the PC awake
+    "focus_power": False,      # the Performance power mode while playing
+    "focus_downloads": True,   # pause downloads while playing
     # Controllers
     "pad_layout": "",          # games' controller layout (padlayout.py): "", "swap_ab", "nintendo", "southpaw", "shoulders"
     "pad_glyphs": "",          # button prompts: "" (from the controller), "xbox", "playstation", "nintendo"

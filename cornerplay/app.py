@@ -601,6 +601,9 @@ class AioLaunch(QObject):
         self._sys_pool = ThreadPoolExecutor(1)
         self._system = {}
         self._sys_busy = set()
+        self._focus = None          # focus.py's undo state while a game is being played
+        self._focus_paused = []     # downloads paused for it
+        self.nowPlayingChanged.connect(self._focus_check)
         self.procs: dict[str, QProcess] = {}
         self.logs: dict[str, list] = {}
         self._pending = set()
@@ -4439,6 +4442,43 @@ class AioLaunch(QObject):
 
     nowPlaying = Property("QVariantList", _now_playing, notify=nowPlayingChanged)
 
+    # --- focus while playing (focus.py) ---------------------------------------------------
+    def _focus_check(self):
+        playing = bool(self._now_playing())
+        if playing and self._focus is None and not self.demo:
+            want = {k: bool(settings.get("focus_" + k)) for k in ("dnd", "awake", "power")}
+            self._focus = {}
+            if settings.get("focus_downloads"):
+                self._focus_paused = [k for k, j in list(self.model.jobs.items()) if j.get("kind") in self.PAUSABLE]
+                self._focus_paused += [g.key for g, kind, _c in list(self._queue) if kind in self.PAUSABLE and g.key not in self._focus_paused]
+                for k in self._focus_paused:
+                    self.pauseDownload(k)
+                if self._focus_paused:
+                    self.toast.emit(f"Downloads paused while you play ({len(self._focus_paused)})")
+            from . import focus
+
+            def start():
+                undo = focus.begin(want)
+                self._after.emit(lambda: self._focus_started(undo))
+            self._sys_pool.submit(start)
+        elif not playing and self._focus is not None:
+            self._focus_stop()
+
+    def _focus_started(self, undo):
+        if self._focus is None or not self._now_playing():  # the game closed meanwhile
+            from . import focus
+            self._sys_pool.submit(lambda: focus.end(undo))
+            return
+        self._focus = undo
+
+    def _focus_stop(self):
+        undo, self._focus = self._focus or {}, None
+        from . import focus
+        self._sys_pool.submit(lambda: focus.end(undo))
+        paused, self._focus_paused = self._focus_paused, []
+        for k in paused:  # a few seconds later: the game's own last writes go first
+            QTimer.singleShot(3000, lambda k=k: self.resumeDownload(k))
+
     # A game you played for a while just closed: the window shows a small recap card with
     # how long it was, the total, and quick ways to rate it, mark it finished or leave a note.
     sessionRecap = Signal(str, "QVariantMap")
@@ -5006,6 +5046,12 @@ class AioLaunch(QObject):
             p.terminate()
             p.waitForFinished(3000)
         self.pool.shutdown(wait=False, cancel_futures=True)
+        if self._focus is not None:  # closing Cornerplay mid-game: put the PC back as it was
+            from . import focus
+            try:
+                focus.end(self._focus)
+            except Exception:
+                pass
         self._sys_pool.shutdown(wait=False, cancel_futures=True)
 
     # --- demo ------------------------------------------------------------

@@ -6026,6 +6026,11 @@ ApplicationWindow {
                             Toggle { label: qsTr("MangoHud overlay"); settingKey: "mangohud" }
                             Toggle { label: qsTr("Feral GameMode"); settingKey: "gamemode" }
                             Toggle { label: qsTr("FPS counter in games"); settingKey: "show_fps" }
+                            Text { text: qsTr("While you play"); color: theme.onSurface; font.pixelSize: 15; font.weight: Font.DemiBold; Layout.topMargin: 6 }
+                            Toggle { label: qsTr("Do not disturb (on Ryoku: its Game Mode)"); settingKey: "focus_dnd" }
+                            Toggle { label: qsTr("Keep the screen on and the PC awake"); settingKey: "focus_awake" }
+                            Toggle { label: qsTr("Performance power mode, back to yours after"); settingKey: "focus_power" }
+                            Toggle { label: qsTr("Pause downloads, carry on after"); settingKey: "focus_downloads" }
                             Row2 {
                                 label: qsTr("Controller layout for every game")
                                 hint: qsTr("Swaps buttons for games that read the controller through SDL (most Proton and native games). Each game can choose its own under Options. Steam games use Steam Input.")
