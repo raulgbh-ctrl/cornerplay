@@ -728,7 +728,7 @@ FocusScope {
             Layout.bottomMargin: -6
             spacing: 12
             Icon {
-                name: tvLibrary.search !== "" ? "search" : ({ playing: "history", fav: "star", added: "gift", "": "library" })[tv.shelf.id] || "bookmark"
+                name: tvLibrary.search !== "" ? "search" : ({ playing: "history", fav: "star", added: "gift", away: "download", "": "library" })[tv.shelf.id] || "bookmark"
                 size: 20
                 color: tv.tint.primary
             }

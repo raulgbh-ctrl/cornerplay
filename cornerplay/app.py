@@ -160,6 +160,12 @@ def _covers(g):
     return _unique([_cover(g), *(g.extra.get("covers") or []), g.cover_fallback])
 
 
+def _put_away(group) -> bool:
+    """Put away to save space (Storage > Free up space): uninstalled, its saves kept, one press
+    from coming back."""
+    return not any(g.installed for g in group) and any(game_options.get(g.key).get("put_away") for g in group)
+
+
 def _appid(g):
     """The game's Steam app id, if known ("" if not)."""
     appid = g.id if g.store == "steam" else str(g.extra.get("steam_appid") or "")
@@ -473,6 +479,8 @@ class LibraryProxy(QSortFilterProxyModel):
             return shelves.is_recent(group)
         if s == "together":
             return any(couch.local(_appid(g)) for g in group)
+        if s == "away":
+            return _put_away(group)
         if s.startswith("s:"):
             return shelves.meta(group, "status") == s[2:]
         return True
@@ -635,6 +643,7 @@ class AioLaunch(QObject):
         self._night.start()
         QTimer.singleShot(3 * 60 * 1000, self._shader_tick)
         QTimer.singleShot(90 * 1000, self._reports_tick)
+        QTimer.singleShot(4 * 60 * 1000, self._space_nudge)
         self._worker_toast.connect(self.toast)
         self._after.connect(lambda fn: fn())
         # A Cornerplay (TV) session: gamescope starts with its defaults; put back the frame
@@ -1782,6 +1791,60 @@ class AioLaunch(QObject):
                    "drives": [dict(d, freeText=storage.nice(d["free"]), totalText=storage.nice(d["total"]),
                                    gamesText=storage.nice(d["gameBytes"])) for d in drives.values()]}
             return lambda: self.storageReady.emit(out)
+        self._bg(work)
+
+    # --- putting games away to save space ---------------------------------------------
+    @Slot("QVariantList")
+    def putAway(self, keys):
+        """Uninstall games you have not played in a long time, their saves zipped first
+        (savebackup.py); they wait on the Put away shelf, one Install from coming back."""
+        games = [self.model.find(k) for k in keys]
+        games = [g for g in games if g and g.installed and g.key not in self.procs and g.store != "steam"]
+        steam = [k for k in keys if self.model.find(k) and self.model.find(k).store == "steam"]
+        if steam:
+            self.toast.emit("Steam games are uninstalled in Steam; the others are being put away")
+        if not games:
+            return
+
+        def work():
+            saved = 0
+            for g in games:
+                try:
+                    if savebackup.backup(g, _appid(g), reason="put away"):
+                        saved += 1
+                except Exception:
+                    pass
+
+            def go():
+                for g in games:
+                    game_options.set(g.key, "put_away", time.time())
+                    self.uninstall(g.key)
+                n = len(games)
+                self.toast.emit(f"Putting away {n} game{'s' if n != 1 else ''}" + (f", saves of {saved} kept" if saved else "")
+                                + ". Find them on the Put away shelf.")
+            return go
+        self._bg(work)
+
+    def _space_nudge(self):
+        """Once a week at most: say how much room games unplayed for a year take, when it is a lot."""
+        if self.demo or time.time() - float(settings.get("space_nudge_at") or 0) < 7 * 86400:
+            return
+        year = time.time() - 365 * 86400
+        games = [g for g in self.model.games if g.installed and g.install_path and g.store != "steam"
+                 and 0 < playtime.of(g, self.model.played)[1] < year]
+        if not games:
+            return
+
+        def work():
+            total = sum(storage.size_of(g.install_path, g.extra.get("size", 0)) for g in games)
+            if total < 30 * 1024 ** 3:
+                return None
+
+            def say():
+                settings.set("space_nudge_at", time.time())
+                self.toast.emit(f"Games you haven't played in a year use {storage.nice(total)}. "
+                                "Storage > Free up space puts them away, saves kept.")
+            return say
         self._bg(work)
 
     @Slot(str, str)
@@ -3208,6 +3271,7 @@ class AioLaunch(QObject):
             "added": shelves.is_recent,
             "s:finished": lambda g: shelves.meta(g, "status") == "finished",
             "together": lambda g: any(couch.local(_appid(x)) for x in g),
+            "away": _put_away,
         }
         genres = {}
         for grp in groups:
@@ -3260,6 +3324,7 @@ class AioLaunch(QObject):
         add("added", _t("Recently added"), shelves.is_recent)
         add("s:finished", _t("Finished"), lambda g: shelves.meta(g, "status") == "finished")
         add("together", _t("Play together"), lambda g: any(couch.local(_appid(x)) for x in g))
+        add("away", _t("Put away"), _put_away)
         out.append({"id": "", "name": _t("Library"), "count": len(groups)})
         # Two or more controllers: friends are on the sofa, so games to play together come first.
         pads = len(getattr(getattr(self, "gamepad", None), "_pads", None) or {})
@@ -4640,6 +4705,8 @@ class AioLaunch(QObject):
     def install(self, key):
         """Install, after checking the drive will not run nearly full (diskWarning asks first)."""
         g, store = self._guard(key)
+        if g and game_options.get(key).get("put_away"):
+            game_options.set(key, "put_away", None)  # coming back: off the Put away shelf
         if not g or key in self.procs or store.external_installs or g.extra.get("owned_only"):
             return self.installAnyway(key)
         target = str(settings.games_dir)

@@ -134,6 +134,7 @@ DEFAULTS = {
     "gs_sharpness": 18,        # FSR / NIS sharpness, 0..20 (higher is sharper)
     "gs_tearing": False,       # allow tearing (lower latency)
     "gs_hdr": False,           # gamescope's HDR output, when the screen supports it
+    "space_nudge_at": 0,       # when Cornerplay last said which old games take room (once a week at most)
     # Focus while playing (focus.py)
     "focus_dnd": True,         # hold notifications back (Ryoku: its Game Mode)
     "focus_awake": True,       # keep the screen on and the PC awake
@@ -261,7 +262,7 @@ class GameOptions:
     """Per-game overrides, keyed "store:id". A missing key means "use the default"."""
     KEYS = ("proton", "mangohud", "gamemode", "env", "args", "cover", "prefer", "cloud_saves", "hidden", "collections",
             "status", "rating", "note", "perf", "show_fps", "platform", "gamescope", "gamescope_hdr",
-            "before", "after", "pad_layout")
+            "before", "after", "pad_layout", "put_away")
 
     def __init__(self):
         self.path = CONFIG_DIR / "games.json"

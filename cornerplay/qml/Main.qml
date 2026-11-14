@@ -3474,6 +3474,19 @@ ApplicationWindow {
                 Text { text: storage.loading ? qsTr("Measuring your games…")
                              : ((storage.d.drives || []).length > 1 || storage.tidy) ? (storage.shown.length + qsTr(" games · ") + (storage.d.total || "")) : ""
                        color: theme.onSurfaceVariant; font.pixelSize: 13; Layout.fillWidth: true }
+                // Free up space: all of them at once, saves kept (the Put away shelf brings them back).
+                KButton {
+                    id: awayAll
+                    property bool armed: false
+                    theme: win.theme
+                    primary: true
+                    visible: storage.tidy && storage.shown.some(g => g.store !== "steam" && g.store !== "battlenet")
+                    readonly property var keys: storage.shown.filter(g => g.store !== "steam" && g.store !== "battlenet").map(g => g.key)
+                    readonly property real bytes: storage.shown.filter(g => g.store !== "steam" && g.store !== "battlenet").reduce((a, g) => a + g.bytes, 0)
+                    text: armed ? qsTr("Sure? %1 games").arg(keys.length) : qsTr("Put away all (%1)").arg((bytes / 1073741824).toFixed(bytes > 10737418240 ? 0 : 1) + " GB")
+                    iconName: "download"
+                    onClicked: { if (!armed) { armed = true; return } armed = false; app.putAway(keys); storage.tidy = false }
+                }
                 KButton {
                     theme: win.theme
                     text: storage.tidy ? qsTr("Show all") : qsTr("Free up space")
@@ -3561,7 +3574,7 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 visible: storage.tidy
                 wrapMode: Text.WordWrap
-                text: storage.shown.length ? qsTr("Games over 2 GB you haven't played for three months, biggest first.")
+                text: storage.shown.length ? qsTr("Games over 2 GB you haven't played for three months, biggest first. Put away uninstalls a game and keeps its saves; it waits on the Put away shelf, one Install from coming back.")
                                            : qsTr("Nothing to clear: every big game was played lately.")
                 color: theme.outline; font.pixelSize: 12
             }
@@ -3624,6 +3637,13 @@ ApplicationWindow {
                             text: qsTr("Cancel")
                             iconName: "x"
                             onClicked: app.cancel(modelData.key)
+                        }
+                        KButton {
+                            theme: win.theme
+                            visible: storage.tidy && !live.job && modelData.store !== "battlenet" && modelData.store !== "steam"
+                            text: qsTr("Put away")
+                            iconName: "download"
+                            onClicked: app.putAway([modelData.key])
                         }
                         KButton {
                             id: rmBtn
