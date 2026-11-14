@@ -5,6 +5,14 @@ import shutil
 import time
 from pathlib import Path
 
+# Debian and Ubuntu put Steam and GameMode's gamemoderun in /usr/games, which a session started
+# some ways (a launcher, systemd) leaves off PATH: add it, so every shutil.which() finds them.
+_path = os.environ.get("PATH", "").split(os.pathsep)
+for _d in ("/usr/games", "/usr/local/games"):
+    if _d not in _path and os.path.isdir(_d):
+        _path.append(_d)
+os.environ["PATH"] = os.pathsep.join(p for p in _path if p)
+
 APP = "cornerplay"
 HOME = Path.home()
 CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config")) / APP
