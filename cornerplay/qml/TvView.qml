@@ -184,6 +184,12 @@ FocusScope {
         // Backlog status: one row that steps through the choices.
         const names = { "": qsTr("None"), playing: qsTr("Playing"), want: qsTr("Want to play"), finished: qsTr("Finished"), dropped: qsTr("Dropped") }
         out.push({ label: qsTr("Status: ") + names[cur.status || ""] + "  \u25B8", act: "status", key: cur.key })
+        // Controller layout for this game (padlayout.py): one row that steps through them.
+        if (cur.store !== "steam") {
+            const lay = app.gameOptions(cur.key).pad_layout || ""
+            const name = lay ? controls.layoutNames[lay] : qsTr("Default") + " (" + controls.layoutNames[app.settingsMap.pad_layout || ""] + ")"
+            out.push({ label: qsTr("Controller: ") + name + "  \u25B8", act: "padlayout", key: cur.key })
+        }
         out.push({ label: cur.hidden ? qsTr("Unhide game") : qsTr("Hide game"), act: cur.hidden ? "unhide" : "hide", key: cur.key })
         out.push({ label: qsTr("Close"), act: "close", key: "" })
         return out
@@ -1310,6 +1316,13 @@ FocusScope {
             else if (a.act === "hide" || a.act === "unhide") app.setHidden(a.key, a.act === "hide")
             else if (a.act === "fav") app.toggleFavourite(a.key)
             else if (a.act === "quit" || a.act === "kill") app.quitGame(a.key, a.act === "kill")
+            else if (a.act === "padlayout") {
+                const order = ["", "none", "swap_ab", "nintendo", "southpaw", "shoulders"]
+                const now = app.gameOptions(a.key).pad_layout || ""
+                app.setGameOption(a.key, "pad_layout", order[(order.indexOf(now) + 1) % order.length])
+                rows = tv.buildActions()
+                return
+            }
             else if (a.act === "status") {
                 const order = ["", "playing", "want", "finished", "dropped"]
                 app.setStatus(a.key, order[(order.indexOf(tv.cur.status || "") + 1) % order.length])
@@ -1450,7 +1463,7 @@ FocusScope {
                         size: 22
                         name: ({ play: "play", install: "download", update: "arrow-up", cancel: "x", uninstall: "trash-2",
                                  fav: "star", status: "bookmark", hide: "eye-off", unhide: "eye", close: "x",
-                                 quit: "x", kill: "x" })[parent.modelData.act] || "ellipsis"
+                                 quit: "x", kill: "x", padlayout: "gamepad-2" })[parent.modelData.act] || "ellipsis"
                         color: parent.ListView.isCurrentItem ? tv.tint.onPrimary
                                : parent.modelData.act === "uninstall" ? theme.error : theme.onSurfaceVariant
                     }
@@ -1578,6 +1591,7 @@ FocusScope {
         id: controls
         onAskPassword: ssid => { tv.joining = ssid; prompt.back = tv.Window.activeFocusItem; prompt.ask(qsTr("Join ") + ssid, qsTr("Type the Wi-Fi password."), true) }
         onOpenSettings: section => { mainMenu.hide(); quickMenu.hide(); tvSettings.show(section) }
+        onPadTest: padTest.show()
         onPower: what => { mainMenu.hide(); quickMenu.hide(); app.power(what) }
         onLeave: how => {
             mainMenu.hide(); quickMenu.hide(); tvSettings.visible = false
@@ -1595,6 +1609,13 @@ FocusScope {
         controls: controls
         batt: topStatus.batt
         onClosed: grid.forceActiveFocus()
+    }
+    TvPadTest {
+        id: padTest
+        anchors.fill: parent
+        theme: tv.theme
+        tint: tv.tint
+        onClosed: tv.refocus(null)
     }
     TvTextPrompt {
         id: prompt

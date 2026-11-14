@@ -13,7 +13,7 @@ import ctypes
 import ctypes.util
 import time
 
-from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Property, Signal
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Property, Signal, Slot
 from PySide6.QtGui import QGuiApplication, QKeyEvent
 
 INIT_GAMECONTROLLER = 0x00002000
@@ -33,6 +33,8 @@ REPEATING = {Qt.Key_Up, Qt.Key_Down, Qt.Key_Left, Qt.Key_Right}
 # which Steam presents as an Xbox pad) get Xbox glyphs.
 STYLES = {3: "playstation", 4: "playstation", 7: "playstation",
           5: "nintendo", 11: "nintendo", 12: "nintendo", 13: "nintendo"}
+# SDL_JoystickPowerLevel -> a battery percentage to show (wired and unknown: None).
+POWER = {0: 5, 1: 20, 2: 60, 3: 100, 5: 100}
 STICK_ON, STICK_OFF = 18000, 12000
 ACTIVE_MS, IDLE_MS = 16, 1000  # 60 checks a second while in use, one a second otherwise
 BACKGROUND_MS = 100           # a pad is plugged in but a game has the focus: Guide + Y stays quick
@@ -63,6 +65,11 @@ class Gamepad(QObject):
     styleChanged = Signal()
     overlay = Signal()   # Guide + Y: open or close the in-game panel
     activity = Signal()  # any button or stick, while Cornerplay has the focus
+    # The controller tester (TV mode's Settings): every button and stick as it is, and while
+    # capture is on, nothing is turned into keys (so B can be tested without leaving).
+    rawButton = Signal(int, bool)
+    rawAxis = Signal(int, int)
+    captureChanged = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -75,7 +82,14 @@ class Gamepad(QObject):
         self._event = ctypes.create_string_buffer(128)
         self._timer = None
         self._style = "xbox"
+        self._pad_style = "xbox"  # what the controller is; _style may be the user's choice instead
+        self._info = {}            # instance id -> {"name", "style", "mapping"}
+        self._capture = False
+        self._buttons = dict(BUTTONS)
         self._deck = self._is_deck()
+        self.reload()
+        from . import padlayout
+        padlayout.current_mappings = lambda: [i["mapping"] for i in list(self._info.values())]
         self._sdlFetched.connect(self._start)
         QTimer.singleShot(START_DELAY_MS, self._start)
 
@@ -140,6 +154,13 @@ class Gamepad(QObject):
         sdl.SDL_JoystickInstanceID.argtypes = [ctypes.c_void_p]
         sdl.SDL_JoystickInstanceID.restype = ctypes.c_int32
         sdl.SDL_GameControllerClose.argtypes = [ctypes.c_void_p]
+        sdl.SDL_GameControllerName.argtypes = [ctypes.c_void_p]
+        sdl.SDL_GameControllerName.restype = ctypes.c_char_p
+        sdl.SDL_GameControllerMapping.argtypes = [ctypes.c_void_p]
+        sdl.SDL_GameControllerMapping.restype = ctypes.c_void_p  # freed with SDL_free
+        sdl.SDL_free.argtypes = [ctypes.c_void_p]
+        sdl.SDL_JoystickCurrentPowerLevel.argtypes = [ctypes.c_void_p]
+        sdl.SDL_JoystickCurrentPowerLevel.restype = ctypes.c_int
         try:  # SDL 2.0.12 and newer
             sdl.SDL_GameControllerGetType.argtypes = [ctypes.c_void_p]
             sdl.SDL_GameControllerGetType.restype = ctypes.c_int
@@ -174,6 +195,58 @@ class Gamepad(QObject):
     connected = Property(bool, lambda s: bool(s._pads), notify=connectedChanged)
     style = Property(str, lambda s: s._style, notify=styleChanged)  # "xbox", "playstation" or "nintendo"
 
+    @Slot()
+    def reload(self):
+        """Settings > Controllers changed: the button prompts and which button chooses."""
+        from .config import settings
+        glyphs = settings.get("pad_glyphs") or ""
+        style = glyphs if glyphs in ("xbox", "playstation", "nintendo") else self._pad_style
+        if style != self._style:
+            self._style = style
+            self.styleChanged.emit()
+        self._buttons = dict(BUTTONS)
+        if settings.get("pad_swap_confirm"):
+            self._buttons[0], self._buttons[1] = Qt.Key_Escape, Qt.Key_Return
+
+    def _pads_info(self):
+        out = []
+        for iid, handle in list(self._pads.items()):
+            info = self._info.get(iid, {})
+            level = -1
+            try:
+                level = self._sdl.SDL_JoystickCurrentPowerLevel(self._sdl.SDL_GameControllerGetJoystick(handle))
+            except (OSError, AttributeError):
+                pass
+            out.append({"id": iid, "name": info.get("name") or "Controller", "style": info.get("style", "xbox"),
+                        "battery": POWER.get(level, -1), "wired": level == 4})
+        return out
+
+    pads = Property("QVariantList", _pads_info, notify=connectedChanged)
+
+    def _set_capture(self, on):
+        if bool(on) != self._capture:
+            self._capture = bool(on)
+            self._held.clear()
+            self.captureChanged.emit()
+
+    capture = Property(bool, lambda s: s._capture, _set_capture, notify=captureChanged)
+
+    @Slot(int)
+    def buzz(self, strength):
+        """Settings > Controllers > Test rumble: a firm half-second buzz."""
+        self.rumble(strength / 100, strength / 100, 500)
+
+    def _remember(self, iid, handle):
+        sdl = self._sdl
+        name = sdl.SDL_GameControllerName(handle) or b""
+        ptr = sdl.SDL_GameControllerMapping(handle)
+        mapping = ""
+        if ptr:
+            mapping = ctypes.string_at(ptr).decode("utf-8", "replace")
+            sdl.SDL_free(ptr)
+        style = STYLES.get(self._get_type(handle), "xbox") if self._get_type else "xbox"
+        self._info[iid] = {"name": name.decode("utf-8", "replace"), "style": style, "mapping": mapping}
+
     # --- SDL events ------------------------------------------------------
     def _poll(self):
         sdl, ev = self._sdl, self._event
@@ -185,15 +258,14 @@ class Gamepad(QObject):
                 if handle:
                     iid = sdl.SDL_JoystickInstanceID(sdl.SDL_GameControllerGetJoystick(handle))
                     self._pads[iid] = handle
-                    if self._get_type:  # the pad plugged in last decides the glyphs
-                        style = STYLES.get(self._get_type(handle), "xbox")
-                        if style != self._style:
-                            self._style = style
-                            self.styleChanged.emit()
+                    self._remember(iid, handle)
+                    self._pad_style = self._info[iid]["style"]  # the pad plugged in last decides the glyphs
+                    self.reload()
                     self.connectedChanged.emit()
                     self._pace()
             elif kind == DEVICE_REMOVED:
                 handle = self._pads.pop(which, None)
+                self._info.pop(which, None)
                 if handle:
                     sdl.SDL_GameControllerClose(handle)
                     self.connectedChanged.emit()
@@ -203,10 +275,17 @@ class Gamepad(QObject):
                 self._guide = None
                 self._swallow.clear()
             elif kind in (BUTTON_DOWN, BUTTON_UP):
+                self.rawButton.emit(ev.raw[12], kind == BUTTON_DOWN)
+                if self._capture:
+                    self.activity.emit()
+                    continue
                 self._button(ev.raw[12], kind == BUTTON_DOWN)
             elif kind == AXIS_MOTION:
                 axis = ev.raw[12]
                 value = ctypes.c_int16.from_buffer(ev, 16).value
+                self.rawAxis.emit(axis, value)
+                if self._capture:
+                    continue
                 if axis in (0, 1):
                     self._axis(which, axis, value)
                 elif axis in TRIGGERS:
@@ -254,7 +333,7 @@ class Gamepad(QObject):
         if not down and button in self._swallow:
             self._swallow.discard(button)
             return
-        key = BUTTONS.get(button)
+        key = self._buttons.get(button)
         if key is not None:
             self._set(key, down)
 

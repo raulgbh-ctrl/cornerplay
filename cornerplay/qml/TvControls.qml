@@ -10,6 +10,7 @@ QtObject {
     signal openSettings(string section)
     signal power(string what)
     signal leave(string how)   // "exit" (TV mode), "desktop" (end the session), "quit"
+    signal padTest()
 
     readonly property var sys: app.system
     readonly property var busy: sys.busy || []
@@ -174,6 +175,39 @@ QtObject {
         return out
     }
 
+    // ------------------------------------------------------------ controllers
+    readonly property var layoutNames: ({ "": qsTr("Standard"), none: qsTr("Standard"), swap_ab: qsTr("Swap A and B"), nintendo: qsTr("Nintendo"),
+                                          southpaw: qsTr("Southpaw"), shoulders: qsTr("Swap bumpers and triggers") })
+    readonly property var layoutOrder: ["", "swap_ab", "nintendo", "southpaw", "shoulders"]
+    function controllers() {
+        const pads = pad.pads || [], styles = { xbox: "Xbox", playstation: "PlayStation", nintendo: "Nintendo" }
+        const out = []
+        for (const p of pads)
+            out.push({ group: qsTr("Connected"), label: p.name, icon: "gamepad-2",
+                       sub: (styles[p.style] || "") + (p.wired ? qsTr(" · wired") : ""),
+                       value: p.battery >= 0 ? p.battery + "%" : "" })
+        if (!pads.length)
+            out.push({ group: qsTr("Connected"), label: pad.deck ? qsTr("Steam Deck controls") : qsTr("No controller connected"), icon: "gamepad-2",
+                       sub: pad.deck ? qsTr("Steam turns them into keys here; Game Mode passes them on")
+                                     : pad.available ? qsTr("Turn one on, or pair it under Bluetooth") : qsTr("SDL2 is not available yet"),
+                       act: pad.deck ? "" : "settings", section: "bluetooth" })
+        const g = "Cornerplay"
+        out.push({ group: g, label: qsTr("Test buttons"), icon: "gamepad-2", sub: qsTr("See every button and stick as games see them"), act: "padtest" })
+        out.push({ group: g, kind: "choice", label: qsTr("Button prompts"), icon: "eye", cur: st.pad_glyphs || "",
+                   options: [{ v: "", t: qsTr("Auto") }, { v: "xbox", t: "Xbox" }, { v: "playstation", t: "PlayStation" }, { v: "nintendo", t: "Nintendo" }],
+                   set: v => { app.setSetting("pad_glyphs", v); pad.reload() } })
+        out.push({ group: g, kind: "choice", label: qsTr("Choose with"), icon: "check", cur: !!st.pad_swap_confirm,
+                   options: [{ v: false, t: qsTr("Bottom button") }, { v: true, t: qsTr("Right button") }],
+                   set: v => { app.setSetting("pad_swap_confirm", v); pad.reload() } })
+        out.push(setting(g, qsTr("Rumble in menus"), "zap", "tv_rumble"))
+        out.push({ group: g, label: qsTr("Test rumble"), icon: "zap", act: "buzz" })
+        out.push({ group: qsTr("Games"), kind: "choice", label: qsTr("Layout"), icon: "layout-grid", cur: st.pad_layout || "",
+                   options: layoutOrder.map(v => ({ v: v, t: layoutNames[v] })), set: v => app.setSetting("pad_layout", v) })
+        out.push({ group: qsTr("Games"), label: qsTr("How layouts work"), icon: "info",
+                   sub: qsTr("For games started here that use SDL (most Proton and native games). Each game can have its own (More > Options). Steam games use Steam Input.") })
+        return out
+    }
+
     // ------------------------------------------------------------ TV mode, people, power
     function tvMode(group) {
         return [
@@ -237,7 +271,8 @@ QtObject {
         { id: "sound", label: qsTr("Sound"), icon: "volume-2" },
         { id: "network", label: qsTr("Wi-Fi"), icon: "wifi" },
         { id: "bluetooth", label: qsTr("Bluetooth"), icon: "bluetooth" },
-        { id: "games", label: qsTr("Games"), icon: "gamepad-2" },
+        { id: "controllers", label: qsTr("Controllers"), icon: "gamepad-2" },
+        { id: "games", label: qsTr("Games"), icon: "play" },
         { id: "tv", label: qsTr("TV mode"), icon: "tv" },
         { id: "system", label: qsTr("System & power"), icon: "power" }
     ]
@@ -246,6 +281,7 @@ QtObject {
         if (id === "sound") return sound(qsTr("Sound"), true)
         if (id === "network") return network(qsTr("Wi-Fi"))
         if (id === "bluetooth") return bluetooth(qsTr("Bluetooth"))
+        if (id === "controllers") return controllers()
         if (id === "games") return games(qsTr("Games you start from Cornerplay"))
         if (id === "tv") return tvMode(qsTr("TV mode"))
         if (id === "system") return [].concat(people(qsTr("People")), battery(qsTr("Power"), batt), powerMode(qsTr("Power")),
@@ -259,6 +295,8 @@ QtObject {
         else if (row.act === "power") { if (arm("power:" + row.what)) power(row.what) }
         else if (row.act === "leave") leave(row.how)
         else if (row.act === "wifiscan") app.scanNetworks()
+        else if (row.act === "padtest") padTest()
+        else if (row.act === "buzz") pad.buzz(80)
         else if (row.act === "wifi") {
             const w = row.net
             if (w.active) { if (arm("wifi:" + w.ssid)) app.wifiDisconnect(w.ssid) }

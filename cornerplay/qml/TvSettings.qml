@@ -26,6 +26,9 @@ Rectangle {
                   function onSystemChanged() { ts.rebuild() }
                   function onSettingsChanged() { Qt.callLater(ts.rebuild) }
                   function onProfilesChanged() { ts.rebuild() } }
+    Connections { target: pad; enabled: ts.visible
+                  function onConnectedChanged() { ts.rebuild() }
+                  function onStyleChanged() { ts.rebuild() } }
     Connections { target: ts.controls; enabled: ts.visible; function onArmedChanged() { ts.rebuild() } }
     // The state is read again now and then: a controller that just connected, a new network.
     Timer { interval: 6000; repeat: true; running: ts.visible; onTriggered: app.refreshSystem() }

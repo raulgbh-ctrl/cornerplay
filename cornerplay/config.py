@@ -134,6 +134,10 @@ DEFAULTS = {
     "gs_sharpness": 18,        # FSR / NIS sharpness, 0..20 (higher is sharper)
     "gs_tearing": False,       # allow tearing (lower latency)
     "gs_hdr": False,           # gamescope's HDR output, when the screen supports it
+    # Controllers
+    "pad_layout": "",          # games' controller layout (padlayout.py): "", "swap_ab", "nintendo", "southpaw", "shoulders"
+    "pad_glyphs": "",          # button prompts: "" (from the controller), "xbox", "playstation", "nintendo"
+    "pad_swap_confirm": False, # Cornerplay's menus: B chooses and A goes back (the Nintendo / Japanese way)
 }
 
 # Where Heroic keeps its bundled copies of legendary / gogdl / nile.
@@ -252,7 +256,7 @@ class GameOptions:
     """Per-game overrides, keyed "store:id". A missing key means "use the default"."""
     KEYS = ("proton", "mangohud", "gamemode", "env", "args", "cover", "prefer", "cloud_saves", "hidden", "collections",
             "status", "rating", "note", "perf", "show_fps", "platform", "gamescope", "gamescope_hdr",
-            "before", "after")
+            "before", "after", "pad_layout")
 
     def __init__(self):
         self.path = CONFIG_DIR / "games.json"

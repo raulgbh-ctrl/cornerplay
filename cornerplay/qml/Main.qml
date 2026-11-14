@@ -6018,6 +6018,18 @@ ApplicationWindow {
                             Toggle { label: qsTr("MangoHud overlay"); settingKey: "mangohud" }
                             Toggle { label: qsTr("Feral GameMode"); settingKey: "gamemode" }
                             Toggle { label: qsTr("FPS counter in games"); settingKey: "show_fps" }
+                            Row2 {
+                                label: qsTr("Controller layout for every game")
+                                hint: qsTr("Swaps buttons for games that read the controller through SDL (most Proton and native games). Each game can choose its own under Options. Steam games use Steam Input.")
+                                KCombo {
+                                    theme: win.theme; Layout.fillWidth: true
+                                    model: [{ label: qsTr("Standard"), value: "" }, { label: qsTr("Swap A and B"), value: "swap_ab" },
+                                            { label: qsTr("Nintendo (A/B and X/Y swapped)"), value: "nintendo" }, { label: qsTr("Southpaw (sticks swapped)"), value: "southpaw" },
+                                            { label: qsTr("Bumpers and triggers swapped"), value: "shoulders" }]
+                                    Component.onCompleted: select(app.settingsMap.pad_layout || "")
+                                    onActivated: app.setSetting("pad_layout", currentValue)
+                                }
+                            }
                             Toggle { label: qsTr("Record how games run (FPS, stutters, temperatures; needs MangoHud). A game's page shows it, by Proton version too"); settingKey: "perf_log" }
                             Row2 {
                                 label: qsTr("Gamescope for every game")
@@ -6437,6 +6449,7 @@ ApplicationWindow {
             optPerf.select(opts.perf === undefined ? "default" : opts.perf)
             optPlatform.select(opts.platform === undefined ? "default" : opts.platform)
             optFps.select(opts.show_fps === undefined ? "default" : opts.show_fps)
+            optPad.select(opts.pad_layout === undefined ? "default" : opts.pad_layout)
             optScope.select(opts.gamescope === undefined ? "default" : opts.gamescope)
             optHdr.select(opts.gamescope_hdr === undefined ? "default" : opts.gamescope_hdr)
             resetArmed = false
@@ -6532,6 +6545,16 @@ ApplicationWindow {
                     KCombo { id: optFps; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
                              onActivated: app.setGameOption(gameOpts.key, "show_fps", currentValue) }
                 }
+            }
+            Row2 {
+                visible: gameOpts.game.store !== "steam"
+                label: qsTr("Controller layout")
+                hint: qsTr("For games that read the controller through SDL (most Proton and native games). Steam games use Steam Input.")
+                KCombo { id: optPad; theme: win.theme; Layout.fillWidth: true
+                         model: [{ label: qsTr("Default (Settings > Games & Proton)"), value: "default" }, { label: qsTr("Standard"), value: "none" },
+                                 { label: qsTr("Swap A and B"), value: "swap_ab" }, { label: qsTr("Nintendo (A/B and X/Y swapped)"), value: "nintendo" },
+                                 { label: qsTr("Southpaw (sticks swapped)"), value: "southpaw" }, { label: qsTr("Bumpers and triggers swapped"), value: "shoulders" }]
+                         onActivated: app.setGameOption(gameOpts.key, "pad_layout", currentValue) }
             }
             // Gamescope (not for the Battle.net app, which stays open after its games close).
             RowLayout {

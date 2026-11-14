@@ -41,8 +41,11 @@ def parse_env(text: str) -> dict:
 
 
 def user_env() -> dict:
-    """Global extra environment, then the current game's on top."""
-    env = parse_env(settings.get("env"))
+    """The controller layout (padlayout.py), the global extra environment, then the current
+    game's on top (so a hand-set SDL_GAMECONTROLLERCONFIG still wins)."""
+    from . import padlayout
+    env = padlayout.env(opt("pad_layout") or "")
+    env.update(parse_env(settings.get("env")))
     env.update(parse_env(_overrides.get("env", "")))
     return env
 
