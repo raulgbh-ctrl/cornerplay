@@ -4807,12 +4807,13 @@
     </message>
     <message>
         <location filename="../qml/ModsPage.qml" line="156"/>
-        <location filename="../qml/ModsPage.qml" line="407"/>
+        <location filename="../qml/ModsPage.qml" line="420"/>
         <source>Installed</source>
         <translation>Instalate</translation>
     </message>
     <message>
         <location filename="../qml/ModsPage.qml" line="157"/>
+        <location filename="../qml/ModsPage.qml" line="207"/>
         <source>Find mods on </source>
         <translation>Caută moduri pe </translation>
     </message>
@@ -4822,178 +4823,178 @@
         <translation>Steam Workshop</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="195"/>
+        <location filename="../qml/ModsPage.qml" line="200"/>
         <source>No mods yet. Find some on %1: they install with whatever they need.</source>
         <translation>Niciun mod încă. Caută pe %1: se instalează cu tot ce le trebuie.</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="220"/>
+        <location filename="../qml/ModsPage.qml" line="233"/>
         <source>DEPENDENCY</source>
         <translation>NECESAR</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="221"/>
+        <location filename="../qml/ModsPage.qml" line="234"/>
         <source>UPDATE</source>
         <translation>ACTUALIZARE</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="225"/>
-        <location filename="../qml/ModsPage.qml" line="394"/>
+        <location filename="../qml/ModsPage.qml" line="238"/>
+        <location filename="../qml/ModsPage.qml" line="407"/>
         <source>by </source>
         <translation>de </translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="226"/>
+        <location filename="../qml/ModsPage.qml" line="239"/>
         <source>needed by </source>
         <translation>necesar pentru </translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="227"/>
+        <location filename="../qml/ModsPage.qml" line="240"/>
         <source>options: </source>
         <translation>opțiuni: </translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="235"/>
+        <location filename="../qml/ModsPage.qml" line="248"/>
         <source>Update to </source>
         <translation>Actualizează la </translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="240"/>
+        <location filename="../qml/ModsPage.qml" line="253"/>
         <source>Its page on </source>
         <translation>Pagina lui pe </translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="246"/>
+        <location filename="../qml/ModsPage.qml" line="259"/>
         <source>Remove</source>
         <translation>Elimină</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="293"/>
+        <location filename="../qml/ModsPage.qml" line="306"/>
         <source>Nexus Mods: signed in as %1</source>
         <translation>Nexus Mods: conectat ca %1</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="294"/>
+        <location filename="../qml/ModsPage.qml" line="307"/>
         <source> (Premium: Install downloads straight away).</source>
         <translation> (Premium: Instalează descarcă direct).</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="295"/>
+        <location filename="../qml/ModsPage.qml" line="308"/>
         <source>. Free accounts download from the mod&apos;s page: Install opens it, then press “Mod Manager Download”.</source>
         <translation>. Conturile gratuite descarcă de pe pagina modului: Instalează o deschide, apoi apasă „Mod Manager Download”.</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="296"/>
+        <location filename="../qml/ModsPage.qml" line="309"/>
         <source>Searching needs nothing. To download, paste your personal API key from your Nexus Mods account (Settings › API Keys, at the bottom: Personal API Key).</source>
         <translation>Căutarea nu cere nimic. Pentru descărcare, lipește cheia ta API personală din contul Nexus Mods (Settings › API Keys, jos: Personal API Key).</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="306"/>
+        <location filename="../qml/ModsPage.qml" line="319"/>
         <source>Nexus Mods API key</source>
         <translation>Cheie API Nexus Mods</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="313"/>
+        <location filename="../qml/ModsPage.qml" line="326"/>
         <source>Get my key</source>
         <translation>Ia-mi cheia</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="320"/>
+        <location filename="../qml/ModsPage.qml" line="333"/>
         <source>Save</source>
         <translation>Salvează</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="328"/>
+        <location filename="../qml/ModsPage.qml" line="341"/>
         <source>Nexus downloads open in Cornerplay</source>
         <translation>Descărcările Nexus se deschid în Cornerplay</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="328"/>
+        <location filename="../qml/ModsPage.qml" line="341"/>
         <source>Open Nexus downloads in Cornerplay</source>
         <translation>Deschide descărcările Nexus în Cornerplay</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="338"/>
+        <location filename="../qml/ModsPage.qml" line="351"/>
         <source>Remove key</source>
         <translation>Elimină cheia</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="353"/>
+        <location filename="../qml/ModsPage.qml" line="366"/>
         <source>Search %1 (empty: the most downloaded)</source>
         <translation>Caută pe %1 (gol: cele mai descărcate)</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="356"/>
+        <location filename="../qml/ModsPage.qml" line="369"/>
         <source>Search</source>
         <translation>Caută</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="370"/>
+        <location filename="../qml/ModsPage.qml" line="383"/>
         <source>Searching…</source>
         <translation>Se caută…</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="370"/>
+        <location filename="../qml/ModsPage.qml" line="383"/>
         <source>Nothing found</source>
         <translation>Nu s-a găsit nimic</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="394"/>
+        <location filename="../qml/ModsPage.qml" line="407"/>
         <source> downloads</source>
         <translation> descărcări</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="400"/>
+        <location filename="../qml/ModsPage.qml" line="413"/>
         <source>Its page</source>
         <translation>Pagina lui</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="407"/>
+        <location filename="../qml/ModsPage.qml" line="420"/>
         <source>Install</source>
         <translation>Instalează</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="427"/>
+        <location filename="../qml/ModsPage.qml" line="440"/>
         <source>Items you subscribed to in Steam. To remove one, unsubscribe on its page in Steam: other apps can&apos;t change Workshop subscriptions.</source>
         <translation>Elementele la care te-ai abonat în Steam. Ca să elimini unul, dezabonează-te pe pagina lui în Steam: alte aplicații nu pot schimba abonamentele Workshop.</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="432"/>
+        <location filename="../qml/ModsPage.qml" line="445"/>
         <source>Browse the Workshop</source>
         <translation>Răsfoiește Workshop-ul</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="466"/>
+        <location filename="../qml/ModsPage.qml" line="479"/>
         <source>updated </source>
         <translation>actualizat </translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="472"/>
+        <location filename="../qml/ModsPage.qml" line="485"/>
         <source>Its page on the web</source>
         <translation>Pagina lui pe web</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="477"/>
+        <location filename="../qml/ModsPage.qml" line="490"/>
         <source>Open in Steam</source>
         <translation>Deschide în Steam</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="489"/>
+        <location filename="../qml/ModsPage.qml" line="502"/>
         <source>New profile</source>
         <translation>Profil nou</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="494"/>
+        <location filename="../qml/ModsPage.qml" line="507"/>
         <source>Name, e.g. Co-op or Vanilla+</source>
         <translation>Nume, de ex. Co-op sau Vanilla+</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="499"/>
+        <location filename="../qml/ModsPage.qml" line="512"/>
         <source>Start empty</source>
         <translation>Începe gol</translation>
     </message>
     <message>
-        <location filename="../qml/ModsPage.qml" line="501"/>
+        <location filename="../qml/ModsPage.qml" line="514"/>
         <source>Copy this one</source>
         <translation>Copiază-l pe acesta</translation>
     </message>

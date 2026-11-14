@@ -187,13 +187,26 @@ KDialog {
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: KScrollBar { }
             model: page.v.mods || []
-            Text {
+            // Nothing installed yet: a little scene and the way to the mods, not a bare line of text.
+            Column {
                 anchors.centerIn: parent
-                width: parent.width - 40
+                width: Math.min(parent.width - 40, 420)
                 visible: installedList.count === 0 && page.v.gid !== undefined
-                horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
-                text: qsTr("No mods yet. Find some on %1: they install with whatever they need.").arg(page.sourceName)
-                color: theme.onSurfaceVariant; font.pixelSize: 14
+                spacing: 14
+                EmptyScene { anchors.horizontalCenter: parent.horizontalCenter; width: 220; height: 146; theme: page.theme; kind: "search" }
+                Text {
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
+                    text: qsTr("No mods yet. Find some on %1: they install with whatever they need.").arg(page.sourceName)
+                    color: theme.onSurfaceVariant; font.pixelSize: 14
+                }
+                KButton {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: !page.v.workshopOnly
+                    theme: page.theme; primary: true; iconName: "search"
+                    text: qsTr("Find mods on ") + page.sourceName
+                    onClicked: { page.tab = 1; if (!page.found.length && !page.searching) page.search() }
+                }
             }
             delegate: Rectangle {
                 id: modRow
