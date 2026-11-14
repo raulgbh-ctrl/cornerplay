@@ -35,7 +35,14 @@ def test_physx_name_across_read_chunks(tmp_path):
     assert redist.needs_physx(_exe(tmp_path, body), str(tmp_path / "pfx"))
 
 
-def test_wrap_installs_once_then_starts_the_game(tmp_path, monkeypatch):
+def test_physx_asked_for_by_a_dll_beside_the_exe(tmp_path):
+    exe = _exe(tmp_path, b"MZ\0\0kernel32.dll\0")
+    assert not redist.needs_physx(exe, str(tmp_path / "pfx"))
+    open(os.path.join(os.path.dirname(exe), "APEX_Clothing.dll"), "wb").write(b"MZ PhysXLoader.dll")
+    assert redist.needs_physx(exe, str(tmp_path / "pfx"))
+
+
+def test_wrap_installs_then_starts_the_game_until_it_is_there(tmp_path, monkeypatch):
     exe, prefix = _exe(tmp_path), tmp_path / "pfx"
     prefix.mkdir()
     log = tmp_path / "log"
@@ -46,7 +53,11 @@ def test_wrap_installs_once_then_starts_the_game(tmp_path, monkeypatch):
     argv = redist.wrap([str(tool), exe, "-dx9"], exe, str(prefix))
     assert subprocess.run(argv).returncode == 0
     assert log.read_text().splitlines() == ["umu winetricks -q physx", f"umu {exe} -dx9"]
-    assert redist.wrap([str(tool), exe], exe, str(prefix)) == [str(tool), exe]  # tried once: never again
+    assert redist.wrap([str(tool), exe], exe, str(prefix)) != [str(tool), exe]  # not there yet: tried again
+    common = prefix / "drive_c" / "Program Files (x86)" / "NVIDIA Corporation" / "PhysX" / "Common"
+    common.mkdir(parents=True)
+    (common / "PhysXLoader.dll").write_bytes(b"x")
+    assert redist.wrap([str(tool), exe], exe, str(prefix)) == [str(tool), exe]
 
 
 def test_userns(tmp_path, monkeypatch):
