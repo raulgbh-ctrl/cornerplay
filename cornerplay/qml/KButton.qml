@@ -39,9 +39,9 @@ Button {
         opacity: b.down ? 0.8 : b.hovered && b.primary ? 0.92 : 1
         border.width: b.visualFocus ? 2 : 0
         border.color: b.theme.outline
-        Behavior on color { enabled: !app.light; ColorAnimation { duration: 160 } }
+        Behavior on color { enabled: !app.still; ColorAnimation { duration: 160 } }
         scale: b.down ? 0.97 : 1
-        Behavior on scale { enabled: !app.light; NumberAnimation { duration: 90 } }
+        Behavior on scale { enabled: !app.still; NumberAnimation { duration: 90 } }
     }
     HoverHandler { cursorShape: Qt.PointingHandCursor }
 }

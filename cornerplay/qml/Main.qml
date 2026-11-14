@@ -129,6 +129,10 @@ ApplicationWindow {
         }
     }
 
+    // Colour-blind friendly ProtonDB colours follow the setting (protondb.js is shared by every view).
+    Binding { target: win; property: "protonSafe"; value: !!app.theme.colourSafe }
+    property bool protonSafe: false
+    onProtonSafeChanged: ProtonDB.colourSafe = protonSafe
     Shortcut { sequence: "Ctrl+F"; onActivated: search.forceActiveFocus() }
     Shortcut { sequence: "Ctrl+R"; onActivated: app.refresh("", true) }
     Shortcut { sequence: "F5"; onActivated: app.refresh("", true) }
@@ -216,7 +220,7 @@ ApplicationWindow {
         active: win.tvUsed
         opacity: win.tv ? 1 : 0
         visible: opacity > 0
-        Behavior on opacity { enabled: !app.light; NumberAnimation { duration: 280; easing.type: Easing.InOutQuad } }
+        Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 280; easing.type: Easing.InOutQuad } }
         enabled: win.tv
         focus: win.tv
         sourceComponent: TvView {
@@ -306,12 +310,12 @@ ApplicationWindow {
             smooth: true
             live: true
             SequentialAnimation on x {
-                running: bgGradient.visible && !app.light && !win.tv; loops: Animation.Infinite
+                running: bgGradient.visible && !app.still && !win.tv; loops: Animation.Infinite
                 NumberAnimation { from: 0; to: -backdrop.width * 0.35; duration: 60000; easing.type: Easing.InOutSine }
                 NumberAnimation { from: -backdrop.width * 0.35; to: 0; duration: 60000; easing.type: Easing.InOutSine }
             }
             SequentialAnimation on y {
-                running: bgGradient.visible && !app.light && !win.tv; loops: Animation.Infinite
+                running: bgGradient.visible && !app.still && !win.tv; loops: Animation.Infinite
                 NumberAnimation { from: 0; to: -backdrop.height * 0.3; duration: 47000; easing.type: Easing.InOutSine }
                 NumberAnimation { from: -backdrop.height * 0.3; to: 0; duration: 47000; easing.type: Easing.InOutSine }
             }
@@ -327,7 +331,7 @@ ApplicationWindow {
         spacing: 0
         opacity: win.tv ? 0 : 1
         visible: opacity > 0 && win.contentShown
-        Behavior on opacity { enabled: !app.light; NumberAnimation { duration: 280; easing.type: Easing.InOutQuad } }
+        Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 280; easing.type: Easing.InOutQuad } }
         enabled: !win.tv
 
         // ---------------------------------------------------------------- sidebar
@@ -335,7 +339,7 @@ ApplicationWindow {
             id: sidebar
             Layout.fillHeight: true
             Layout.preferredWidth: win.rail ? 68 : 236
-            Behavior on Layout.preferredWidth { enabled: !app.light; NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+            Behavior on Layout.preferredWidth { enabled: !app.still; NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
             clip: true
             color: win.backdropOn ? Qt.alpha(theme.surfaceContainerLow, 0.55) : theme.surfaceContainerLow
             // Lamplight: a warm glow pooling in the sidebar's bottom corner, like the icon.
@@ -501,7 +505,7 @@ ApplicationWindow {
                     color: active ? Qt.alpha(theme.primary, 0.16) : navHover.hovered ? Qt.alpha(theme.surfaceContainerHigh, 0.9) : "transparent"
                     border.width: active ? 1 : 0
                     border.color: Qt.alpha(theme.primary, 0.28)
-                    Behavior on color { enabled: !app.light; ColorAnimation { duration: 120 } }
+                    Behavior on color { enabled: !app.still; ColorAnimation { duration: 120 } }
                     RectangularShadow {
                         z: -1
                         anchors.fill: parent
@@ -525,7 +529,7 @@ ApplicationWindow {
                         size: 22
                         store: nav.store
                         opacity: nav.dim ? 0.35 : 1
-                        scale: navHover.hovered && !app.light ? 1.12 : 1
+                        scale: navHover.hovered && !app.still ? 1.12 : 1
                         Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutBack } }
                         Behavior on anchors.verticalCenterOffset { NumberAnimation { duration: 140 } }
                     }
@@ -849,7 +853,7 @@ ApplicationWindow {
                     Icon {
                         id: rfIcon
                         anchors.centerIn: parent; name: "refresh-cw"; size: 17; color: theme.onSurfaceVariant
-                        RotationAnimation on rotation { running: app.refreshing && !app.light; from: 0; to: 360; duration: 1100; loops: Animation.Infinite
+                        RotationAnimation on rotation { running: app.refreshing && !app.still; from: 0; to: 360; duration: 1100; loops: Animation.Infinite
                                                         onRunningChanged: if (!running) rfIcon.rotation = 0 }
                     }
                     HoverHandler { id: rfHover; cursorShape: Qt.PointingHandCursor }
@@ -1109,8 +1113,8 @@ ApplicationWindow {
                                 // Cross-fade to the next game.
                                 ParallelAnimation {
                                     id: heroFade
-                                    NumberAnimation { target: heroArt; property: "opacity"; from: app.light ? 1 : 0.15; to: 1; duration: 600; easing.type: Easing.OutCubic }
-                                    NumberAnimation { target: heroContent; property: "opacity"; from: app.light ? 1 : 0; to: 1; duration: 450; easing.type: Easing.OutCubic }
+                                    NumberAnimation { target: heroArt; property: "opacity"; from: app.still ? 1 : 0.15; to: 1; duration: 600; easing.type: Easing.OutCubic }
+                                    NumberAnimation { target: heroContent; property: "opacity"; from: app.still ? 1 : 0; to: 1; duration: 450; easing.type: Easing.OutCubic }
                                 }
                                 HoverHandler { onHoveredChanged: win.heroPaused = hovered }
                                 Connections {
@@ -1153,7 +1157,7 @@ ApplicationWindow {
                                         horizontalAlignment: Image.AlignRight
                                         sourceSize.width: Math.min(3840, Math.max(640, Math.ceil(width * Screen.devicePixelRatio / 40) * 40))
                                         opacity: status === Image.Ready ? 1 : 0
-                                        Behavior on opacity { enabled: !app.light; NumberAnimation { duration: 350 } }
+                                        Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 350 } }
                                     }
                                     // Shade the left side so the text always reads, whatever the art.
                                     Rectangle {
@@ -1206,7 +1210,7 @@ ApplicationWindow {
                                             readonly property bool on: index === win.heroAt % win.heroCount
                                             width: on ? 22 : 8; height: 8; radius: 4
                                             color: on ? hero.tint.primary : Qt.alpha("white", 0.45)
-                                            Behavior on width { enabled: !app.light; NumberAnimation { duration: 200 } }
+                                            Behavior on width { enabled: !app.still; NumberAnimation { duration: 200 } }
                                             TapHandler { enabled: win.cardsLive; onTapped: win.heroAt = parent.index }
                                             HoverHandler { cursorShape: Qt.PointingHandCursor }
                                         }
@@ -1345,8 +1349,8 @@ ApplicationWindow {
                                     width: 300; height: 132
                                     radius: 14
                                     color: theme.surfaceContainerHigh
-                                    scale: recentHover.hovered && !app.light ? 1.02 : 1
-                                    Behavior on scale { enabled: !app.light; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+                                    scale: recentHover.hovered && !app.still ? 1.02 : 1
+                                    Behavior on scale { enabled: !app.still; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
                                     // The cover takes the tile's left corners; the border is drawn over it.
                                     RoundedArt {
                                         anchors.fill: parent
@@ -1851,7 +1855,7 @@ ApplicationWindow {
                                 width: shotGame.tileW; height: Math.round(width * 9 / 16)
                                 RoundedArt {
                                     anchors.fill: parent; radius: 10
-                                    scale: tileHover.hovered && !app.light ? 1.03 : 1
+                                    scale: tileHover.hovered && !app.still ? 1.03 : 1
                                     Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
                                     Rectangle { anchors.fill: parent; color: theme.surfaceContainerHigh }
                                     Image { anchors.fill: parent; source: shotTile.modelData.thumb; fillMode: Image.PreserveAspectCrop
@@ -2403,7 +2407,7 @@ ApplicationWindow {
                     sources: detail.visible ? (win.selected.heroes || []) : []
                     sourceSize.width: Math.min(3840, Math.max(640, Math.ceil(width * Screen.devicePixelRatio / 40) * 40))
                     opacity: status === Image.Ready ? 1 : 0
-                    Behavior on opacity { enabled: !app.light; NumberAnimation { duration: 250 } }
+                    Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 250 } }
                 }
                 Rectangle {
                     anchors.fill: parent
@@ -2728,7 +2732,7 @@ ApplicationWindow {
                     maximumLineCount: 5
                     elide: Text.ElideRight
                     opacity: text ? 1 : 0
-                    Behavior on opacity { enabled: !app.light; NumberAnimation { duration: 250 } }
+                    Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 250 } }
                 }
                 // About how it runs: Linux version, controller, achievements, ProtonDB.
                 Flow {
@@ -2829,9 +2833,9 @@ ApplicationWindow {
                         required property var modelData
                         required property int index
                         width: 176; height: 99
-                        scale: shotHover.hovered && !app.light ? 1.04 : 1
+                        scale: shotHover.hovered && !app.still ? 1.04 : 1
                         z: shotHover.hovered ? 1 : 0
-                        Behavior on scale { enabled: !app.light; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+                        Behavior on scale { enabled: !app.still; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
                         RoundedArt {
                         anchors.fill: parent
                         radius: 10
@@ -2843,7 +2847,7 @@ ApplicationWindow {
                             asynchronous: true
                             sourceSize.width: 300
                             opacity: status === Image.Ready ? 1 : 0
-                            Behavior on opacity { enabled: !app.light; NumberAnimation { duration: 200 } }
+                            Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 200 } }
                         }
                         }
                         Rectangle {
@@ -4437,7 +4441,7 @@ ApplicationWindow {
                                         height: Math.max(4, (parent.height - 40) * dayBar.modelData / days14.peak)
                                         radius: 4
                                         color: dayBar.modelData > 0 ? theme.primary : theme.surfaceContainerHighest
-                                        Behavior on height { enabled: !app.light; NumberAnimation { duration: 380; easing.type: Easing.OutCubic } }
+                                        Behavior on height { enabled: !app.still; NumberAnimation { duration: 380; easing.type: Easing.OutCubic } }
                                     }
                                     Text {
                                         visible: dayBar.modelData > 0
@@ -5050,7 +5054,7 @@ ApplicationWindow {
                                 asynchronous: true
                                 sourceSize.width: 256
                                 opacity: status === Image.Ready ? (dlcRow.modelData.status === "available" ? 0.7 : 1) : 0
-                                Behavior on opacity { enabled: !app.light; NumberAnimation { duration: 200 } }
+                                Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 200 } }
                             }
                         }
                         ColumnLayout {
@@ -5815,6 +5819,22 @@ ApplicationWindow {
                                     }
                                 }
                                 KButton { theme: win.theme; Layout.alignment: Qt.AlignBottom; text: qsTr("Restart now"); iconName: "refresh-cw"; onClicked: app.restartApp() }
+                            }
+                            Row2 {
+                                label: qsTr("Accessibility")
+                                hint: qsTr("Interface size above makes text and buttons bigger. Read aloud works in TV mode and needs speech-dispatcher and espeak-ng.")
+                                Toggle { label: qsTr("High contrast: text, outlines and edges toward black and white"); settingKey: "a11y_contrast" }
+                                Toggle { label: qsTr("Reduce motion: no sliding, zooming, drifting art or trailers"); settingKey: "a11y_motion" }
+                                Toggle { label: qsTr("Read aloud in TV mode: what is selected, as you move") + (app.speechAvailable ? "" : qsTr(" (no speech engine found)")); settingKey: "a11y_speak" }
+                                RowLayout {
+                                    spacing: 10
+                                    Text { text: qsTr("Colour-blind friendly colours"); color: theme.onSurface; font.pixelSize: 13; Layout.fillWidth: true }
+                                    KCombo { theme: win.theme; Layout.preferredWidth: 200
+                                             model: [{ label: qsTr("Off"), value: "" }, { label: qsTr("Red-green (most common)"), value: "redgreen" },
+                                                     { label: qsTr("Blue-yellow"), value: "blueyellow" }]
+                                             Component.onCompleted: select(app.settingsMap.a11y_colours || "")
+                                             onActivated: app.setSetting("a11y_colours", currentValue) }
+                                }
                             }
                             Row2 {
                                 label: qsTr("Language")
@@ -6944,7 +6964,7 @@ ApplicationWindow {
         opacity: visible ? 1 : 0
         scale: visible ? 1 : 0.96
         Behavior on opacity { NumberAnimation { duration: 140 } }
-        Behavior on scale { enabled: !app.light; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+        Behavior on scale { enabled: !app.still; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
         RectangularShadow {
             anchors.fill: parent
             visible: !app.light && GraphicsInfo.api !== GraphicsInfo.Software
@@ -7034,8 +7054,8 @@ ApplicationWindow {
         padding: 0
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: Rectangle { color: Qt.alpha("black", 0.92) }
-        enter: Transition { enabled: !app.light; NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 180 } }
-        exit: Transition { enabled: !app.light; NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 120 } }
+        enter: Transition { enabled: !app.still; NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 180 } }
+        exit: Transition { enabled: !app.still; NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 120 } }
         contentItem: Item {
             focus: true
             Keys.onLeftPressed: viewer.step(-1)
@@ -7081,8 +7101,8 @@ ApplicationWindow {
         anchors { right: parent.right; bottom: parent.bottom; margins: 24 }
         visible: opacity > 0
         opacity: shown && !win.tv ? 1 : 0
-        transform: Translate { y: recap.shown ? 0 : 24; Behavior on y { enabled: !app.light; NumberAnimation { duration: 260; easing.type: Easing.OutCubic } } }
-        Behavior on opacity { NumberAnimation { duration: app.light ? 0 : 220 } }
+        transform: Translate { y: recap.shown ? 0 : 24; Behavior on y { enabled: !app.still; NumberAnimation { duration: 260; easing.type: Easing.OutCubic } } }
+        Behavior on opacity { NumberAnimation { duration: app.still ? 0 : 220 } }
         Connections {
             target: app
             function onSessionRecap(key, d) { recap.key = key; recap.d = d; recapNote.visible = false; recap.shown = true; recapLife.restart() }
@@ -7194,15 +7214,15 @@ ApplicationWindow {
                     color: Qt.alpha(toast.bad ? theme.error : theme.primary, 0.7)
                 }
                 property real life: 1
-                NumberAnimation on life { from: 1; to: 0; duration: 5000; running: !app.light }
+                NumberAnimation on life { from: 1; to: 0; duration: 5000; running: !app.still }
                 // Slide up and fade in.
                 opacity: 0
                 transform: Translate { id: toastShift; y: 14 }
                 Component.onCompleted: toastIn.start()
                 ParallelAnimation {
                     id: toastIn
-                    NumberAnimation { target: toast; property: "opacity"; to: 1; duration: app.light ? 0 : 200; easing.type: Easing.OutCubic }
-                    NumberAnimation { target: toastShift; property: "y"; to: 0; duration: app.light ? 0 : 260; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: toast; property: "opacity"; to: 1; duration: app.still ? 0 : 200; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: toastShift; property: "y"; to: 0; duration: app.still ? 0 : 260; easing.type: Easing.OutCubic }
                 }
                 // An icon picked from what the message says.
                 readonly property bool bad: /fail|could not|not (uploaded|synced|added|found|started)|rejected|error/i.test(message)

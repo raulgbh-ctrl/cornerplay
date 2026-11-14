@@ -658,6 +658,7 @@ class AioLaunch(QObject):
         if settings.get("evening_warmth") is not False:  # the same as _load_theme, from the first frame
             _now = time.localtime()
             self._theme = themes.warmed(self._theme, themes.evening_amount(_now.tm_hour + _now.tm_min / 60))
+        self._theme = themes.accessible(self._theme, bool(settings.get("a11y_contrast")), settings.get("a11y_colours") or "")
         self._shortcut = {"accounts": 0, "added": 0, "steam": False, "running": False, "gameMode": False,
                           "busy": False, "games": 0, "gamesInSteam": 0, "inSync": False, "progress": ""}
         self._ge = {"latest": "", "installed": (proton.installed_ge() or [""])[0], "busy": False,
@@ -758,6 +759,7 @@ class AioLaunch(QObject):
         if settings.get("evening_warmth") is not False:
             now = time.localtime()
             new = themes.warmed(new, themes.evening_amount(now.tm_hour + now.tm_min / 60))
+        new = themes.accessible(new, bool(settings.get("a11y_contrast")), settings.get("a11y_colours") or "")
         if new != self._theme:
             self._theme = new
             self.themeChanged.emit()
@@ -2988,6 +2990,18 @@ class AioLaunch(QObject):
         from PySide6.QtQuick import QQuickWindow, QSGRendererInterface
         software = QQuickWindow.graphicsApi() == QSGRendererInterface.GraphicsApi.Software
         return software or (os.cpu_count() or 2) <= 2 or ram_gb < 6
+
+    # Nothing slides, zooms or drifts: Light mode, or Reduce motion (Accessibility).
+    still = Property(bool, lambda s: bool(settings.get("a11y_motion")) or s.light, notify=settingsChanged)
+
+    @Slot(str)
+    def say(self, text):
+        """TV mode reads out what is selected (Accessibility > Read aloud): speech.py."""
+        if settings.get("a11y_speak") and text and not self.demo:
+            from . import speech
+            speech.say(text)
+
+    speechAvailable = Property(bool, lambda s: __import__("cornerplay.speech", fromlist=["x"]).available(), constant=True)
 
     light = Property(bool, lambda s: s._per_settings["light"] if "light" in s._per_settings
                      else s._per_settings.setdefault("light", s._light()), notify=settingsChanged)
@@ -5224,7 +5238,7 @@ class AioLaunch(QObject):
             if key.startswith("theme_"):
                 self._scheme_dark = None
                 self._load_theme()
-            if key == "evening_warmth":
+            if key in ("evening_warmth", "a11y_contrast", "a11y_colours"):
                 self._load_theme()
             if key == "wallpaper_backdrop":
                 self._find_wallpaper()

@@ -36,7 +36,7 @@ Rectangle {
         contentHeight: col.implicitHeight
         clip: true
         interactive: false
-        Behavior on contentY { enabled: !app.light; NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on contentY { enabled: !app.still; NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
         ColumnLayout {
             id: col
             width: flick.width

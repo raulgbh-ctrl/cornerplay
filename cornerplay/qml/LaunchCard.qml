@@ -16,7 +16,7 @@ Item {
     z: 200
     visible: opacity > 0.01
     opacity: key !== "" ? 1 : 0
-    Behavior on opacity { NumberAnimation { duration: app.light ? 0 : 260; easing.type: Easing.OutCubic } }
+    Behavior on opacity { NumberAnimation { duration: app.still ? 0 : 260; easing.type: Easing.OutCubic } }
 
     function show(k) {
         key = k; game = app.game(k); state_ = "start"
@@ -79,7 +79,7 @@ Item {
                 radius: 18; blur: 70; spread: 6
                 color: Qt.alpha(lc.glow, 0.55)
                 SequentialAnimation on opacity {
-                    running: lc.visible && lc.state_ === "start" && !app.light
+                    running: lc.visible && lc.state_ === "start" && !app.still
                     loops: Animation.Infinite
                     NumberAnimation { from: 1; to: 0.45; duration: 900; easing.type: Easing.InOutSine }
                     NumberAnimation { from: 0.45; to: 1; duration: 900; easing.type: Easing.InOutSine }
@@ -125,7 +125,7 @@ Item {
                     color: lc.glow
                     Behavior on width { NumberAnimation { duration: 300 } }
                     SequentialAnimation on x {
-                        running: lc.visible && lc.state_ === "start" && !app.light
+                        running: lc.visible && lc.state_ === "start" && !app.still
                         loops: Animation.Infinite
                         NumberAnimation { from: 0; to: 120; duration: 800; easing.type: Easing.InOutQuad }
                         NumberAnimation { from: 120; to: 0; duration: 800; easing.type: Easing.InOutQuad }

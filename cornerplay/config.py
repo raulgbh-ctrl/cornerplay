@@ -138,6 +138,11 @@ DEFAULTS = {
     "releases_announced": [],
     "night_queue": [],         # games to install in the overnight hours (auto_update_from / _to)
     "night_after": "",         # when the overnight installs are done: "", "suspend" or "shutdown"  # wishlist games already announced as out (the release calendar)       # when Cornerplay last said which old games take room (once a week at most)
+    # Accessibility (Settings > Appearance; TV mode's Settings > Accessibility)
+    "a11y_contrast": False,    # stronger contrast: text, outlines and edges toward black and white
+    "a11y_colours": "",        # colour-blind friendly colours: "", "redgreen", "blueyellow"
+    "a11y_motion": False,      # reduce motion: no sliding, zooming or drifting art
+    "a11y_speak": False,       # TV mode reads out what is selected (speech.py)
     # Focus while playing (focus.py)
     "focus_dnd": True,         # hold notifications back (Ryoku: its Game Mode)
     "focus_awake": True,       # keep the screen on and the PC awake

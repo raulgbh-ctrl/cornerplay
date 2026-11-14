@@ -122,8 +122,8 @@ Item {
         anchors.bottomMargin: card.style === "box" ? card.gap + 18 : card.gap
         radius: card.cornerRadius
         color: theme.surfaceContainerHigh
-        scale: card.lit && !app.light ? 1.03 : 1.0
-        Behavior on scale { enabled: !app.light; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+        scale: card.lit && !app.still ? 1.03 : 1.0
+        Behavior on scale { enabled: !app.still; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         transform: [
             Rotation {
                 origin.x: frame.width / 2; origin.y: frame.height / 2
@@ -240,7 +240,7 @@ Item {
                 fillMode: parent.wideArt ? Image.PreserveAspectFit : Image.PreserveAspectCrop
                 sourceSize.width: Math.min(app.light ? 280 : 600, Math.max(160, Math.ceil(width * Screen.devicePixelRatio / 40) * 40))
                 opacity: status === Image.Ready ? (card.installed || !card.dim ? 1 : 0.78) : 0
-                Behavior on opacity { enabled: !app.light; NumberAnimation { duration: 200 } }
+                Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 200 } }
             }
 
             // Logo wall: the game's logo over its wide art (its title when there is no logo).
@@ -401,7 +401,7 @@ Item {
                         Behavior on width { NumberAnimation { duration: 300 } }
                         // No percentage yet: a short bar slides back and forth.
                         SequentialAnimation on x {
-                            running: card.job !== "" && card.job !== "paused" && card.job !== "queued" && card.progress < 0 && !app.light
+                            running: card.job !== "" && card.job !== "paused" && card.job !== "queued" && card.progress < 0 && !app.still
                             loops: Animation.Infinite
                             NumberAnimation { from: 0; to: card.width * 0.6; duration: 900; easing.type: Easing.InOutQuad }
                             NumberAnimation { from: card.width * 0.6; to: 0; duration: 900; easing.type: Easing.InOutQuad }
@@ -431,7 +431,7 @@ Item {
         Rectangle {
             visible: card.showBadge && opacity > 0
             opacity: card.lit ? 1 : 0
-            Behavior on opacity { enabled: !app.light; NumberAnimation { duration: 140 } }
+            Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 140 } }
             x: 10; y: 10
             height: 22; radius: 11
             width: chip.implicitWidth + 31
@@ -445,7 +445,7 @@ Item {
         Rectangle {
             visible: card.isNew && opacity > 0
             opacity: card.lit ? 0 : 1
-            Behavior on opacity { enabled: !app.light; NumberAnimation { duration: 140 } }
+            Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 140 } }
             x: 10; y: 10
             height: 20; radius: 10
             width: newText.implicitWidth + 18
@@ -468,7 +468,7 @@ Item {
         Rectangle {
             visible: card.showProtonDb && card.protondb !== "" && opacity > 0
             opacity: card.lit ? 1 : 0
-            Behavior on opacity { enabled: !app.light; NumberAnimation { duration: 140 } }
+            Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 140 } }
             x: 10; y: card.showBadge ? 38 : 10
             height: 22; radius: 11
             width: pdbText.implicitWidth + 31

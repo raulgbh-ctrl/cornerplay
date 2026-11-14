@@ -21,7 +21,7 @@ FocusScope {
     // The focused game's own colour (from its cover) tints the glow and the active tab.
     property string gameAccent: ""
     property color accent: gameAccent || theme.primary
-    Behavior on accent { enabled: !app.light; ColorAnimation { duration: 450 } }
+    Behavior on accent { enabled: !app.still; ColorAnimation { duration: 450 } }
     readonly property var tint: {
         const c = tv.accent
         const lum = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b
@@ -58,7 +58,7 @@ FocusScope {
     }
     Timer { interval: 30000; repeat: true; triggeredOnStart: true; running: tv.visible && Qt.application.state === Qt.ApplicationActive
             onTriggered: app.refreshSystem() }
-    readonly property bool animOk: !!app.settingsMap.tv_animated && !app.light && !tv.calm && tv.plugged && !tv.frosted
+    readonly property bool animOk: !!app.settingsMap.tv_animated && !app.still && !tv.calm && tv.plugged && !tv.frosted
                                    && tv.visible && Qt.application.state === Qt.ApplicationActive
     onCurChanged: {
         if ((cur.key || "") === infoKey) return  // same game, just refreshed
@@ -108,7 +108,7 @@ FocusScope {
     // The shelf's covers glide in from the way you moved, and fade up.
     ParallelAnimation {
         id: shelfSwap
-        function go(dx, dy) { if (app.light) return; sx.from = dx; sy.from = dy; restart() }
+        function go(dx, dy) { if (app.still) return; sx.from = dx; sy.from = dy; restart() }
         NumberAnimation { target: grid; property: "opacity"; from: 0.15; to: 1; duration: 240; easing.type: Easing.OutCubic }
         NumberAnimation { id: sx; target: shelfSlide; property: "x"; to: 0; duration: 280; easing.type: Easing.OutCubic }
         NumberAnimation { id: sy; target: shelfSlide; property: "y"; to: 0; duration: 280; easing.type: Easing.OutCubic }
@@ -264,11 +264,11 @@ FocusScope {
         // Up to 3840: a 4K TV gets Steam's double-size banners (covers.py) at their full sharpness.
         sourceSize.width: Math.min(app.light ? 1280 : 3840, Math.max(640, Math.ceil(width * Screen.devicePixelRatio / 40) * 40))
         horizontalAlignment: Image.AlignRight
-        Behavior on opacity { enabled: !app.light; NumberAnimation { duration: 450; easing.type: Easing.InOutQuad } }
+        Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 450; easing.type: Easing.InOutQuad } }
         // Slow pan and zoom while the art is showing (off in Light mode).
         transformOrigin: Item.Right
         transform: Translate { id: drift }
-        readonly property bool drifting: opacity > 0 && status === Image.Ready && !app.light && tv.visible && !tv.frosted
+        readonly property bool drifting: opacity > 0 && status === Image.Ready && !app.still && tv.visible && !tv.frosted
                                          && !tv.calm && Qt.application.state === Qt.ApplicationActive
         SequentialAnimation on scale {
             running: drifting
@@ -343,7 +343,7 @@ FocusScope {
             id: trailerLoader
             anchors.fill: parent
             active: typeof canPlayVideo !== "undefined" && canPlayVideo && app.settingsMap.tv_trailers
-                    && !app.light && tv.visible && tv.trailerUrl !== "" && !tv.frosted
+                    && !app.still && tv.visible && tv.trailerUrl !== "" && !tv.frosted
                     && Qt.application.state === Qt.ApplicationActive  // never behind a running game
                     && !tv.calm
             source: "TvTrailer.qml"
@@ -374,7 +374,7 @@ FocusScope {
         Rectangle {
             anchors.fill: parent
             opacity: stage.none ? 1 : 0
-            Behavior on opacity { enabled: !app.light; NumberAnimation { duration: 450 } }
+            Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 450 } }
             gradient: Gradient {
                 orientation: Gradient.Horizontal
                 GradientStop { position: 0.3; color: "transparent" }
@@ -392,7 +392,7 @@ FocusScope {
             sourceSize.width: Math.min(1200, Math.max(300, Math.ceil(width * Screen.devicePixelRatio / 40) * 40))
             fillMode: Image.PreserveAspectCrop
             opacity: stage.none && status === Image.Ready ? 1 : 0
-            Behavior on opacity { enabled: !app.light; NumberAnimation { duration: 450; easing.type: Easing.InOutQuad } }
+            Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 450; easing.type: Easing.InOutQuad } }
             transform: Rotation { origin.x: poster.width; origin.y: poster.height / 2; axis { x: 0; y: 1; z: 0 } angle: -9 }
             layer.enabled: !app.light && GraphicsInfo.api !== GraphicsInfo.Software
             layer.effect: MultiEffect {
@@ -804,9 +804,11 @@ FocusScope {
             }
             // While a direction is held (auto-repeat) the row keeps up instead of easing behind.
             property bool fast: false
-            NumberAnimation { id: glide; target: grid; property: "contentX"; duration: app.light ? 0 : grid.fast ? 80 : 220; easing.type: Easing.OutCubic }
+            NumberAnimation { id: glide; target: grid; property: "contentX"; duration: app.still ? 0 : grid.fast ? 80 : 220; easing.type: Easing.OutCubic }
             onWidthChanged: Qt.callLater(reveal)
-            onCurrentIndexChanged: { tv.sync(); reveal(); if (tv.visible && !fast) app.uiSound("move") }
+            onCurrentIndexChanged: { tv.sync(); reveal(); if (tv.visible && !fast) app.uiSound("move"); if (tv.visible && activeFocus) speakTimer.restart() }
+            // Read aloud (Accessibility): the game the focus rests on, not every one scrolled past.
+            Timer { id: speakTimer; interval: 250; onTriggered: if (tv.cur.key) app.say(tv.cur.title + (tv.cur.installed ? "" : ", " + qsTr("not installed"))) }
             function jump(to) { currentIndex = Math.max(0, Math.min(count - 1, to)) }
             readonly property int page: Math.max(1, Math.floor(width / cellWidth) - 1)
             onCountChanged: { if (currentIndex < 0 && count > 0) currentIndex = 0; tv.sync() }
@@ -1008,7 +1010,7 @@ FocusScope {
     property bool chimeOwed: false
     onShownChanged: if (shown && chimeOwed) { chimeOwed = false; app.uiSound("intro") }
     function maybeIntro() {
-        if (introDone || !app.settingsMap.tv_intro || app.light) return
+        if (introDone || !app.settingsMap.tv_intro || app.still) return
         introDone = true
         intro.play()
     }
@@ -1195,7 +1197,7 @@ FocusScope {
                                 height: keys.rowH - 10
                                 radius: 16
                                 z: lit ? 1 : 0
-                                scale: lit && !app.light ? 1.08 : 1
+                                scale: lit && !app.still ? 1.08 : 1
                                 Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
                                 color: lit ? tv.tint.primary
                                      : special ? Qt.alpha(theme.surfaceContainerHighest, 0.95)
@@ -1463,7 +1465,7 @@ FocusScope {
                     color: lit ? tv.tint.primary : Qt.alpha(theme.surfaceContainerHigh, 0.72)
                     border.width: lit ? 0 : 1
                     border.color: Qt.alpha("white", 0.07)
-                    Behavior on color { enabled: !app.light; ColorAnimation { duration: 120 } }
+                    Behavior on color { enabled: !app.still; ColorAnimation { duration: 120 } }
                     RectangularShadow {
                         z: -1
                         anchors.fill: parent
@@ -1491,7 +1493,7 @@ FocusScope {
                     }
                     TapHandler { onTapped: { list.currentIndex = parent.index; panel.run(parent.index) } }
                 }
-                onCurrentIndexChanged: { panel.armed = -1; if (panel.visible) app.uiSound("move") }
+                onCurrentIndexChanged: { panel.armed = -1; if (panel.visible) { app.uiSound("move"); app.say((panel.rows[currentIndex] || {}).label || "") } }
                 Keys.onReturnPressed: panel.run(currentIndex)
                 Keys.onEnterPressed: panel.run(currentIndex)
                 Keys.onEscapePressed: panel.hide()
@@ -1703,7 +1705,7 @@ FocusScope {
             anchors.fill: parent
             color: "black"
             opacity: sheet.open ? 0.5 : 0
-            Behavior on opacity { enabled: !app.light; NumberAnimation { id: fadeIn; duration: 200 } }
+            Behavior on opacity { enabled: !app.still; NumberAnimation { id: fadeIn; duration: 200 } }
             MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onClicked: sheet.hide(); onWheel: w => w.accepted = true }
         }
         Rectangle {
@@ -1711,7 +1713,7 @@ FocusScope {
             width: sheet.w
             height: parent.height
             x: sheet.side === "left" ? (sheet.open ? 0 : -width) : (sheet.open ? parent.width - width : parent.width)
-            Behavior on x { enabled: !app.light; NumberAnimation { id: slide; duration: 220; easing.type: Easing.OutCubic } }
+            Behavior on x { enabled: !app.still; NumberAnimation { id: slide; duration: 220; easing.type: Easing.OutCubic } }
             color: Qt.alpha(theme.surfaceContainerLow, 0.9)
             MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onWheel: w => w.accepted = true }
             RectangularShadow {
@@ -1776,7 +1778,7 @@ FocusScope {
                             readonly property bool on: index === sheet.tab
                             height: 44; radius: 22
                             width: on ? tabName.implicitWidth + 70 : 50
-                            Behavior on width { enabled: !app.light; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                            Behavior on width { enabled: !app.still; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
                             color: on ? Qt.alpha(tv.tint.primary, 0.22) : tabHov.hovered ? Qt.alpha(theme.onSurface, 0.08) : Qt.alpha(theme.onSurface, 0.04)
                             border.width: on ? 1 : 0; border.color: tv.tint.primary
                             clip: true

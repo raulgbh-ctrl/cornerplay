@@ -36,7 +36,7 @@ Item {
         horizontalAlignment: Image.AlignLeft
         sourceSize.height: lt.logoHeight * 2
         opacity: status === Image.Ready ? 1 : 0
-        Behavior on opacity { enabled: !app.light; NumberAnimation { duration: 220 } }
+        Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 220 } }
         // Most logos are white: a soft shadow keeps them readable on light themes and bright art.
         layer.enabled: status === Image.Ready && GraphicsInfo.api !== GraphicsInfo.Software
         layer.effect: MultiEffect {

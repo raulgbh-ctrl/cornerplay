@@ -163,3 +163,42 @@ def current(dark=None):
         theme["dark"] = luminance(theme["background"]) < 0.5
         return theme
     return from_wallpaper() or dict(FALLBACK)
+
+
+# --- accessibility (Settings > Appearance > Accessibility) ------------------------------
+# Colour-blind friendly: errors, warnings and the accent kept apart by brightness and by a
+# blue-orange pair everyone can tell apart (Okabe-Ito), instead of red against green.
+SAFE = {"redgreen": {"error": ("#ffb000", "#b35900"), "good": ("#56b4e9", "#0072b2")},
+        "blueyellow": {"error": ("#ff6e9c", "#c2185b"), "good": ("#4dd0b8", "#00796b")}}
+
+
+def accessible(theme, contrast=False, colours=""):
+    """The theme with stronger contrast (text, outlines and edges pushed toward black and
+    white, surfaces kept apart) and/or colour-blind friendly error and success colours."""
+    if not contrast and colours not in SAFE:
+        return theme
+    t = dict(theme)
+    dark = t.get("dark", luminance(t["background"]) < 0.5)
+    fg, back = ("#ffffff", "#000000") if dark else ("#000000", "#ffffff")
+    if contrast:
+        bg = mix(t["background"], back, 0.6)
+        t.update({"background": bg, "surface": bg,
+                  "surfaceContainerLowest": back,
+                  "surfaceContainerLow": mix(bg, fg, 0.06), "surfaceContainer": mix(bg, fg, 0.10),
+                  "surfaceContainerHigh": mix(bg, fg, 0.15), "surfaceContainerHighest": mix(bg, fg, 0.22),
+                  "outlineVariant": mix(bg, fg, 0.45), "outline": mix(bg, fg, 0.75),
+                  "onSurfaceVariant": mix(bg, fg, 0.92), "onSurface": fg, "inverseSurface": fg})
+        # The accent as bright (dark: light) as it needs to be to stand out from the surfaces.
+        acc = t["primary"]
+        for _ in range(6):
+            if abs(luminance(acc) - luminance(bg)) >= 0.45:
+                break
+            acc = mix(acc, fg, 0.25)
+        t["primary"] = acc
+        t["onPrimary"] = "#000000" if luminance(acc) > 0.5 else "#ffffff"
+    if colours in SAFE:
+        t["error"] = SAFE[colours]["error"][0 if dark else 1]
+        t["good"] = SAFE[colours]["good"][0 if dark else 1]
+    t["highContrast"] = bool(contrast)
+    t["colourSafe"] = colours if colours in SAFE else ""
+    return t

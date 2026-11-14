@@ -36,7 +36,7 @@ Item {
                 y: Math.sin(index * 0.9) * 4
                 color: [season.theme.primary, Qt.lighter(season.theme.primary, 1.4), season.theme.onSurfaceVariant][index % 3]
                 SequentialAnimation on opacity {
-                    running: season.visible && !app.light; loops: Animation.Infinite
+                    running: season.visible && !app.still; loops: Animation.Infinite
                     PauseAnimation { duration: (index * 230) % 1600 }
                     NumberAnimation { to: 0.3; duration: 700 }
                     NumberAnimation { to: 1.0; duration: 700 }
@@ -72,21 +72,21 @@ Item {
             }
             // Falling: down, with a sway; fireflies: a slow glow on and off where they are.
             SequentialAnimation on y {
-                running: season.visible && !bit.fly && !app.light; loops: Animation.Infinite
+                running: season.visible && !bit.fly && !app.still; loops: Animation.Infinite
                 PauseAnimation { duration: bit.seed * 6000 }
                 NumberAnimation { from: -20; to: season.height + 20; duration: 7000 + bit.seed * 6000 }
             }
             SequentialAnimation on x {
-                running: season.visible && !bit.fly && !app.light; loops: Animation.Infinite
+                running: season.visible && !bit.fly && !app.still; loops: Animation.Infinite
                 NumberAnimation { from: bit.seed * season.width; to: bit.seed * season.width + 26; duration: 2200; easing.type: Easing.InOutSine }
                 NumberAnimation { from: bit.seed * season.width + 26; to: bit.seed * season.width; duration: 2200; easing.type: Easing.InOutSine }
             }
             RotationAnimation on rotation {
-                running: season.visible && (season.kind === "autumn" || season.kind === "spring") && !app.light
+                running: season.visible && (season.kind === "autumn" || season.kind === "spring") && !app.still
                 loops: Animation.Infinite; from: 0; to: 360; duration: 5000 + bit.seed * 4000
             }
             SequentialAnimation on opacity {
-                running: season.visible && bit.fly && !app.light; loops: Animation.Infinite
+                running: season.visible && bit.fly && !app.still; loops: Animation.Infinite
                 PauseAnimation { duration: bit.seed * 4000 }
                 NumberAnimation { to: 0.9; duration: 900 }
                 NumberAnimation { to: 0.0; duration: 1400 }

@@ -66,8 +66,8 @@ Rectangle {
                 Scale { id: zoom; origin.x: slide.width / 2; origin.y: slide.height / 2; xScale: 1.0; yScale: xScale },
                 Translate { id: drift }
             ]
-            NumberAnimation { target: drift; property: "x"; running: saver.visible && slide.front && !app.light; from: 0; to: -40; duration: 14000 }
-            NumberAnimation { target: zoom; property: "xScale"; running: saver.visible && slide.front && !app.light; from: 1.0; to: 1.08; duration: 14000 }
+            NumberAnimation { target: drift; property: "x"; running: saver.visible && slide.front && !app.still; from: 0; to: -40; duration: 14000 }
+            NumberAnimation { target: zoom; property: "xScale"; running: saver.visible && slide.front && !app.still; from: 1.0; to: 1.08; duration: 14000 }
         }
     }
     Rectangle {  // a soft darkening, for the words

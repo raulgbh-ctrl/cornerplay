@@ -214,6 +214,23 @@ QtObject {
         return out
     }
 
+    // ------------------------------------------------------------ accessibility
+    function accessibility(group) {
+        return [
+            { group: group, kind: "choice", label: qsTr("Interface size"), icon: "maximize", cur: st.ui_scale || 0,
+              options: [0, 1.0, 1.15, 1.3, 1.5, 2.0].map(v => ({ v: v, t: v ? Math.round(v * 100) + "%" : qsTr("Automatic") })),
+              set: v => { app.setSetting("ui_scale", v); app.toast(qsTr("The new size applies the next time Cornerplay starts")) } },
+            setting(group, qsTr("High contrast"), "contrast", "a11y_contrast", qsTr("Text, outlines and edges toward black and white")),
+            { group: group, kind: "choice", label: qsTr("Colour-blind friendly"), icon: "eye", cur: st.a11y_colours || "",
+              options: [{ v: "", t: qsTr("Off") }, { v: "redgreen", t: qsTr("Red-green") }, { v: "blueyellow", t: qsTr("Blue-yellow") }],
+              set: v => app.setSetting("a11y_colours", v) },
+            setting(qsTr("Moving"), qsTr("Reduce motion"), "pause", "a11y_motion", qsTr("No sliding, zooming, drifting art or trailers")),
+            { group: qsTr("Hearing"), label: qsTr("Read aloud"), icon: "volume-2", on: !!st.a11y_speak,
+              sub: app.speechAvailable ? qsTr("Says what is selected as you move") : qsTr("Needs speech-dispatcher and espeak-ng installed"),
+              set: v => { app.setSetting("a11y_speak", v); if (v) Qt.callLater(() => app.say(qsTr("Read aloud is on"))) } }
+        ]
+    }
+
     // ------------------------------------------------------------ TV mode, people, power
     function tvMode(group) {
         return [
@@ -280,6 +297,7 @@ QtObject {
         { id: "controllers", label: qsTr("Controllers"), icon: "gamepad-2" },
         { id: "games", label: qsTr("Games"), icon: "play" },
         { id: "tv", label: qsTr("TV mode"), icon: "tv" },
+        { id: "a11y", label: qsTr("Accessibility"), icon: "eye" },
         { id: "system", label: qsTr("System & power"), icon: "power" }
     ]
     function section(id, batt) {
@@ -290,6 +308,7 @@ QtObject {
         if (id === "controllers") return controllers()
         if (id === "games") return games(qsTr("Games you start from Cornerplay"))
         if (id === "tv") return tvMode(qsTr("TV mode"))
+        if (id === "a11y") return accessibility(qsTr("Seeing"))
         if (id === "system") return [].concat(people(qsTr("People")), battery(qsTr("Power"), batt), powerMode(qsTr("Power")),
                                               powerRows(qsTr("Power")), leaveRows(qsTr("Cornerplay")), about(qsTr("About")))
         return []

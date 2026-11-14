@@ -30,7 +30,7 @@ ListView {
     spacing: 6
     boundsBehavior: Flickable.StopAtBounds
     keyNavigationEnabled: false
-    highlightMoveDuration: app.light ? 0 : 120
+    highlightMoveDuration: app.still ? 0 : 120
     preferredHighlightBegin: 40
     preferredHighlightEnd: height - 40
     highlightRangeMode: ListView.ApplyRange
@@ -53,15 +53,17 @@ ListView {
         if (r.kind === "slider") {
             const lo = r.min || 0, hi = r.max === undefined ? 100 : r.max, s = r.step || 5
             const v = Math.max(lo, Math.min(hi, Math.round(((r.num || 0) + d * s) / s) * s))
-            if (v !== r.num) { r.set(v); app.uiSound("move") }
+            if (v !== r.num) { r.set(v); app.uiSound("move"); app.say(String(v)) }
             return true
         }
         if (r.kind === "choice") {
             const opts = r.options || []
             if (opts.length < 2) return true
             const i = opts.findIndex(o => o.v === r.cur)
-            r.set(opts[(i + d + opts.length) % opts.length].v)
+            const next = opts[(i + d + opts.length) % opts.length]
+            r.set(next.v)
             app.uiSound("move")
+            app.say(next.t)
             return true
         }
         return false
@@ -76,7 +78,19 @@ ListView {
         else picked(r)
     }
 
-    onCurrentIndexChanged: if (activeFocus) app.uiSound("move")
+    onCurrentIndexChanged: if (activeFocus) { app.uiSound("move"); speak() }
+    onActiveFocusChanged: if (activeFocus) speak()
+    // Read aloud (Accessibility): the row, and its value or switch.
+    function speak() {
+        const r = current
+        if (!r.label) return
+        let v = ""
+        if (r.kind === "slider") v = r.valueText || ((r.num || 0) + (r.unit === undefined ? " percent" : ""))
+        else if (r.kind === "choice") v = ((r.options || []).find(o => o.v === r.cur) || { t: "" }).t
+        else if (r.on !== undefined) v = r.on ? qsTr("on") : qsTr("off")
+        else v = r.value || r.sub || ""
+        app.say(r.label + (v ? ", " + v : ""))
+    }
     Keys.onUpPressed: event => { event.accepted = step(-1) || true }
     Keys.onDownPressed: event => { event.accepted = step(1) || true }
     Keys.onLeftPressed: event => { if (!adjust(-1)) { if (catchLeft) edge(-1); else event.accepted = false } }
@@ -112,7 +126,7 @@ ListView {
             height: cell.row.kind === "slider" ? 78 : cell.row.sub ? 66 : 56
             radius: 16
             color: cell.lit ? rl.tint.primary : cell.row.kind === "slider" ? Qt.alpha(rl.theme.onSurface, 0.05) : "transparent"
-            Behavior on color { enabled: !app.light; ColorAnimation { duration: 100 } }
+            Behavior on color { enabled: !app.still; ColorAnimation { duration: 100 } }
             opacity: rl.pickable(cell.row) ? 1 : 0.72
             RectangularShadow {
                 z: -1
@@ -196,12 +210,12 @@ ListView {
                     anchors.fill: parent
                     radius: 13
                     color: cell.row.on ? (cell.lit ? rl.tint.onPrimary : rl.tint.primary) : Qt.alpha(rl.theme.onSurface, 0.18)
-                    Behavior on color { enabled: !app.light; ColorAnimation { duration: 140 } }
+                    Behavior on color { enabled: !app.still; ColorAnimation { duration: 140 } }
                     Rectangle {
                         width: 20; height: 20; radius: 10
                         anchors.verticalCenter: parent.verticalCenter
                         x: cell.row.on ? parent.width - width - 3 : 3
-                        Behavior on x { enabled: !app.light; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+                        Behavior on x { enabled: !app.still; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
                         color: cell.row.on ? (cell.lit ? rl.tint.primary : rl.tint.onPrimary) : rl.theme.onSurface
                     }
                 }
@@ -226,14 +240,14 @@ ListView {
                         height: parent.height; radius: 3
                         color: cell.lit ? rl.tint.onPrimary : rl.tint.primary
                         opacity: cell.row.dim ? 0.4 : 1
-                        Behavior on width { enabled: !app.light; NumberAnimation { duration: 90 } }
+                        Behavior on width { enabled: !app.still; NumberAnimation { duration: 90 } }
                     }
                 }
                 Rectangle {  // the knob
                     width: 18; height: 18; radius: 9
                     anchors.verticalCenter: parent.verticalCenter
                     x: Math.max(0, Math.min(track.width - width, track.width * parent.frac - width / 2))
-                    Behavior on x { enabled: !app.light; NumberAnimation { duration: 90 } }
+                    Behavior on x { enabled: !app.still; NumberAnimation { duration: 90 } }
                     color: cell.lit ? rl.tint.onPrimary : rl.theme.onSurface
                     border.width: cell.lit ? 0 : 3
                     border.color: rl.tint.primary

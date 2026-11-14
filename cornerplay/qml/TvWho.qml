@@ -60,7 +60,7 @@ Rectangle {
                         color: who.palette[person.index % who.palette.length]
                         scale: person.current ? 1.12 : 0.92
                         opacity: person.current ? 1 : 0.6
-                        Behavior on scale { enabled: !app.light; NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
+                        Behavior on scale { enabled: !app.still; NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
                         Behavior on opacity { NumberAnimation { duration: 150 } }
                         border.width: person.current ? 5 : 0
                         border.color: who.theme.onSurface

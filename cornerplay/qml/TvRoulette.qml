@@ -115,7 +115,7 @@ Rectangle {
                     Layout.maximumWidth: 760
                     height: 62; radius: 18
                     color: lit ? rl.tint.primary : Qt.alpha(rl.theme.surfaceContainerHigh, 0.75)
-                    Behavior on color { enabled: !app.light; ColorAnimation { duration: 100 } }
+                    Behavior on color { enabled: !app.still; ColorAnimation { duration: 100 } }
                     Icon { anchors { left: parent.left; leftMargin: 20; verticalCenter: parent.verticalCenter }
                            name: frow.modelData.icon; size: 22; color: frow.lit ? rl.tint.onPrimary : rl.theme.onSurfaceVariant }
                     Text { anchors { left: parent.left; leftMargin: 58; verticalCenter: parent.verticalCenter }
@@ -140,7 +140,7 @@ Rectangle {
                 width: spinRow.implicitWidth + 60; height: 64; radius: 32
                 color: lit ? rl.tint.primary : Qt.alpha(rl.tint.primary, 0.25)
                 border.width: lit ? 0 : 1; border.color: rl.tint.primary
-                scale: lit && !app.light ? 1.04 : 1
+                scale: lit && !app.still ? 1.04 : 1
                 Behavior on scale { NumberAnimation { duration: 120 } }
                 Row {
                     id: spinRow
@@ -197,7 +197,7 @@ Rectangle {
             NumberAnimation {
                 id: reel
                 target: reelView; property: "contentX"
-                duration: app.light ? 600 : 4200
+                duration: app.still ? 600 : 4200
                 easing.type: Easing.OutQuart
                 function go() {
                     reelView.forceLayout()
@@ -206,7 +206,7 @@ Rectangle {
                     to = reelView.originX + rl.winner * (reelView.cell + reelView.spacing) + reelView.cell / 2 - reelView.width / 2
                     restart()
                 }
-                onFinished: { reelView.positionViewAtIndex(rl.winner, ListView.Center); rl.phase = "done"; app.uiSound("select"); if (app.settingsMap.tv_rumble) pad.buzz(60) }
+                onFinished: { reelView.positionViewAtIndex(rl.winner, ListView.Center); rl.phase = "done"; app.say(rl.won.title + ". " + (rl.won.why || "")); app.uiSound("select"); if (app.settingsMap.tv_rumble) pad.buzz(60) }
             }
         }
         ColumnLayout {

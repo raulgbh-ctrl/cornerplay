@@ -113,7 +113,7 @@ Window {
         width: qa.width
         height: qa.height
         x: qa.open ? 0 : qa.width
-        Behavior on x { enabled: !app.light; NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        Behavior on x { enabled: !app.still; NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
         color: Qt.alpha(qa.theme.surfaceContainerLow, 0.96)
         Rectangle { width: 1; height: parent.height; color: Qt.alpha("white", 0.08) }
         MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onWheel: w => w.accepted = true }
@@ -187,7 +187,7 @@ Window {
                         readonly property bool on: index === qa.tab
                         height: 44; radius: 22
                         width: on ? tabName.implicitWidth + 70 : 50
-                        Behavior on width { enabled: !app.light; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                        Behavior on width { enabled: !app.still; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
                         color: on ? Qt.alpha(qa.theme.primary, 0.22) : Qt.alpha(qa.theme.onSurface, 0.05)
                         border.width: on ? 1 : 0; border.color: qa.theme.primary
                         clip: true

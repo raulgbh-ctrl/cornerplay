@@ -48,6 +48,7 @@ Rectangle {
         if (i === at || i < 0 || i >= controls.sections.length) return
         at = i
         nav.currentIndex = i
+        app.say(controls.sections[i].label)
         if (secId() === "network") app.scanNetworks()
     }
 
@@ -100,7 +101,7 @@ Rectangle {
                     height: 58
                     radius: 18
                     color: lit ? ts.tint.primary : cur ? Qt.alpha(ts.tint.primary, 0.16) : navHover.hovered ? Qt.alpha(ts.theme.onSurface, 0.06) : "transparent"
-                    Behavior on color { enabled: !app.light; ColorAnimation { duration: 110 } }
+                    Behavior on color { enabled: !app.still; ColorAnimation { duration: 110 } }
                     RectangularShadow {
                         z: -1
                         anchors.fill: parent

@@ -167,7 +167,7 @@ Item {
                                 height: board.rowH - 10
                                 radius: 15
                                 z: lit ? 1 : 0
-                                scale: lit && !app.light ? 1.08 : 1
+                                scale: lit && !app.still ? 1.08 : 1
                                 Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
                                 color: lit ? tp.tint.primary : on ? Qt.alpha(tp.tint.primary, 0.35)
                                      : k === "done" ? Qt.alpha(tp.tint.primary, 0.22)

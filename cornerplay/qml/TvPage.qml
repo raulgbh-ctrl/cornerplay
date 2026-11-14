@@ -155,7 +155,7 @@ Rectangle {
                     border.width: focused ? 4 : 0
                     border.color: page.theme.onSurface
                     scale: focused ? 1.06 : 1
-                    Behavior on scale { enabled: !app.light; NumberAnimation { duration: 120 } }
+                    Behavior on scale { enabled: !app.still; NumberAnimation { duration: 120 } }
                     Row {
                         id: bRow
                         anchors.centerIn: parent
@@ -218,7 +218,7 @@ Rectangle {
                 width: strip.height * 16 / 9; height: strip.height
                 scale: focused ? 1.08 : 1
                 z: focused ? 1 : 0
-                Behavior on scale { enabled: !app.light; NumberAnimation { duration: 120 } }
+                Behavior on scale { enabled: !app.still; NumberAnimation { duration: 120 } }
                 RoundedArt {
                     anchors.fill: parent
                     radius: 12
