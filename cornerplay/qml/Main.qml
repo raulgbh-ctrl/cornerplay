@@ -3795,6 +3795,13 @@ ApplicationWindow {
                 onPicked: { const k = gameMenu.key; const inst = gameMenu.g.installed; gameMenu.close(); inst ? win.activate(k) : app.install(k) }
             }
             MenuRow {
+                visible: !gameMenu.g.job && !gameMenu.g.installed && gameMenu.g.store !== "steam"
+                readonly property bool tonight: app.nightQueue.indexOf(gameMenu.key) !== -1
+                icon: "moon"
+                text: tonight ? qsTr("Don't install tonight") : qsTr("Install tonight")
+                onPicked: { app.installTonight(gameMenu.key, !tonight); gameMenu.close() }
+            }
+            MenuRow {
                 visible: !!gameMenu.g.job
                 icon: "x"; text: qsTr("Cancel")
                 onPicked: { app.cancel(gameMenu.key); gameMenu.close() }
@@ -4724,6 +4731,7 @@ ApplicationWindow {
                                     const what = ({ install: qsTr("Installing"), update: qsTr("Updating"), dlc: qsTr("Installing DLC"),
                                                     verify: qsTr("Checking files"), move: qsTr("Moving"), fix: qsTr("Fixing") })[d.kind] || d.kind
                                     if (d.state === "queued") return qsTr("Waiting its turn  ·  ") + what
+                                    if (d.state === "tonight") return qsTr("Tonight, %1:00 to %2:00").arg(String(app.settingsMap.auto_update_from).padStart(2, "0")).arg(String(app.settingsMap.auto_update_to).padStart(2, "0"))
                                     if (d.state === "paused") return qsTr("Paused") + (d.progress >= 0 ? "  ·  " + Math.floor(d.progress) + "%" : "")
                                     const parts = [what + (d.progress >= 0 ? " " + Math.floor(d.progress) + "%" : "…")]
                                     if (d.speed > 0) parts.push(d.speed >= 1e6 ? (d.speed / 1e6).toFixed(1) + " MB/s" : Math.round(d.speed / 1e3) + " kB/s")
@@ -4745,7 +4753,9 @@ ApplicationWindow {
                         KButton { theme: win.theme; visible: modelData.state === "queued"; iconName: "chevron-down"; text: ""
                                   enabled: index + 1 < app.downloads.length && app.downloads[index + 1].state === "queued"
                                   ToolTip.visible: hovered; ToolTip.text: qsTr("Later"); onClicked: app.moveDownload(modelData.key, 1) }
-                        KButton { theme: win.theme; visible: modelData.pausable && modelData.state !== "paused"; text: qsTr("Pause")
+                        KButton { theme: win.theme; visible: modelData.state === "tonight"; text: qsTr("Install now"); iconName: "download"
+                                  onClicked: { app.installTonight(modelData.key, false); app.install(modelData.key) } }
+                        KButton { theme: win.theme; visible: modelData.pausable && modelData.state !== "paused" && modelData.state !== "tonight"; text: qsTr("Pause")
                                   onClicked: app.pauseDownload(modelData.key) }
                         KButton { theme: win.theme; primary: true; visible: modelData.state === "paused"; text: qsTr("Resume"); iconName: "download"
                                   onClicked: app.resumeDownload(modelData.key) }
@@ -6277,7 +6287,7 @@ ApplicationWindow {
                             Toggle { label: qsTr("Back up a game's saves before it starts (keeps the last 5; a game's More > Save backups to restore)"); settingKey: "save_backups" }
                             Toggle { label: qsTr("Update Epic, GOG and Amazon games overnight (plugged in, not on a metered connection, while Cornerplay is open)"); settingKey: "auto_update" }
                             RowLayout {
-                                visible: !!app.settingsMap.auto_update
+                                visible: !!app.settingsMap.auto_update || app.nightQueue.length > 0
                                 spacing: 10
                                 Text { text: qsTr("Between"); color: theme.onSurfaceVariant; font.pixelSize: 13 }
                                 KCombo { theme: win.theme; Layout.preferredWidth: 110
@@ -6289,6 +6299,15 @@ ApplicationWindow {
                                          model: [...Array(24).keys()].map(h => ({ label: (h < 10 ? "0" : "") + h + ":00", value: h }))
                                          Component.onCompleted: select(app.settingsMap.auto_update_to)
                                          onActivated: app.setSetting("auto_update_to", currentValue) }
+                            }
+                            RowLayout {
+                                spacing: 10
+                                Text { text: qsTr("When overnight installs finish (a game's menu > Install tonight)"); color: theme.onSurfaceVariant; font.pixelSize: 13
+                                       Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                                KCombo { theme: win.theme; Layout.preferredWidth: 170
+                                         model: [{ label: qsTr("Stay on"), value: "" }, { label: qsTr("Sleep"), value: "suspend" }, { label: qsTr("Shut down"), value: "shutdown" }]
+                                         Component.onCompleted: select(app.settingsMap.night_after || "")
+                                         onActivated: app.setSetting("night_after", currentValue) }
                             }
                             Row2 {
                                 label: ""

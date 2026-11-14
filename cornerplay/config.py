@@ -135,7 +135,9 @@ DEFAULTS = {
     "gs_tearing": False,       # allow tearing (lower latency)
     "gs_hdr": False,           # gamescope's HDR output, when the screen supports it
     "space_nudge_at": 0,
-    "releases_announced": [],  # wishlist games already announced as out (the release calendar)       # when Cornerplay last said which old games take room (once a week at most)
+    "releases_announced": [],
+    "night_queue": [],         # games to install in the overnight hours (auto_update_from / _to)
+    "night_after": "",         # when the overnight installs are done: "", "suspend" or "shutdown"  # wishlist games already announced as out (the release calendar)       # when Cornerplay last said which old games take room (once a week at most)
     # Focus while playing (focus.py)
     "focus_dnd": True,         # hold notifications back (Ryoku: its Game Mode)
     "focus_awake": True,       # keep the screen on and the PC awake

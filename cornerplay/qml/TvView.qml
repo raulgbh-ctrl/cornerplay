@@ -173,7 +173,12 @@ FocusScope {
                 if (g.update) out.push({ label: qsTr("Update on ") + c.storeName, act: "update", key: c.key })
                 if (g.store !== "battlenet") removable.push(c)
             }
-            else out.push({ label: qsTr("Install from ") + c.storeName, act: "install", key: c.key })
+            else {
+                out.push({ label: qsTr("Install from ") + c.storeName, act: "install", key: c.key })
+                if (g.store !== "steam")
+                    out.push({ label: app.nightQueue.indexOf(c.key) !== -1 ? qsTr("Don't install tonight") : qsTr("Install tonight from ") + c.storeName,
+                               act: "tonight", key: c.key })
+            }
         }
         for (const c of removable) out.push({ label: qsTr("Uninstall from ") + c.storeName, act: "uninstall", key: c.key })
         if (app.nowPlaying.some(p => p.key === cur.key)) {
@@ -1310,6 +1315,7 @@ FocusScope {
             armed = -1
             if (a.act === "play") { app.preferCopy(a.key); app.play(a.key) }
             else if (a.act === "install") { app.preferCopy(a.key); app.install(a.key) }
+            else if (a.act === "tonight") { app.installTonight(a.key, app.nightQueue.indexOf(a.key) === -1); rows = tv.buildActions(); return }
             else if (a.act === "update") app.update(a.key)
             else if (a.act === "cancel") app.cancel(a.key)
             else if (a.act === "uninstall") app.uninstall(a.key)
@@ -1463,7 +1469,7 @@ FocusScope {
                         size: 22
                         name: ({ play: "play", install: "download", update: "arrow-up", cancel: "x", uninstall: "trash-2",
                                  fav: "star", status: "bookmark", hide: "eye-off", unhide: "eye", close: "x",
-                                 quit: "x", kill: "x", padlayout: "gamepad-2" })[parent.modelData.act] || "ellipsis"
+                                 quit: "x", kill: "x", padlayout: "gamepad-2", tonight: "moon" })[parent.modelData.act] || "ellipsis"
                         color: parent.ListView.isCurrentItem ? tv.tint.onPrimary
                                : parent.modelData.act === "uninstall" ? theme.error : theme.onSurfaceVariant
                     }

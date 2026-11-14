@@ -32,7 +32,8 @@ Rectangle {
         }
         else if (k === Qt.Key_Return || k === Qt.Key_Enter) {
             app.uiSound("select")
-            if (cur.state === "paused") app.resumeDownload(cur.key)
+            if (cur.state === "tonight") { app.installTonight(cur.key, false); app.install(cur.key) }
+            else if (cur.state === "paused") app.resumeDownload(cur.key)
             else if (cur.pausable) app.pauseDownload(cur.key)
         }
         else if (k === Qt.Key_F2) {
@@ -96,6 +97,7 @@ Rectangle {
                             const d = modelData
                             if (dl.armed === d.key) return qsTr("Press X again to cancel")
                             if (d.state === "queued") return qsTr("Waiting its turn")
+                            if (d.state === "tonight") return qsTr("Tonight, from %1:00").arg(String(app.settingsMap.auto_update_from).padStart(2, "0"))
                             if (d.state === "paused") return qsTr("Paused") + (d.progress >= 0 ? "  ·  " + Math.floor(d.progress) + "%" : "")
                             const parts = [d.progress >= 0 ? Math.floor(d.progress) + "%" : qsTr("Starting…")]
                             if (d.speed > 0) parts.push(d.speed >= 1e6 ? (d.speed / 1e6).toFixed(1) + " MB/s" : Math.round(d.speed / 1e3) + " kB/s")
@@ -117,7 +119,7 @@ Rectangle {
         id: hints
         anchors { left: parent.left; bottom: parent.bottom; margins: dl.height * 0.05 }
         theme: dl.theme
-        hints: [{ b: "a", k: "Enter", t: dl.cur.state === "paused" ? qsTr("Resume") : qsTr("Pause") },
+        hints: [{ b: "a", k: "Enter", t: dl.cur.state === "tonight" ? qsTr("Install now") : dl.cur.state === "paused" ? qsTr("Resume") : qsTr("Pause") },
                 { b: "x", k: "F2", t: qsTr("Cancel") }, { b: "b", k: "Esc", t: qsTr("Back") }]
                .concat(dl.cur.state === "queued" ? [{ b: "", k: "\u2190 \u2192", t: qsTr("earlier / later") }] : [])
     }

@@ -612,6 +612,8 @@ class AioLaunch(QObject):
         self._focus = None          # focus.py's undo state while a game is being played
         self._focus_paused = []     # downloads paused for it
         self.nowPlayingChanged.connect(self._focus_check)
+        self.nightChanged.connect(self.downloadsChanged)
+        self.downloadsChanged.connect(self._night_done_check)
         self.procs: dict[str, QProcess] = {}
         self.logs: dict[str, list] = {}
         self._pending = set()
@@ -1517,21 +1519,85 @@ class AioLaunch(QObject):
         self._bg(work)
 
     # --- updates overnight ---------------------------------------------------------------
-    def _night_tick(self):
-        """Every 10 minutes: in the chosen hours, on mains power and a normal (not metered)
-        connection, refresh once and update the games that have one."""
-        if not settings.get("auto_update") or self.demo:
-            return
+    def _in_night(self):
         hour = time.localtime().tm_hour
         start, end = int(settings.get("auto_update_from")), int(settings.get("auto_update_to"))
-        inside = start <= hour < end if start < end else (hour >= start or hour < end)
-        if not inside:
+        return start <= hour < end if start < end else (hour >= start or hour < end)
+
+    # --- install overnight ------------------------------------------------------------
+    nightChanged = Signal()
+    nightQueue = Property("QVariantList", lambda s: list(settings.get("night_queue") or []), notify=nightChanged)
+
+    @Slot(str, bool)
+    def installTonight(self, key, on):
+        """Put a game on (or take it off) the overnight list: it installs in the overnight hours
+        (Settings > Library), plugged in and not on a metered connection."""
+        q = [k for k in (settings.get("night_queue") or []) if k != key]
+        if on:
+            q.append(key)
+        settings.set("night_queue", q)
+        self.nightChanged.emit()
+        self._touch(key)
+        if on:
+            start, end = int(settings.get("auto_update_from")), int(settings.get("auto_update_to"))
+            g = self.model.find(key)
+            self.toast.emit(f"{g.title if g else 'It'} will install tonight, between {start:02d}:00 and {end:02d}:00")
+            if self._in_night():
+                QTimer.singleShot(2000, self._night_tick)
+
+    def _night_installs(self):
+        q = list(settings.get("night_queue") or [])
+        started = []
+        for key in q:
+            g = self.model.find(key)
+            if not g or g.installed:
+                started.append(key)  # installed some other way meanwhile
+                continue
+            if key in self.procs or self.model.jobs.get(key):
+                continue
+            self.installAnyway(key)
+            started.append(key)
+            self._night_started = True
+        if started:
+            settings.set("night_queue", [k for k in q if k not in started])
+            self.nightChanged.emit()
+
+    def _night_done_check(self):
+        """The overnight installs finished: sleep or shut down when asked to (a minute's notice)."""
+        if not getattr(self, "_night_started", False) or self.demo:
+            return
+        busy = any((self.model.jobs.get(k) or {}).get("kind") in self.DOWNLOADS for k in self.procs) or self._queue
+        if busy or settings.get("night_queue"):
+            return
+        self._night_started = False
+        what = settings.get("night_after") or ""
+        if not what or self._playing or not self._in_night():
+            self.toast.emit("Overnight installs are done")
+            return
+        word = {"suspend": "sleep", "shutdown": "shut down"}.get(what, what)
+        msg = f"Overnight installs are done. The PC will {word} in a minute."
+        self.toast.emit(msg)
+        if shutil.which("notify-send"):
+            QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", "Cornerplay", msg])
+        QTimer.singleShot(60000, lambda: (not self._playing and not self._queue) and self.power(what))
+
+    def _night_tick(self):
+        """Every 10 minutes: in the chosen hours, on mains power and a normal (not metered)
+        connection, install what waits for tonight, refresh once and update the games that
+        have one."""
+        if self.demo or not (settings.get("auto_update") or settings.get("night_queue")):
+            return
+        if not self._in_night():
             self._night_refreshed = False
             return
         batt = self.battery()
         if batt and not batt.get("charging"):
             return
         if not self._network_ok() or self._playing:
+            return
+        if settings.get("night_queue"):
+            self._night_installs()
+        if not settings.get("auto_update"):
             return
         if not getattr(self, "_night_refreshed", False):
             self._night_refreshed = True
@@ -4849,6 +4915,9 @@ class AioLaunch(QObject):
 
     @Slot(str)
     def cancel(self, key):
+        if key in (settings.get("night_queue") or []) and key not in self.procs:
+            self.installTonight(key, False)
+            return
         if any(q[0].key == key for q in self._queue) or key in self._paused:  # not running: just leave the line
             self._queue = [q for q in self._queue if q[0].key != key]
             self._paused.pop(key, None)
@@ -4881,6 +4950,9 @@ class AioLaunch(QObject):
             rows.append(self._download_row(g.key, {"kind": kind, "progress": -1.0}, "queued", g))
         for key, (g, kind, progress) in list(self._paused.items()):
             rows.append(self._download_row(key, {"kind": kind, "progress": progress}, "paused", g))
+        for key in settings.get("night_queue") or []:
+            if key not in self.procs and not self.model.jobs.get(key) and self.model.find(key):
+                rows.append(self._download_row(key, {"kind": "install", "progress": -1.0}, "tonight"))
         return rows
 
     def _download_row(self, key, job, state, g=None):
