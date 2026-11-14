@@ -269,7 +269,10 @@ have notify-send || want_extra notify "notifications"
 have bsdtar || have 7z || want_extra unpack "mod archives"
 for v in $(gpu_vendors); do
     case $v in intel) pat='intel*i686*' ;; amd) pat='radeon*i686*' ;; esac
-    ls /usr/share/vulkan/icd.d/$pat >/dev/null 2>&1 || { want_extra "vk32-$v" "32-bit graphics"; VK32=1; }
+    # Newer Debian/Ubuntu ship one ICD file for both architectures (no ".i686" in its name): ask dpkg.
+    if [ "$PM" = apt-get ]; then dpkg -s mesa-vulkan-drivers:i386 >/dev/null 2>&1 && continue
+    else ls /usr/share/vulkan/icd.d/$pat >/dev/null 2>&1 && continue; fi
+    want_extra "vk32-$v" "32-bit graphics"; VK32=1
 done
 case " $EXTRAS " in *:i386*) VK32=1 ;; esac   # any i386 package needs Debian's 32-bit architecture on
 EXTRA_WHAT=$(echo "$EXTRA_WHAT" | sed 's/32-bit graphics, 32-bit graphics/32-bit graphics/')

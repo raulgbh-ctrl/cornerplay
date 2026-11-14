@@ -112,6 +112,8 @@ Column {
             onPicked: app.openUrl(shop.data_.url)
         }
         ListView {
+            id: shelf1
+            ShelfArrows { view: shelf1; theme: shop.theme }
             x: 8
             width: shop.width - 16
             height: 236
@@ -147,6 +149,8 @@ Column {
             onPicked: app.openUrl(shop.data_.bundlesUrl)
         }
         ListView {
+            id: shelf2
+            ShelfArrows { view: shelf2; theme: shop.theme }
             x: 8
             width: shop.width - 16
             height: 236

@@ -2488,11 +2488,14 @@ ApplicationWindow {
         RowLayout {
             Layout.fillWidth: true
             spacing: 26
+          ColumnLayout {
+            Layout.alignment: Qt.AlignTop
+            Layout.preferredWidth: 220
+            spacing: 16
             Item {
                 id: detailCoverBox
                 Layout.preferredWidth: 220
                 Layout.preferredHeight: 320
-                Layout.alignment: Qt.AlignTop
                 RectangularShadow {
                     anchors.fill: parent
                     visible: !app.light
@@ -2525,6 +2528,66 @@ ApplicationWindow {
                     border.width: 1; border.color: Qt.alpha("white", 0.12)
                 }
             }
+            // At a glance, under the cover (as Heroic's game page has it): time played, last
+            // played, size on disk and the folder, which opens on a click.
+            Rectangle {
+                id: glance
+                readonly property real secs: win.selected.playtime || 0
+                readonly property real last: win.selected.lastPlayed || 0
+                readonly property real size: win.selected.sizeBytes || 0
+                readonly property string folder: win.selected.installed ? (win.selected.installPath || "") : ""
+                Layout.fillWidth: true
+                implicitHeight: glanceCol.implicitHeight + 28
+                radius: 14
+                color: Qt.alpha(theme.surfaceContainer, 0.75)
+                border.width: 1; border.color: theme.dark === false ? Qt.alpha("black", 0.08) : Qt.alpha("white", 0.06)
+                component GlanceRow: ColumnLayout {
+                    readonly property var theme: app.theme
+                    property string label
+                    property string value
+                    property bool link: false
+                    signal picked()
+                    Layout.fillWidth: true
+                    spacing: 2
+                    Text { text: label; color: theme.outline; font.pixelSize: 11; font.weight: Font.DemiBold; font.letterSpacing: 0.4 }
+                    Text {
+                        Layout.fillWidth: true
+                        text: value; color: link && linkHover.hovered ? theme.primary : theme.onSurface
+                        font.pixelSize: 13; elide: Text.ElideMiddle
+                        font.underline: link && linkHover.hovered
+                        HoverHandler { id: linkHover; enabled: link; cursorShape: Qt.PointingHandCursor }
+                        TapHandler { enabled: link; onTapped: picked() }
+                        ToolTip.visible: link && linkHover.hovered; ToolTip.delay: 500; ToolTip.text: value
+                    }
+                }
+                ColumnLayout {
+                    id: glanceCol
+                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 14 }
+                    spacing: 12
+                    GlanceRow {
+                        label: qsTr("TIME PLAYED")
+                        value: glance.secs >= 3600 ? qsTr("%1 h").arg((glance.secs / 3600).toFixed(1).replace(/\.0$/, ""))
+                               : glance.secs >= 60 ? qsTr("%1 min").arg(Math.round(glance.secs / 60)) : qsTr("Not yet")
+                    }
+                    GlanceRow {
+                        label: qsTr("LAST PLAYED")
+                        value: glance.last > 0 ? new Date(glance.last * 1000).toLocaleDateString(Qt.locale(app.uiLocale), "d MMMM yyyy") : qsTr("Never")
+                    }
+                    GlanceRow {
+                        visible: glance.size > 0
+                        label: qsTr("SIZE ON DISK")
+                        value: glance.size >= 1073741824 ? (glance.size / 1073741824).toFixed(1) + qsTr(" GB") : Math.max(1, Math.round(glance.size / 1048576)) + " MB"
+                    }
+                    GlanceRow {
+                        visible: glance.folder !== ""
+                        label: qsTr("FOLDER")
+                        value: glance.folder.replace(/^\/home\/[^\/]+/, "~")
+                        link: true
+                        onPicked: app.openFolder(glance.folder)
+                    }
+                }
+            }
+          }
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true

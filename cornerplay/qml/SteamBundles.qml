@@ -37,6 +37,8 @@ Column {
             Text { text: row.note; color: sb.theme.outline; font.pixelSize: 12; Layout.fillWidth: true; elide: Text.ElideRight }
         }
         ListView {
+            id: bundleShelf
+            ShelfArrows { view: bundleShelf; theme: sb.theme }
             x: 8; width: sb.width - 16; height: 214
             orientation: ListView.Horizontal; spacing: 12; clip: true
             boundsBehavior: Flickable.StopAtBounds
