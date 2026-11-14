@@ -139,9 +139,9 @@ pkg_for() {  # pkg_for <thing>: this distribution's package for it ("" when unkn
         unpack:dnf) echo "bsdtar 7zip p7zip" ;;
         unpack:zypper) echo "bsdtar 7zip" ;;
         vk32-intel:pacman) echo lib32-vulkan-intel ;;   vk32-amd:pacman) echo lib32-vulkan-radeon ;;
-        vk32-*:apt-get) echo "mesa-vulkan-drivers:i386" ;;
-        vk32-*:dnf) echo mesa-vulkan-drivers.i686 ;;
-        vk32-intel:zypper) echo libvulkan_intel-32bit ;; vk32-amd:zypper) echo libvulkan_radeon-32bit ;;
+        vk32-*:apt-get) echo "mesa-vulkan-drivers mesa-vulkan-drivers:i386" ;;
+        vk32-*:dnf) echo "mesa-vulkan-drivers mesa-vulkan-drivers.i686" ;;
+        vk32-intel:zypper) echo "libvulkan_intel libvulkan_intel-32bit" ;; vk32-amd:zypper) echo "libvulkan_radeon libvulkan_radeon-32bit" ;;
         *) echo "" ;;
     esac
 }
