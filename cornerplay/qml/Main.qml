@@ -6901,7 +6901,7 @@ ApplicationWindow {
                     visible: gameOpts.game.store === "custom"
                     label: qsTr("Program")
                     hint: gameOpts.runsNative ? qsTr("A Linux program: it runs as it is.")
-                                              : qsTr("A Windows program: it runs through Proton. Games that need NVIDIA PhysX get it in their prefix the first time they start.")
+                                              : qsTr("A Windows program: it runs through Proton.")
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 8

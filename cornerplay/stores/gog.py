@@ -14,7 +14,6 @@ from pathlib import Path
 
 from ..config import CACHE_DIR, CONFIG_DIR, XDG_CONFIG, find_tool, read_json, settings, write_json, write_private
 from ..runner import StoreError, extras, wine_env, wrapper_argv
-from .. import redist
 from .base import Command, Game, PartialResult, Store
 
 # GOG Galaxy's public client credentials, the same ones gogdl and Heroic use.
@@ -368,7 +367,7 @@ class Gog(Store):
         cwd = _resolve(path, task.get("workingDir") or "") if task.get("workingDir") else os.path.dirname(exe)
         args = shlex.split(task.get("arguments") or "", posix=False)
         env = wine_env(self.id, game.id)
-        return Command(redist.wrap([*wrapper_argv(), exe, *args], exe, env["WINEPREFIX"]), env=env, cwd=cwd)
+        return Command([*wrapper_argv(), exe, *args], env=env, cwd=cwd)
 
 
 def _gogdl_exclude(game_id):

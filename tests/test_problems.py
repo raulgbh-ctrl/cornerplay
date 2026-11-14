@@ -31,7 +31,6 @@ def test_nothing_recognisable(log):
 
 
 @pytest.mark.parametrize("log, fix", [
-    ('err:module:import_dll Library PhysXLoader.dll (needed by L"mafia2.exe") not found', "winetricks:physx"),
     ("err:module:import_dll Library d3dx9_43.dll (needed by game.exe) not found", "winetricks:d3dx9"),
     ("err:module:import_dll Library XAudio2_7.dll not found", "winetricks:xact"),
     ("[S_API FAIL] SteamAPI_Init() failed; no appID found.", "steam"),
@@ -46,9 +45,9 @@ def test_more_rules(log, fix):
 
 
 def test_the_log_line_and_fix_label():
-    out = explain("start\nfoo\nerr:module:import_dll Library PhysXLoader.dll (needed by x) not found\nbye")
-    assert out["line"] == "err:module:import_dll Library PhysXLoader.dll (needed by x) not found"
-    assert out["fixLabel"] == "Install PhysX"
+    out = explain("start\nfoo\nerr:module:import_dll Library d3dx9_43.dll (needed by x) not found\nbye")
+    assert out["line"] == "err:module:import_dll Library d3dx9_43.dll (needed by x) not found"
+    assert out["fixLabel"] == "Install DirectX 9-11"
 
 
 def test_needs_and_base_rebuild_the_detail():

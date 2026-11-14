@@ -24,8 +24,6 @@ RULES = [
     (r"(?i)easyanticheat|EasyAntiCheat_EOS|battleye|BEService", "Anti-cheat blocked it", "",
      "This game's anti-cheat does not allow Linux (the publisher has to turn that on). "
      "Single-player modes sometimes still work; check its ProtonDB page."),
-    (r"(?i)(PhysXLoader|PhysXCore|PhysXCooking|NxCooking|PhysXUpdateLoader)\.dll", "Missing NVIDIA PhysX", "winetricks:physx",
-     "Older games (Mafia II, Borderlands, Mirror's Edge) need the PhysX runtime in their Proton prefix."),
     (r"(?i)(d3dx9_\d+|d3dx10_\d+|d3dx11_\d+)\.dll", "Missing DirectX 9-11 libraries", "winetricks:d3dx9",
      "The game uses the old DirectX helper libraries (d3dx), which are not part of Proton."),
     (r"(?i)(xactengine\d_\d|xaudio2_[0-7]|x3daudio1_\d)\.dll", "Missing DirectX audio (XACT)", "winetricks:xact",
@@ -60,7 +58,7 @@ FALLBACK = {"cause": "It closed right away", "fix": "proton",
             "detail": "Nothing in its log says why. Another Proton version, or Repair files, often helps."}
 
 # The button for each "winetricks:<verb>" fix.
-WINETRICKS = {"physx": "Install PhysX", "d3dx9": "Install DirectX 9-11", "xact": "Install DirectX audio",
+WINETRICKS = {"d3dx9": "Install DirectX 9-11", "xact": "Install DirectX audio",
               "d3dcompiler_47": "Install the shader compiler", "vcrun2022": "Install Visual C++", "dotnet48": "Install .NET"}
 
 

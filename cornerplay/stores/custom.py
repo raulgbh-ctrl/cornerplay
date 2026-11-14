@@ -7,7 +7,6 @@ import uuid
 
 from ..config import CONFIG_DIR, read_json, write_json
 from ..runner import StoreError, extras, perf_env, user_env, wine_env, wrapper_argv
-from .. import redist
 from .base import Command, Game, Store
 
 FILE = CONFIG_DIR / "custom_games.json"
@@ -115,4 +114,4 @@ class Custom(Store):
             env.update(user_env())
             return Command([*extras(), e["exe"], *args], env=env, cwd=cwd)
         env = wine_env(self.id, game.id)
-        return Command(redist.wrap([*wrapper_argv(), e["exe"], *args], e["exe"], env["WINEPREFIX"]), env=env, cwd=cwd)
+        return Command([*wrapper_argv(), e["exe"], *args], env=env, cwd=cwd)
