@@ -12,7 +12,7 @@ Rectangle {
     visible: false
     property int at: 0
     readonly property var people: app.profiles
-    readonly property var palette: ["#ffb547", "#8ab4f8", "#8fd6a4", "#ff8a80", "#d2bcfd", "#7fd0ff", "#ffb1c8", "#d7e075"]
+    readonly property var personColours: ["#ffb547", "#8ab4f8", "#8fd6a4", "#ff8a80", "#d2bcfd", "#7fd0ff", "#ffb1c8", "#d7e075"]
 
     function show() {
         at = Math.max(0, people.indexOf(app.profile))
@@ -57,7 +57,7 @@ Rectangle {
                     Rectangle {
                         anchors.horizontalCenter: parent.horizontalCenter
                         width: person.size; height: width; radius: width / 2
-                        color: who.palette[person.index % who.palette.length]
+                        color: who.personColours[person.index % who.personColours.length]
                         scale: person.current ? 1.12 : 0.92
                         opacity: person.current ? 1 : 0.6
                         Behavior on scale { enabled: !app.still; NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
