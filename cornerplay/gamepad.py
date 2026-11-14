@@ -168,6 +168,12 @@ class Gamepad(QObject):
                 getattr(sdl, fn).restype = ctypes.c_uint16
             except AttributeError:
                 pass
+        try:  # SDL 2.24+: the device file, for grabbing a pad away from the game (padgrab.py)
+            sdl.SDL_GameControllerPath.argtypes = [ctypes.c_void_p]
+            sdl.SDL_GameControllerPath.restype = ctypes.c_char_p
+            self._path = sdl.SDL_GameControllerPath
+        except AttributeError:
+            self._path = None
         sdl.SDL_GameControllerName.argtypes = [ctypes.c_void_p]
         sdl.SDL_GameControllerName.restype = ctypes.c_char_p
         sdl.SDL_GameControllerMapping.argtypes = [ctypes.c_void_p]
@@ -321,6 +327,55 @@ class Gamepad(QObject):
         self._info[iid] = {"name": name.decode("utf-8", "replace"), "style": style, "mapping": mapping}
 
     # --- SDL events ------------------------------------------------------
+    def _on_button(self, which, button, down):
+        if down:
+            self._used(which)
+        self.rawButton.emit(button, down)
+        if self._capture:
+            self.activity.emit()
+            return
+        m = self._mapping()
+        if m is not None and button != GUIDE:
+            m.button(button, down)
+        self._button(button, down)
+
+    def _on_axis(self, which, axis, value):
+        self.rawAxis.emit(axis, value)
+        if self._capture:
+            return
+        if self._mapper is not None:
+            self._mapper.axis(axis, value)  # kept current; tick() only acts while mapping
+        if axis in (0, 1):
+            self._axis(which, axis, value)
+        elif axis in TRIGGERS:
+            self._trigger(which, axis, value)
+
+    _grabs = {}
+
+    def _exclusive(self, on):
+        """Keep the game away from the pads (quick access over it, a keyboard layout steering
+        it): grab their evdev devices and read them here; let go after."""
+        if on and not self._grabs and self._pads and self._path:
+            from . import padgrab
+            grabs = {}
+            for iid, handle in list(self._pads.items()):
+                try:
+                    path = (self._path(handle) or b"").decode()
+                except (OSError, UnicodeDecodeError):
+                    continue
+                node, translate = padgrab.evdev_for(path)
+                if not node:
+                    continue
+                try:
+                    grabs[iid] = padgrab.Grab(node, self._info.get(iid, {}).get("mapping", ""), translate)
+                except OSError:
+                    continue
+            self._grabs = grabs
+        elif not on and self._grabs:
+            for g in self._grabs.values():
+                g.close()
+            self._grabs = {}
+
     def _poll(self):
         sdl, ev = self._sdl, self._event
         while sdl.SDL_PollEvent(ev):
@@ -337,6 +392,9 @@ class Gamepad(QObject):
                     self.connectedChanged.emit()
                     self._pace()
             elif kind == DEVICE_REMOVED:
+                grab = self._grabs.pop(which, None) if self._grabs else None
+                if grab:
+                    grab.close()
                 handle = self._pads.pop(which, None)
                 self._info.pop(which, None)
                 if self._info:  # the prompts follow the pad that is still there
@@ -351,28 +409,18 @@ class Gamepad(QObject):
                 self._guide = None
                 self._swallow.clear()
             elif kind in (BUTTON_DOWN, BUTTON_UP):
-                if kind == BUTTON_DOWN:
-                    self._used(which)
-                self.rawButton.emit(ev.raw[12], kind == BUTTON_DOWN)
-                if self._capture:
-                    self.activity.emit()
-                    continue
-                m = self._mapping()
-                if m is not None and ev.raw[12] != GUIDE:
-                    m.button(ev.raw[12], kind == BUTTON_DOWN)
-                self._button(ev.raw[12], kind == BUTTON_DOWN)
+                self._on_button(which, ev.raw[12], kind == BUTTON_DOWN)
             elif kind == AXIS_MOTION:
-                axis = ev.raw[12]
-                value = ctypes.c_int16.from_buffer(ev, 16).value
-                self.rawAxis.emit(axis, value)
-                if self._capture:
-                    continue
-                if self._mapper is not None:
-                    self._mapper.axis(axis, value)  # kept current; tick() only acts while mapping
-                if axis in (0, 1):
-                    self._axis(which, axis, value)
-                elif axis in TRIGGERS:
-                    self._trigger(which, axis, value)
+                self._on_axis(which, ev.raw[12], ctypes.c_int16.from_buffer(ev, 16).value)
+        # Grabbed pads (padgrab.py): SDL no longer hears them, so their events come from here.
+        self._exclusive(self._target is not None or (self._mapper is not None and not self._capture
+                                                     and QGuiApplication.focusWindow() is None))
+        for iid, grab in list(self._grabs.items()):
+            for what, n, value in grab.read():
+                if what == "button":
+                    self._on_button(iid, n, value)
+                else:
+                    self._on_axis(iid, n, value)
         m = self._mapping()
         if m is not None:
             m.tick()
@@ -383,6 +431,7 @@ class Gamepad(QObject):
                 self._send(*held, repeat=True)
 
     _rumble = None
+    _path = None
 
     def rumble(self, low: float, high: float, ms: int):
         """A short buzz on every connected pad (strengths 0..1). Pads without motors ignore it."""

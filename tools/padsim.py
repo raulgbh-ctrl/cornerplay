@@ -94,6 +94,40 @@ def main():
     print(f"{'ok ' if seen == ['ps5', 'switch', 'ps5'] else 'BAD'}  two pads, pressed DualSense, Switch, DualSense: {' -> '.join(seen)}")
     one.close(); two.close()
     wait(0.5)
+
+    # Quick access over a game takes the pad away from the game (padgrab.py), and gives it back.
+    import select
+    from evdev import InputDevice, list_devices
+    from PySide6.QtGui import QWindow
+    dev = plug(*PADS[0][:3])
+    wait(1.2)
+    game = next(InputDevice(p) for p in list_devices() if InputDevice(p).name == PADS[0][0])
+    heard = []
+    pad.rawButton.connect(lambda b, d: heard.append(b) if d else None)
+
+    def game_heard():
+        n = 0
+        while select.select([game], [], [], 0.05)[0]:
+            n += sum(1 for ev in game.read() if ev.type in (e.EV_KEY, e.EV_ABS))
+        return n
+    game_heard()
+    panel = QWindow()
+    panel.show()
+    pad.steer(panel)
+    wait(0.3)
+    for code in (e.BTN_SOUTH, e.BTN_EAST, e.BTN_TL):
+        dev.write(e.EV_KEY, code, 1); dev.syn(); wait(0.1); dev.write(e.EV_KEY, code, 0); dev.syn(); wait(0.1)
+    took = heard == [0, 1, 9] and game_heard() == 0
+    pad.steer(None)
+    wait(0.3)
+    press(dev)
+    wait(0.3)
+    back = game_heard() > 0
+    bad += not (took and back)
+    print(f"{'ok ' if took and back else 'BAD'}  quick access over a game: Cornerplay heard {heard[:3]}, the game "
+          f"{'heard nothing' if took else 'heard it too'}; afterwards the game {'hears it again' if back else 'still hears nothing'}")
+    dev.close()
+    wait(0.3)
     return 1 if bad else 0
 
 
