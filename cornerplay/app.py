@@ -1546,6 +1546,10 @@ class AioLaunch(QObject):
         """Put a game on (or take it off) the overnight list: it installs in the overnight hours
         (Settings > Library), plugged in and not on a metered connection."""
         q = [k for k in (settings.get("night_queue") or []) if k != key]
+        g0 = self.model.find(key)
+        if on and g0 and (self.stores[g0.store].external_installs or g0.extra.get("owned_only")):
+            self.toast.emit(f"{self.stores[g0.store].name} installs {g0.title} in its own app, so it can't wait for tonight")
+            return
         if on:
             q.append(key)
         settings.set("night_queue", q)
@@ -1568,9 +1572,12 @@ class AioLaunch(QObject):
                 continue
             if key in self.procs or self.model.jobs.get(key):
                 continue
-            self.installAnyway(key)
+            # The usual Install: when the drive would get too full it asks first (the question
+            # waits for the morning) instead of filling it up overnight.
+            self.install(key)
             started.append(key)
             self._night_started = True
+            self._night_keys = getattr(self, "_night_keys", []) + [key]
         if started:
             settings.set("night_queue", [k for k in q if k not in started])
             self.nightChanged.emit()
@@ -1582,7 +1589,22 @@ class AioLaunch(QObject):
         busy = any((self.model.jobs.get(k) or {}).get("kind") in self.DOWNLOADS for k in self.procs) or self._queue
         if busy or settings.get("night_queue"):
             return
+        # The store's own list says "installed" a little after its download ends: look then.
+        if not getattr(self, "_night_finishing", False):
+            self._night_finishing = True
+            QTimer.singleShot(20000, self._night_finish)
+
+    def _night_finish(self):
+        self._night_finishing = False
+        busy = any((self.model.jobs.get(k) or {}).get("kind") in self.DOWNLOADS for k in self.procs) or self._queue
+        if busy or not getattr(self, "_night_started", False):
+            return
         self._night_started = False
+        keys, self._night_keys = getattr(self, "_night_keys", []), []
+        missing = [self.model.find(k).title for k in keys if self.model.find(k) and not self.model.find(k).installed]
+        if missing:  # one asked about space, failed or was cancelled: leave the PC on to say so
+            self.toast.emit("Overnight installs finished, except " + ", ".join(missing[:3]))
+            return
         what = settings.get("night_after") or ""
         if not what or self._playing or not self._in_night():
             self.toast.emit("Overnight installs are done")

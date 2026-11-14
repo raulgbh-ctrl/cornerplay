@@ -62,78 +62,78 @@
 <context>
     <name>GamePanel</name>
     <message>
-        <location filename="../qml/GamePanel.qml" line="22"/>
+        <location filename="../qml/GamePanel.qml" line="28"/>
         <source>Cornerplay in-game panel</source>
         <translation>Panoul Cornerplay din joc</translation>
     </message>
     <message>
-        <location filename="../qml/GamePanel.qml" line="35"/>
+        <location filename="../qml/GamePanel.qml" line="42"/>
         <source>%1 min</source>
         <translation>%1 min</translation>
     </message>
     <message>
-        <location filename="../qml/GamePanel.qml" line="35"/>
+        <location filename="../qml/GamePanel.qml" line="42"/>
         <source>%1 h %2 min</source>
         <translation>%1 h %2 min</translation>
     </message>
     <message>
-        <location filename="../qml/GamePanel.qml" line="40"/>
+        <location filename="../qml/GamePanel.qml" line="50"/>
         <source>Back to the game</source>
         <translation>Înapoi la joc</translation>
     </message>
     <message>
-        <location filename="../qml/GamePanel.qml" line="41"/>
-        <location filename="../qml/GamePanel.qml" line="44"/>
+        <location filename="../qml/GamePanel.qml" line="51"/>
+        <location filename="../qml/GamePanel.qml" line="54"/>
         <source>Open Cornerplay</source>
         <translation>Deschide Cornerplay</translation>
     </message>
     <message>
-        <location filename="../qml/GamePanel.qml" line="42"/>
+        <location filename="../qml/GamePanel.qml" line="52"/>
         <source>Press again to quit %1</source>
         <translation>Apasă din nou ca să închizi %1</translation>
     </message>
     <message>
-        <location filename="../qml/GamePanel.qml" line="42"/>
+        <location filename="../qml/GamePanel.qml" line="52"/>
         <source>Quit the game</source>
         <translation>Închide jocul</translation>
     </message>
     <message>
-        <location filename="../qml/GamePanel.qml" line="45"/>
+        <location filename="../qml/GamePanel.qml" line="55"/>
         <source>Close</source>
         <translation>Închide</translation>
     </message>
     <message>
-        <location filename="../qml/GamePanel.qml" line="108"/>
+        <location filename="../qml/GamePanel.qml" line="124"/>
         <source>No game is running</source>
         <translation>Nu rulează niciun joc</translation>
     </message>
     <message>
-        <location filename="../qml/GamePanel.qml" line="116"/>
+        <location filename="../qml/GamePanel.qml" line="132"/>
         <source>This session: </source>
         <translation>Sesiunea asta: </translation>
     </message>
     <message>
-        <location filename="../qml/GamePanel.qml" line="117"/>
+        <location filename="../qml/GamePanel.qml" line="133"/>
         <source>%1 h in all</source>
         <translation>%1 h în total</translation>
     </message>
     <message>
-        <location filename="../qml/GamePanel.qml" line="118"/>
+        <location filename="../qml/GamePanel.qml" line="134"/>
         <source>1 screenshot so far</source>
         <translation>1 captură până acum</translation>
     </message>
     <message>
-        <location filename="../qml/GamePanel.qml" line="118"/>
+        <location filename="../qml/GamePanel.qml" line="134"/>
         <source>%1 screenshots so far</source>
         <translation>%1 capturi până acum</translation>
     </message>
     <message>
-        <location filename="../qml/GamePanel.qml" line="141"/>
+        <location filename="../qml/GamePanel.qml" line="157"/>
         <source>A note for later: where you are, what to do next…</source>
         <translation>O notiță pentru mai târziu: unde ai rămas, ce urmează…</translation>
     </message>
     <message>
-        <location filename="../qml/GamePanel.qml" line="177"/>
+        <location filename="../qml/GamePanel.qml" line="193"/>
         <source>Guide + Y opens and closes this panel</source>
         <translation>Guide + Y deschide și închide panoul</translation>
     </message>
@@ -141,131 +141,131 @@
 <context>
     <name>GameQuickAccess</name>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="17"/>
+        <location filename="../qml/GameQuickAccess.qml" line="19"/>
         <source>Cornerplay quick access</source>
         <translation>Acces rapid Cornerplay</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="32"/>
-        <location filename="../qml/GameQuickAccess.qml" line="69"/>
-        <location filename="../qml/GameQuickAccess.qml" line="71"/>
+        <location filename="../qml/GameQuickAccess.qml" line="37"/>
+        <location filename="../qml/GameQuickAccess.qml" line="74"/>
+        <location filename="../qml/GameQuickAccess.qml" line="76"/>
         <source>This game</source>
         <translation>Jocul acesta</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="33"/>
+        <location filename="../qml/GameQuickAccess.qml" line="38"/>
         <source>Quick settings</source>
         <translation>Setări rapide</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="34"/>
+        <location filename="../qml/GameQuickAccess.qml" line="39"/>
         <source>Performance</source>
         <translation>Performanță</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="66"/>
+        <location filename="../qml/GameQuickAccess.qml" line="71"/>
         <source>%1 min</source>
         <translation>%1 min</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="66"/>
+        <location filename="../qml/GameQuickAccess.qml" line="71"/>
         <source>%1 h %2 min</source>
         <translation>%1 h %2 min</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="69"/>
+        <location filename="../qml/GameQuickAccess.qml" line="74"/>
         <source>Nothing running</source>
         <translation>Nu rulează nimic</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="69"/>
+        <location filename="../qml/GameQuickAccess.qml" line="74"/>
         <source>Start a game from Cornerplay</source>
         <translation>Pornește un joc din Cornerplay</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="70"/>
-        <location filename="../qml/GameQuickAccess.qml" line="76"/>
-        <location filename="../qml/GameQuickAccess.qml" line="77"/>
+        <location filename="../qml/GameQuickAccess.qml" line="75"/>
+        <location filename="../qml/GameQuickAccess.qml" line="81"/>
+        <location filename="../qml/GameQuickAccess.qml" line="82"/>
         <source>Cornerplay</source>
         <translation>Cornerplay</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="70"/>
-        <location filename="../qml/GameQuickAccess.qml" line="76"/>
+        <location filename="../qml/GameQuickAccess.qml" line="75"/>
+        <location filename="../qml/GameQuickAccess.qml" line="81"/>
         <source>Open Cornerplay</source>
         <translation>Deschide Cornerplay</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="73"/>
-        <location filename="../qml/GameQuickAccess.qml" line="224"/>
-        <location filename="../qml/GameQuickAccess.qml" line="225"/>
+        <location filename="../qml/GameQuickAccess.qml" line="78"/>
+        <location filename="../qml/GameQuickAccess.qml" line="236"/>
+        <location filename="../qml/GameQuickAccess.qml" line="237"/>
         <source>Back to the game</source>
         <translation>Înapoi la joc</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="74"/>
+        <location filename="../qml/GameQuickAccess.qml" line="79"/>
         <source>Press again to quit</source>
         <translation>Apasă din nou ca să închizi</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="74"/>
+        <location filename="../qml/GameQuickAccess.qml" line="79"/>
         <source>Quit the game</source>
         <translation>Închide jocul</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="75"/>
+        <location filename="../qml/GameQuickAccess.qml" line="80"/>
         <source>Press again to force close</source>
         <translation>Apasă din nou ca să forțezi închiderea</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="75"/>
+        <location filename="../qml/GameQuickAccess.qml" line="80"/>
         <source>Force close (if it hangs)</source>
         <translation>Forțează închiderea (dacă s-a blocat)</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="77"/>
+        <location filename="../qml/GameQuickAccess.qml" line="82"/>
         <source>Game panel</source>
         <translation>Panoul jocului</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="77"/>
+        <location filename="../qml/GameQuickAccess.qml" line="82"/>
         <source>Notes and screenshots (Guide + Y)</source>
         <translation>Notițe și capturi (Guide + Y)</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="173"/>
+        <location filename="../qml/GameQuickAccess.qml" line="185"/>
         <source>Playing for </source>
         <translation>Joci de </translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="173"/>
+        <location filename="../qml/GameQuickAccess.qml" line="185"/>
         <source> screenshots</source>
         <translation> capturi</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="223"/>
+        <location filename="../qml/GameQuickAccess.qml" line="235"/>
         <source>Mute</source>
         <translation>Fără sonor</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="223"/>
-        <location filename="../qml/GameQuickAccess.qml" line="225"/>
+        <location filename="../qml/GameQuickAccess.qml" line="235"/>
+        <location filename="../qml/GameQuickAccess.qml" line="237"/>
         <source>Choose</source>
         <translation>Alege</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="223"/>
-        <location filename="../qml/GameQuickAccess.qml" line="225"/>
+        <location filename="../qml/GameQuickAccess.qml" line="235"/>
+        <location filename="../qml/GameQuickAccess.qml" line="237"/>
         <source>Change</source>
         <translation>Schimbă</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="225"/>
+        <location filename="../qml/GameQuickAccess.qml" line="237"/>
         <source>Enter</source>
         <translation>Enter</translation>
     </message>
     <message>
-        <location filename="../qml/GameQuickAccess.qml" line="225"/>
+        <location filename="../qml/GameQuickAccess.qml" line="237"/>
         <source>Esc</source>
         <translation>Esc</translation>
     </message>
@@ -7427,537 +7427,547 @@
 <context>
     <name>toast</name>
     <message>
-        <location filename="../toastsi18n.py" line="122"/>
+        <location filename="../toastsi18n.py" line="124"/>
         <source>%1 added to Favourites</source>
         <translation>%1 adăugat la Favorite</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="123"/>
+        <location filename="../toastsi18n.py" line="125"/>
         <source>%1 game updates available</source>
         <translation>%1 actualizări de jocuri disponibile</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="124"/>
+        <location filename="../toastsi18n.py" line="126"/>
         <source>%1 games can only be moved from the %2 app</source>
         <translation>Jocurile %1 se pot muta doar din aplicația %2</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="125"/>
+        <location filename="../toastsi18n.py" line="127"/>
         <source>%1 has no Proton prefix yet</source>
         <translation>%1 nu are încă un prefix Proton</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="126"/>
+        <location filename="../toastsi18n.py" line="128"/>
         <source>%1 hidden. Find it under Hidden games.</source>
         <translation>%1 ascuns. Îl găsești la Jocuri ascunse.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="127"/>
+        <location filename="../toastsi18n.py" line="129"/>
         <source>%1 installed</source>
         <translation>%1 instalat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="128"/>
+        <location filename="../toastsi18n.py" line="130"/>
         <source>%1 installed: pick it under Proton version</source>
         <translation>%1 instalat: alege-l la Versiune Proton</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="129"/>
+        <location filename="../toastsi18n.py" line="131"/>
+        <source>%1 installs %2 in its own app, so it can&apos;t wait for tonight</source>
+        <translation>%1 instalează %2 în propria aplicație, deci nu poate aștepta până la noapte</translation>
+    </message>
+    <message>
+        <location filename="../toastsi18n.py" line="132"/>
         <source>%1 is already starting</source>
         <translation>%1 deja pornește</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="130"/>
+        <location filename="../toastsi18n.py" line="133"/>
         <source>%1 is already the newest</source>
         <translation>%1 e deja cel mai nou</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="131"/>
+        <location filename="../toastsi18n.py" line="134"/>
         <source>%1 is already there</source>
         <translation>%1 e deja acolo</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="132"/>
+        <location filename="../toastsi18n.py" line="135"/>
         <source>%1 is back in your library</source>
         <translation>%1 e din nou în bibliotecă</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="133"/>
+        <location filename="../toastsi18n.py" line="136"/>
         <source>%1 is queued: it starts when the current download finishes</source>
         <translation>%1 e în așteptare: pornește după descărcarea curentă</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="134"/>
+        <location filename="../toastsi18n.py" line="137"/>
         <source>%1 is taking over the install of %2</source>
         <translation>%1 preia instalarea lui %2</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="135"/>
+        <location filename="../toastsi18n.py" line="138"/>
         <source>%1 isn&apos;t in your library</source>
         <translation>%1 nu e în biblioteca ta</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="136"/>
+        <location filename="../toastsi18n.py" line="139"/>
         <source>%1 removed from Favourites</source>
         <translation>%1 scos din Favorite</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="137"/>
+        <location filename="../toastsi18n.py" line="140"/>
         <source>%1 will install tonight, between %2:00 and %3:00</source>
         <translation>%1 se va instala la noapte, între %2:00 și %3:00</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="138"/>
+        <location filename="../toastsi18n.py" line="141"/>
         <source>%1: %2 (launching anyway)</source>
         <translation>%1: %2 (pornește oricum)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="139"/>
+        <location filename="../toastsi18n.py" line="142"/>
         <source>%1: %2 save files from your other PC are in place</source>
         <translation>%1: %2 fișiere de salvare de pe celălalt PC sunt la locul lor</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="140"/>
+        <location filename="../toastsi18n.py" line="143"/>
         <source>%1: saves not uploaded (%2)</source>
         <translation>%1: salvările nu au fost încărcate (%2)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="141"/>
+        <location filename="../toastsi18n.py" line="144"/>
         <source>Add your Nexus Mods API key in the Mods page first</source>
         <translation>Adaugă întâi cheia API Nexus Mods în pagina Moduri</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="142"/>
+        <location filename="../toastsi18n.py" line="145"/>
         <source>Add your Nexus Mods API key in the game&apos;s Mods page, then press the button on Nexus again</source>
         <translation>Adaugă cheia API Nexus Mods în pagina Moduri a jocului, apoi apasă din nou butonul de pe Nexus</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="143"/>
+        <location filename="../toastsi18n.py" line="146"/>
         <source>Added %1 (%2)</source>
         <translation>Adăugat %1 (%2)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="144"/>
+        <location filename="../toastsi18n.py" line="147"/>
         <source>Added %1 to Sunshine. Restart Sunshine to see them in Moonlight.</source>
         <translation>Am adăugat %1 în Sunshine. Repornește Sunshine ca să le vezi în Moonlight.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="145"/>
+        <location filename="../toastsi18n.py" line="148"/>
         <source>Backup failed: %1</source>
         <translation>Copia nu a reușit: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="146"/>
+        <location filename="../toastsi18n.py" line="149"/>
         <source>Backup saved: %1</source>
         <translation>Copie salvată: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="147"/>
+        <location filename="../toastsi18n.py" line="150"/>
         <source>Battle.net: %1</source>
         <translation>Battle.net: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="148"/>
+        <location filename="../toastsi18n.py" line="151"/>
         <source>Battle.net: Blizzard wants your password again to update your owned games. Your games stay listed; Accounts &gt; Battle.net &gt; Link account when you like.</source>
         <translation>Battle.net: Blizzard îți cere din nou parola ca să actualizeze jocurile deținute. Jocurile rămân în listă; Conturi &gt; Battle.net &gt; Leagă contul când vrei.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="149"/>
+        <location filename="../toastsi18n.py" line="152"/>
         <source>Blizzard account unlinked</source>
         <translation>Contul Blizzard a fost dezlegat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="150"/>
+        <location filename="../toastsi18n.py" line="153"/>
         <source>Cancelled: %1</source>
         <translation>Anulat: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="151"/>
+        <location filename="../toastsi18n.py" line="154"/>
         <source>Close %1 first: mods can&apos;t change while it runs</source>
         <translation>Închide întâi %1: modurile nu se pot schimba cât rulează</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="152"/>
+        <location filename="../toastsi18n.py" line="155"/>
         <source>Close the game first, then restore</source>
         <translation>Închide întâi jocul, apoi restaurează</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="153"/>
+        <location filename="../toastsi18n.py" line="156"/>
         <source>Close the game first: its files may be in use</source>
         <translation>Închide întâi jocul: fișierele lui pot fi folosite</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="154"/>
+        <location filename="../toastsi18n.py" line="157"/>
         <source>Controller as keyboard and mouse is on for this game (Guide still opens Cornerplay)</source>
         <translation>Controlerul ca tastatură și mouse e pornit pentru jocul acesta (Guide deschide în continuare Cornerplay)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="155"/>
+        <location filename="../toastsi18n.py" line="158"/>
         <source>Copied: paste it into a terminal</source>
         <translation>Copiat: lipește-l într-un terminal</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="156"/>
+        <location filename="../toastsi18n.py" line="159"/>
         <source>Cornerplay %1 is installed. Restart to use it.</source>
         <translation>Cornerplay %1 e instalat. Repornește ca să-l folosești.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="157"/>
+        <location filename="../toastsi18n.py" line="160"/>
         <source>Cornerplay cannot reach this game: close it from the game itself</source>
         <translation>Cornerplay nu poate ajunge la acest joc: închide-l din joc</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="158"/>
+        <location filename="../toastsi18n.py" line="161"/>
         <source>Cornerplay no longer starts with the PC</source>
         <translation>Cornerplay nu mai pornește odată cu PC-ul</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="159"/>
+        <location filename="../toastsi18n.py" line="162"/>
         <source>Cornerplay starts in the tray when you log in</source>
         <translation>Cornerplay pornește în tray când te conectezi</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="160"/>
+        <location filename="../toastsi18n.py" line="163"/>
         <source>Could not change starting with the PC: %1</source>
         <translation>Nu am putut schimba pornirea odată cu PC-ul: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="161"/>
+        <location filename="../toastsi18n.py" line="164"/>
         <source>Could not close %1: close it from the game or Steam</source>
         <translation>Nu am putut închide %1: închide-l din joc sau din Steam</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="162"/>
+        <location filename="../toastsi18n.py" line="165"/>
         <source>Could not close it: %1</source>
         <translation>Nu am putut să-l închid: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="163"/>
+        <location filename="../toastsi18n.py" line="166"/>
         <source>Could not import %1: %2</source>
         <translation>Nu am putut importa %1: %2</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="164"/>
+        <location filename="../toastsi18n.py" line="167"/>
         <source>Could not start %1 (log: %2)</source>
         <translation>Nu am putut porni %1 (jurnal: %2)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="165"/>
+        <location filename="../toastsi18n.py" line="168"/>
         <source>Could not start %1: %2</source>
         <translation>Nu am putut porni %1: %2</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="166"/>
+        <location filename="../toastsi18n.py" line="169"/>
         <source>Could not use that save: %1</source>
         <translation>Nu am putut folosi acea salvare: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="167"/>
+        <location filename="../toastsi18n.py" line="170"/>
         <source>Could not wake it: %1</source>
         <translation>Nu am putut să-l trezesc: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="168"/>
+        <location filename="../toastsi18n.py" line="171"/>
         <source>Deleted %1</source>
         <translation>Șters %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="169"/>
+        <location filename="../toastsi18n.py" line="172"/>
         <source>Demo mode: Steam is not changed</source>
         <translation>Mod demo: Steam nu e modificat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="170"/>
+        <location filename="../toastsi18n.py" line="173"/>
         <source>Demo mode: nothing is really launched or installed</source>
         <translation>Mod demo: nimic nu e pornit sau instalat cu adevărat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="171"/>
+        <location filename="../toastsi18n.py" line="174"/>
+        <source>Downloading a voice (10 MB)…</source>
+        <translation>Descarc o voce (10 MB)…</translation>
+    </message>
+    <message>
+        <location filename="../toastsi18n.py" line="175"/>
         <source>Downloading the store tools…</source>
         <translation>Se descarcă uneltele magazinelor…</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="172"/>
+        <location filename="../toastsi18n.py" line="176"/>
         <source>Downloads paused while you play (%1)</source>
         <translation>Descărcări puse pe pauză cât timp joci (%1)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="173"/>
+        <location filename="../toastsi18n.py" line="177"/>
         <source>Fetching the newest artwork from every store…</source>
         <translation>Se aduc cele mai noi imagini din fiecare magazin…</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="174"/>
+        <location filename="../toastsi18n.py" line="178"/>
         <source>Found %1 GOG game%2</source>
         <translation>Am găsit jocuri GOG: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="175"/>
+        <location filename="../toastsi18n.py" line="179"/>
         <source>Freed %1</source>
         <translation>Eliberat %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="176"/>
+        <location filename="../toastsi18n.py" line="180"/>
         <source>Fresh Proton prefix for %1; the old one is at %2</source>
         <translation>Prefix Proton nou pentru %1; cel vechi e la %2</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="177"/>
+        <location filename="../toastsi18n.py" line="181"/>
         <source>GE-Proton download failed</source>
         <translation>Descărcarea GE-Proton nu a reușit</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="178"/>
+        <location filename="../toastsi18n.py" line="182"/>
         <source>Games you haven&apos;t played in a year use %1. Storage &gt; Free up space puts them away, saves kept.</source>
         <translation>Jocurile pe care nu le-ai jucat de un an ocupă %1. Spațiu &gt; Eliberează spațiu le pune deoparte, cu salvările păstrate.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="179"/>
+        <location filename="../toastsi18n.py" line="183"/>
         <source>Hi %1: your favourites, collections and stats</source>
         <translation>Salut, %1: favoritele, colecțiile și statisticile tale</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="180"/>
+        <location filename="../toastsi18n.py" line="184"/>
         <source>Imported %1</source>
         <translation>Importat %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="181"/>
+        <location filename="../toastsi18n.py" line="185"/>
         <source>Install %1 with winetricks into %2</source>
         <translation>Instalează %1 cu winetricks în %2</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="182"/>
+        <location filename="../toastsi18n.py" line="186"/>
         <source>Installing %1 for %2; it can take a few minutes</source>
         <translation>Se instalează %1 pentru %2; poate dura câteva minute</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="183"/>
+        <location filename="../toastsi18n.py" line="187"/>
         <source>Invite for %1 copied: paste it in your chat</source>
         <translation>Invitația pentru %1 a fost copiată: lipește-o în chat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="184"/>
+        <location filename="../toastsi18n.py" line="188"/>
         <source>Linking a Blizzard account needs Qt WebEngine (sudo pacman -S qt6-webengine)</source>
         <translation>Legarea unui cont Blizzard cere Qt WebEngine (sudo pacman -S qt6-webengine)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="185"/>
+        <location filename="../toastsi18n.py" line="189"/>
         <source>Moonlight did not start</source>
         <translation>Moonlight nu a pornit</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="186"/>
+        <location filename="../toastsi18n.py" line="190"/>
         <source>Moved %1</source>
         <translation>Mutat %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="187"/>
+        <location filename="../toastsi18n.py" line="191"/>
         <source>Nexus Mods&apos; “Mod Manager Download” buttons now open in Cornerplay</source>
         <translation>Butoanele „Mod Manager Download” de pe Nexus Mods se deschid acum în Cornerplay</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="188"/>
+        <location filename="../toastsi18n.py" line="192"/>
         <source>No GOG games in that folder. For an Epic or Amazon game, pick the game first.</source>
         <translation>Niciun joc GOG în acel folder. Pentru un joc Epic sau Amazon, alege întâi jocul.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="189"/>
+        <location filename="../toastsi18n.py" line="193"/>
         <source>No log yet: it is written when the game runs</source>
         <translation>Niciun jurnal încă: se scrie când rulează jocul</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="190"/>
+        <location filename="../toastsi18n.py" line="194"/>
         <source>No saves of %1 found on this PC yet</source>
         <translation>Nicio salvare %1 găsită încă pe acest PC</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="191"/>
+        <location filename="../toastsi18n.py" line="195"/>
         <source>Not added to Sunshine: %1</source>
         <translation>Nu a fost adăugat în Sunshine: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="192"/>
+        <location filename="../toastsi18n.py" line="196"/>
         <source>Nothing was brought over: %1</source>
         <translation>Nu s-a adus nimic: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="193"/>
+        <location filename="../toastsi18n.py" line="197"/>
         <source>On the Nexus page, press “Mod Manager Download” on the file you want: Cornerplay installs it from there</source>
         <translation>Pe pagina Nexus, apasă „Mod Manager Download” la fișierul dorit: Cornerplay îl instalează de acolo</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="194"/>
+        <location filename="../toastsi18n.py" line="198"/>
         <source>Opening %1; sign in there, then press Refresh</source>
         <translation>Se deschide %1; conectează-te acolo, apoi apasă Reîmprospătează</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="195"/>
+        <location filename="../toastsi18n.py" line="199"/>
         <source>Out now from your wishlist: %1</source>
         <translation>A apărut din lista ta de dorințe: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="196"/>
+        <location filename="../toastsi18n.py" line="200"/>
         <source>Overnight installs are done</source>
         <translation>Instalările de noapte s-au terminat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="197"/>
+        <location filename="../toastsi18n.py" line="201"/>
         <source>Paused: %1</source>
         <translation>Pe pauză: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="198"/>
+        <location filename="../toastsi18n.py" line="202"/>
         <source>Pick a different Proton version to compare with</source>
         <translation>Alege altă versiune de Proton cu care să compari</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="199"/>
+        <location filename="../toastsi18n.py" line="203"/>
         <source>Proton test done: %1. Details on the game&apos;s page.</source>
         <translation>Testul Proton s-a terminat: %1. Detalii pe pagina jocului.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="200"/>
+        <location filename="../toastsi18n.py" line="204"/>
         <source>Proton test, half-way: now play %1 again for %2 minutes; it starts on %3</source>
         <translation>Testul Proton, la jumătate: acum joacă %1 din nou %2 minute; pornește pe %3</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="201"/>
+        <location filename="../toastsi18n.py" line="205"/>
         <source>Proton test: play %1 for %2 minutes, then quit. Then once more, on the other version.</source>
         <translation>Testul Proton: joacă %1 timp de %2 minute, apoi închide. Apoi încă o dată, pe cealaltă versiune.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="202"/>
+        <location filename="../toastsi18n.py" line="206"/>
         <source>Proton test: that was too short to compare. Play %1 for %2 minutes, then quit.</source>
         <translation>Testul Proton: a fost prea scurt ca să compar. Joacă %1 timp de %2 minute, apoi închide.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="203"/>
+        <location filename="../toastsi18n.py" line="207"/>
         <source>Proton-CachyOS download failed</source>
         <translation>Descărcarea Proton-CachyOS nu a reușit</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="204"/>
+        <location filename="../toastsi18n.py" line="208"/>
         <source>Put back %1 save file%2 of %3 (what was there is backed up too)</source>
         <translation>Am pus la loc fișiere de salvare (%1) pentru %3 (ce era acolo e copiat și el)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="205"/>
+        <location filename="../toastsi18n.py" line="209"/>
         <source>Refusing to delete a folder outside the prefixes folder</source>
         <translation>Nu șterg un folder din afara folderului de prefixe</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="206"/>
+        <location filename="../toastsi18n.py" line="210"/>
         <source>Removed %1</source>
         <translation>Eliminat %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="207"/>
+        <location filename="../toastsi18n.py" line="211"/>
         <source>Restore failed: %1</source>
         <translation>Restaurarea nu a reușit: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="208"/>
+        <location filename="../toastsi18n.py" line="212"/>
         <source>Restored. Cornerplay restarts to load it…</source>
         <translation>Restaurat. Cornerplay repornește ca să încarce…</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="209"/>
+        <location filename="../toastsi18n.py" line="213"/>
         <source>Saves of %1 backed up</source>
         <translation>Salvările %1 au fost copiate</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="210"/>
+        <location filename="../toastsi18n.py" line="214"/>
         <source>Signed out of %1</source>
         <translation>Deconectat de la %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="211"/>
+        <location filename="../toastsi18n.py" line="215"/>
         <source>Steam games are uninstalled in Steam; the others are being put away</source>
         <translation>Jocurile Steam se dezinstalează din Steam; celelalte sunt puse deoparte</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="212"/>
+        <location filename="../toastsi18n.py" line="216"/>
         <source>Steam is installing Proton Experimental; it appears in this list when done</source>
         <translation>Steam instalează Proton Experimental; apare în listă când e gata</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="213"/>
+        <location filename="../toastsi18n.py" line="217"/>
         <source>Steam is not installed</source>
         <translation>Steam nu e instalat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="214"/>
+        <location filename="../toastsi18n.py" line="218"/>
         <source>Steam library updated (%1 games)</source>
         <translation>Biblioteca Steam actualizată (%1 jocuri)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="215"/>
+        <location filename="../toastsi18n.py" line="219"/>
         <source>Steam moves its own games: in Steam, Settings &gt; Storage, pick the game, then Move</source>
         <translation>Steam își mută singur jocurile: în Steam, Setări &gt; Stocare, alege jocul, apoi Mută</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="216"/>
+        <location filename="../toastsi18n.py" line="220"/>
         <source>Steam picks the Proton version of its games: compare them in Steam&apos;s Properties &gt; Compatibility</source>
         <translation>Steam alege versiunea de Proton pentru jocurile lui: compară-le în Steam la Proprietăți &gt; Compatibilitate</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="217"/>
+        <location filename="../toastsi18n.py" line="221"/>
         <source>Streaming from %1…</source>
         <translation>Streaming de pe %1…</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="218"/>
+        <location filename="../toastsi18n.py" line="222"/>
         <source>Switch to Desktop Mode to change Steam&apos;s library</source>
         <translation>Treci în Desktop Mode ca să schimbi biblioteca Steam</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="219"/>
+        <location filename="../toastsi18n.py" line="223"/>
         <source>Sync: %1</source>
         <translation>Sincronizare: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="220"/>
+        <location filename="../toastsi18n.py" line="224"/>
         <source>Syncing saves for %1…</source>
         <translation>Se sincronizează salvările pentru %1…</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="221"/>
+        <location filename="../toastsi18n.py" line="225"/>
         <source>The Proton test measures with MangoHud: install it first (on Arch: sudo pacman -S mangohud lib32-mangohud)</source>
         <translation>Testul Proton măsoară cu MangoHud: instalează-l mai întâi (pe Arch: sudo pacman -S mangohud lib32-mangohud)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="222"/>
+        <location filename="../toastsi18n.py" line="226"/>
         <source>The update did not install; try again, or download it from GitHub</source>
         <translation>Actualizarea nu s-a instalat; încearcă din nou sau descarc-o de pe GitHub</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="223"/>
+        <location filename="../toastsi18n.py" line="227"/>
         <source>The update was not installed: %1</source>
         <translation>Actualizarea nu a fost instalată: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="224"/>
+        <location filename="../toastsi18n.py" line="228"/>
         <source>There is already a folder called %1 there</source>
         <translation>Există deja un folder numit %1 acolo</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="225"/>
+        <location filename="../toastsi18n.py" line="229"/>
         <source>Update available: %1</source>
         <translation>Actualizare disponibilă: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="226"/>
+        <location filename="../toastsi18n.py" line="230"/>
         <source>Uploading saves for %1…</source>
         <translation>Se încarcă salvările pentru %1…</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="227"/>
+        <location filename="../toastsi18n.py" line="231"/>
         <source>Woke %1 (it can take a few seconds to start)</source>
         <translation>Am trezit %1 (poate dura câteva secunde să pornească)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="228"/>
+        <location filename="../toastsi18n.py" line="232"/>
         <source>Your library, settings and sign-ins are here. Cornerplay restarts to load them…</source>
         <translation>Biblioteca, setările și conectările tale sunt aici. Cornerplay repornește ca să le încarce…</translation>
     </message>

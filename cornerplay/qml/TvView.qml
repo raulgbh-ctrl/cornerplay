@@ -175,7 +175,7 @@ FocusScope {
             }
             else {
                 out.push({ label: qsTr("Install from ") + c.storeName, act: "install", key: c.key })
-                if (g.store !== "steam")
+                if (!g.external)
                     out.push({ label: app.nightQueue.indexOf(c.key) !== -1 ? qsTr("Don't install tonight") : qsTr("Install tonight from ") + c.storeName,
                                act: "tonight", key: c.key })
             }

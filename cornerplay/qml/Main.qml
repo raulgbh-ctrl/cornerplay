@@ -3887,7 +3887,7 @@ ApplicationWindow {
                 onPicked: { const k = gameMenu.key; const inst = gameMenu.g.installed; gameMenu.close(); inst ? win.activate(k) : app.install(k) }
             }
             MenuRow {
-                visible: !gameMenu.g.job && !gameMenu.g.installed && gameMenu.g.store !== "steam"
+                visible: !gameMenu.g.job && !gameMenu.g.installed && !gameMenu.g.external
                 readonly property bool tonight: app.nightQueue.indexOf(gameMenu.key) !== -1
                 icon: "moon"
                 text: tonight ? qsTr("Don't install tonight") : qsTr("Install tonight")
