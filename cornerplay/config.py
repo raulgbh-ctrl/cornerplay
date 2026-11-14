@@ -134,7 +134,8 @@ DEFAULTS = {
     "gs_sharpness": 18,        # FSR / NIS sharpness, 0..20 (higher is sharper)
     "gs_tearing": False,       # allow tearing (lower latency)
     "gs_hdr": False,           # gamescope's HDR output, when the screen supports it
-    "space_nudge_at": 0,       # when Cornerplay last said which old games take room (once a week at most)
+    "space_nudge_at": 0,
+    "releases_announced": [],  # wishlist games already announced as out (the release calendar)       # when Cornerplay last said which old games take room (once a week at most)
     # Focus while playing (focus.py)
     "focus_dnd": True,         # hold notifications back (Ryoku: its Game Mode)
     "focus_awake": True,       # keep the screen on and the PC awake

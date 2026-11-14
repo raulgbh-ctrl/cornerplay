@@ -18,6 +18,7 @@ Popup {
                                 .concat((app.otherFree || []).map(g => ({ title: g.title, url: g.url, art: [g.tall, g.wide].filter(u => !!u),
                                                                           shop: g.shop || "", owned: g.owned, now: true, when: g.when })))
     readonly property var sales: app.wishlistSalesAll || []
+    readonly property var coming: app.releaseCalendar || []
     onOpened: { flick.contentY = 0; app.loadHumbleShop(); app.loadSteamBundles() }
 
     component Head: RowLayout {
@@ -147,6 +148,48 @@ Popup {
                             line1: best ? best.price : modelData.price
                             line2: (was ? qsTr("was %1").arg(was) + "  ·  " : "")
                                    + (best ? best.shop + (best.low ? "  ·  " + qsTr("lowest ever") : "") : (modelData.store === "gog" ? "GOG" : "Steam"))
+                        }
+                    }
+                }
+            }
+
+            // Release calendar: wishlist games not out yet, by month (and the ones just out).
+            Column {
+                visible: store.coming.length > 0
+                width: parent.width
+                spacing: 10
+                Head { icon: "calendar"; title: qsTr("Coming from your wishlist"); note: store.coming.length + "" }
+                Repeater {
+                    model: {
+                        const months = []
+                        for (const g of store.coming) {
+                            const m = g.out ? qsTr("Out now") : g.month
+                            if (!months.length || months[months.length - 1].name !== m) months.push({ name: m, games: [] })
+                            months[months.length - 1].games.push(g)
+                        }
+                        return months
+                    }
+                    Column {
+                        required property var modelData
+                        width: parent.width
+                        spacing: 8
+                        Text { text: modelData.name; color: store.theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold
+                               font.capitalization: Font.AllUppercase; font.letterSpacing: 1 }
+                        Flow {
+                            width: parent.width
+                            spacing: 12
+                            Repeater {
+                                model: modelData.games
+                                Card {
+                                    required property var modelData
+                                    art: [modelData.tall, modelData.wide].filter(u => !!u); title: modelData.title
+                                    url: modelData.url
+                                    badge: modelData.label
+                                    line1: modelData.out ? qsTr("Out now") + (modelData.price ? "  ·  " + modelData.price : "") : modelData.when
+                                    line1Color: modelData.out ? store.theme.primary : store.theme.onSurface
+                                    line2: modelData.store === "gog" ? "GOG" : "Steam"
+                                }
+                            }
                         }
                     }
                 }

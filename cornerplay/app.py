@@ -2385,6 +2385,7 @@ class AioLaunch(QObject):
             def done():
                 self._wishlist = res["items"]
                 self.wishlistChanged.emit()
+                self._announce_releases()
                 deals = res.get("deals") or []
                 if deals:
                     self._announce_deals(deals)
@@ -2433,6 +2434,53 @@ class AioLaunch(QObject):
         self.toast.emit(f"{title}: {line(deals[0])}" + (f" and {len(deals) - 1} more" if len(deals) > 1 else ""))
         if shutil.which("notify-send"):
             QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", title, body])
+
+    def _release_calendar(self):
+        """Wishlist games not out yet (or out in the last two weeks), soonest first: the Store
+        page's release calendar. Dated ones first; "Coming soon" ones after."""
+        owned = {covers.norm(g.title) for g in self.model.games}
+        now = time.time()
+        out = []
+        for w in self._wishlist:
+            rel = int(w.get("release") or 0)
+            upcoming = w.get("soon") or rel > now
+            recent = 0 < rel <= now and now - rel < 14 * 86400
+            if not (upcoming or recent) or covers.norm(w["title"]) in owned:
+                continue
+            days = int((rel - now) // 86400) if rel else None
+            exact = rel and not w.get("releaseText")
+            when = (w.get("releaseText") or (_short_date(rel) if rel else _t("Coming soon")))
+            if recent:
+                label = _t("Out now")
+            elif exact and days is not None and days <= 0:
+                label = _t("Out today")
+            elif exact and days == 1:
+                label = _t("Tomorrow")
+            elif exact and days is not None and days < 60:
+                label = f"{days} days"
+            else:
+                label = ""
+            month = time.strftime("%B %Y", time.localtime(rel)) if exact else _t("Later")
+            out.append(dict(w, when=when, label=label, month=month, out=bool(recent), order=rel if exact else 9e12))
+        out.sort(key=lambda w: (not w["out"], w["order"], w["title"].lower()))
+        return out
+
+    releaseCalendar = Property("QVariantList", _release_calendar, notify=wishlistChanged)
+
+    def _announce_releases(self):
+        """A wishlist game came out in the last three days: say so once (a toast and a notification)."""
+        now = time.time()
+        seen = set(settings.get("releases_announced") or [])
+        owned = {covers.norm(g.title) for g in self.model.games}
+        fresh = [w for w in self._wishlist if 0 < int(w.get("release") or 0) <= now and now - int(w["release"]) < 3 * 86400
+                 and not w.get("releaseText") and f"{w['store']}:{w['id']}" not in seen and covers.norm(w["title"]) not in owned]
+        if not fresh:
+            return
+        settings.set("releases_announced", sorted(seen | {f"{w['store']}:{w['id']}" for w in fresh})[-500:])
+        names = ", ".join(w["title"] for w in fresh[:3]) + (f" and {len(fresh) - 3} more" if len(fresh) > 3 else "")
+        self.toast.emit(f"Out now from your wishlist: {names}")
+        if shutil.which("notify-send"):
+            QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", "Out now from your wishlist", names])
 
     def _wishlist_sales(self, home=True):
         owned = {covers.norm(g.title) for g in self.model.games}

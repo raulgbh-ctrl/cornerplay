@@ -42,7 +42,7 @@ def _steam(steamid, cc):
     out = []
     for at in range(0, len(ids), 100):
         req = {"ids": [{"appid": a} for a in ids[at:at + 100]], "context": {"language": "english", "country_code": cc},
-               "data_request": {"include_assets": True}}
+               "data_request": {"include_assets": True, "include_release": True}}
         r = requests.get("https://api.steampowered.com/IStoreBrowseService/GetItems/v1/",
                          params={"input_json": json.dumps(req)}, timeout=30)
         r.raise_for_status()
@@ -53,7 +53,12 @@ def _steam(steamid, cc):
 
             def art(name, fmt=fmt):
                 return STEAM_CDN + fmt.replace("${FILENAME}", name) if fmt and name else ""
+            rel = item.get("release") or {}
             out.append({"store": "steam", "id": str(item.get("appid", "")), "title": item.get("name", ""),
+                        # The release calendar: an exact day, or Steam's own words ("Q1 2027", "Coming soon").
+                        "release": int(rel.get("steam_release_date") or 0),
+                        "soon": bool(rel.get("is_coming_soon")),
+                        "releaseText": rel.get("custom_release_date_message") or rel.get("coming_soon_display") or "",
                         "price": buy.get("formatted_final_price", ""),
                         "was": buy.get("formatted_original_price", ""),
                         "discount": int(buy.get("discount_pct") or 0),
@@ -90,7 +95,15 @@ def _gog(token, cc):
                 discount = 0
             images = p.get("images") or {}
             link = ((p.get("links") or {}).get("product_card")) or f"https://www.gog.com/game/{p.get('slug', '')}"
+            when = 0
+            try:
+                from datetime import datetime
+                when = int(datetime.fromisoformat(str(p.get("release_date") or "")).timestamp())
+            except ValueError:
+                pass
             out.append({"store": "gog", "id": gid, "title": p.get("title", ""), "price": final,
+                        "release": when, "soon": bool((p.get("in_development") or {}).get("active")) or when > time.time(),
+                        "releaseText": "",
                         "was": base if discount else "", "discount": discount,
                         "tall": "", "wide": ("https:" + images["logo2x"]) if str(images.get("logo2x", "")).startswith("//") else "",
                         "url": link})
@@ -103,7 +116,7 @@ def get(steamid="", gog_token_fn=None, force=False, itad_key="", alert_cut=50):
     lists the ones to announce."""
     saved = read_json(FILE) or {}
     if not force and time.time() - saved.get("t", 0) < TTL and "items" in saved \
-            and bool(saved.get("itad")) == bool(itad_key):
+            and bool(saved.get("itad")) == bool(itad_key) and all("release" in i for i in saved["items"]):
         return {"items": saved["items"], "new_sales": [], "deals": [], "error": saved.get("error", "")}
     cc = country()
     items, errors = [], []
