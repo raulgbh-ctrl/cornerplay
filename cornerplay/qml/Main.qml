@@ -3542,7 +3542,7 @@ ApplicationWindow {
     }
 
     // -------------------------------------------------------------------- mods
-    ModsPage { id: modsPage; theme: win.theme }
+    ModsPage { id: modsPage; objectName: "modsPage"; theme: win.theme }
     Connections {
         target: app
         // A Nexus "Mod Manager Download" link arrived: show that game's mods while it installs.
@@ -5699,7 +5699,7 @@ ApplicationWindow {
         property bool danger: false
         signal picked()
         width: parent ? parent.width : 220; height: 38; radius: 8
-        color: mrHover.hovered ? app.theme.surfaceContainerHighest : "transparent"
+        color: mrHover.hovered ? (mr.danger ? Qt.alpha(app.theme.error, 0.16) : app.theme.surfaceContainerHighest) : "transparent"
         Icon { x: 12; anchors.verticalCenter: parent.verticalCenter; name: mr.icon; size: 16; color: mr.danger ? app.theme.error : app.theme.onSurfaceVariant }
         Text { x: 40; anchors.verticalCenter: parent.verticalCenter; text: mr.text; font.pixelSize: 13; color: mr.danger ? app.theme.error : app.theme.onSurface }
         HoverHandler { id: mrHover; cursorShape: Qt.PointingHandCursor }

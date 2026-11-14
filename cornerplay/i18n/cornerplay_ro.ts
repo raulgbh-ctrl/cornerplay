@@ -283,187 +283,187 @@
 <context>
     <name>HumbleShop</name>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="15"/>
+        <location filename="../qml/HumbleShop.qml" line="23"/>
         <source>Steam key</source>
         <translation>Cheie Steam</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="15"/>
+        <location filename="../qml/HumbleShop.qml" line="23"/>
         <source>Battle.net key</source>
         <translation>Cheie Battle.net</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="15"/>
+        <location filename="../qml/HumbleShop.qml" line="23"/>
         <source>Epic Games key</source>
         <translation>Cheie Epic Games</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="16"/>
+        <location filename="../qml/HumbleShop.qml" line="24"/>
         <source>GOG key</source>
         <translation>Cheie GOG</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="16"/>
+        <location filename="../qml/HumbleShop.qml" line="24"/>
         <source>EA app key</source>
         <translation>Cheie EA app</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="16"/>
+        <location filename="../qml/HumbleShop.qml" line="24"/>
         <source>Ubisoft Connect key</source>
         <translation>Cheie Ubisoft Connect</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="17"/>
+        <location filename="../qml/HumbleShop.qml" line="25"/>
         <source>Code for another service</source>
         <translation>Cod pentru alt serviciu</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="17"/>
+        <location filename="../qml/HumbleShop.qml" line="25"/>
         <source>DRM-free download</source>
         <translation>Descărcare fără DRM</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="109"/>
+        <location filename="../qml/HumbleShop.qml" line="117"/>
         <source>Humble Choice</source>
         <translation>Humble Choice</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="110"/>
+        <location filename="../qml/HumbleShop.qml" line="118"/>
         <source>%1 games for %2 a month</source>
         <translation>%1 jocuri pentru %2 pe lună</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="111"/>
+        <location filename="../qml/HumbleShop.qml" line="119"/>
         <source>See Choice</source>
         <translation>Vezi Choice</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="129"/>
+        <location filename="../qml/HumbleShop.qml" line="137"/>
         <source>In your library</source>
         <translation>În biblioteca ta</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="129"/>
+        <location filename="../qml/HumbleShop.qml" line="137"/>
         <source>Worth %1 on its own</source>
         <translation>Valorează %1 separat</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="131"/>
+        <location filename="../qml/HumbleShop.qml" line="139"/>
         <source>Runs on Linux</source>
         <translation>Merge pe Linux</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="146"/>
+        <location filename="../qml/HumbleShop.qml" line="154"/>
         <source>Game bundles</source>
         <translation>Pachete de jocuri</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="148"/>
+        <location filename="../qml/HumbleShop.qml" line="156"/>
         <source>All bundles</source>
         <translation>Toate pachetele</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="167"/>
+        <location filename="../qml/HumbleShop.qml" line="175"/>
         <source>%1 items</source>
         <translation>%1 produse</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="168"/>
+        <location filename="../qml/HumbleShop.qml" line="176"/>
         <source>Until </source>
         <translation>Până pe </translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="197"/>
+        <location filename="../qml/HumbleShop.qml" line="205"/>
         <source>Humble&apos;s page for this bundle couldn&apos;t be read.</source>
         <translation>Pagina Humble a acestui pachet nu a putut fi citită.</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="198"/>
+        <location filename="../qml/HumbleShop.qml" line="206"/>
         <source>Each tier against buying its games separately today, at the cheapest store IsThereAnyDeal knows.</source>
         <translation>Fiecare nivel comparat cu cumpărarea separată a jocurilor azi, la cel mai ieftin magazin știut de IsThereAnyDeal.</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="199"/>
+        <location filename="../qml/HumbleShop.qml" line="207"/>
         <source>Add a free IsThereAnyDeal API key (Settings › Library) to compare each tier with today&apos;s prices on other stores.</source>
         <translation>Adaugă o cheie API IsThereAnyDeal gratuită (Setări › Bibliotecă) ca să compari fiecare nivel cu prețurile de azi din alte magazine.</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="203"/>
+        <location filename="../qml/HumbleShop.qml" line="211"/>
         <source>Open on Humble</source>
         <translation>Deschide pe Humble</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="214"/>
+        <location filename="../qml/HumbleShop.qml" line="222"/>
         <source>Reading the bundle…</source>
         <translation>Se citește pachetul…</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="244"/>
+        <location filename="../qml/HumbleShop.qml" line="252"/>
         <source>%1 games</source>
         <translation>%1 jocuri</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="244"/>
+        <location filename="../qml/HumbleShop.qml" line="252"/>
         <source>the whole bundle</source>
         <translation>tot pachetul</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="253"/>
+        <location filename="../qml/HumbleShop.qml" line="261"/>
         <source>Separately today: %1, so the bundle saves %2%</source>
         <translation>Separat azi: %1, deci pachetul economisește %2%</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="254"/>
+        <location filename="../qml/HumbleShop.qml" line="262"/>
         <source>Separately today: %1, cheaper than the bundle</source>
         <translation>Separat azi: %1, mai ieftin decât pachetul</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="255"/>
+        <location filename="../qml/HumbleShop.qml" line="263"/>
         <source>(%1 of %2 games have a price)</source>
         <translation>(%1 din %2 jocuri au preț)</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="262"/>
+        <location filename="../qml/HumbleShop.qml" line="270"/>
         <source>You own every game in this tier already.</source>
         <translation>Ai deja toate jocurile din acest nivel.</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="263"/>
+        <location filename="../qml/HumbleShop.qml" line="271"/>
         <source>You own %1 of them; the %2 you don&apos;t</source>
         <translation>Ai %1 dintre ele; celelalte %2</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="264"/>
+        <location filename="../qml/HumbleShop.qml" line="272"/>
         <source> cost %1 separately</source>
         <translation> costă %1 separat</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="265"/>
+        <location filename="../qml/HumbleShop.qml" line="273"/>
         <source> (the bundle saves %1%)</source>
         <translation> (pachetul economisește %1%)</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="266"/>
+        <location filename="../qml/HumbleShop.qml" line="274"/>
         <source>, less than the bundle</source>
         <translation>, mai puțin decât pachetul</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="285"/>
+        <location filename="../qml/HumbleShop.qml" line="293"/>
         <source>yours</source>
         <translation>al tău</translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="288"/>
+        <location filename="../qml/HumbleShop.qml" line="296"/>
         <source> at </source>
         <translation> la </translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="289"/>
+        <location filename="../qml/HumbleShop.qml" line="297"/>
         <source>normally </source>
         <translation>de obicei </translation>
     </message>
     <message>
-        <location filename="../qml/HumbleShop.qml" line="299"/>
+        <location filename="../qml/HumbleShop.qml" line="307"/>
         <source>+ everything in the tiers below</source>
         <translation>+ tot ce e în nivelurile de mai jos</translation>
     </message>
