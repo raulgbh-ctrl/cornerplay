@@ -5857,7 +5857,7 @@ ApplicationWindow {
         theme: win.theme
         heading: qsTr("Settings")
         headingIcon: "sliders-horizontal"
-        width: Math.min(win.width - 60, 640)
+        width: Math.min(win.width - 60, 720)  // room for the five tabs on one line, in Romanian too
         property int tab: 0
         onTabChanged: { prefsScroll.contentY = 0; if (!app.light) tabSwap.restart() }
         ParallelAnimation {

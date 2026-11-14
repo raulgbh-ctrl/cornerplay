@@ -6,6 +6,14 @@ import QtQuick.Layouts
 // game bundles on sale, with their prices. A click opens the page on humblebundle.com.
 Column {
     id: shop
+    // Humble names the month in English ("November"): say it in the interface language.
+    function monthName(m) {
+        const i = ["january", "february", "march", "april", "may", "june", "july", "august", "september",
+                   "october", "november", "december"].indexOf(String(m).trim().toLowerCase())
+        if (i < 0) return m
+        const n = Qt.locale(app.uiLocale).standaloneMonthName(i)
+        return n.charAt(0).toUpperCase() + n.slice(1)
+    }
     required property var theme
     property bool shown: false
     readonly property var data_: app.humbleShop
@@ -106,7 +114,7 @@ Column {
         spacing: 10
         Head {
             icon: "gift"
-            title: qsTr("Humble Choice") + (shop.data_.month ? "  ·  " + shop.data_.month : "")
+            title: qsTr("Humble Choice") + (shop.data_.month ? "  ·  " + shop.monthName(shop.data_.month) : "")
             note: shop.data_.price ? qsTr("%1 games for %2 a month").arg((shop.data_.games || []).length).arg(shop.data_.price) : ""
             action: qsTr("See Choice")
             onPicked: app.openUrl(shop.data_.url)
