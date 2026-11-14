@@ -15,7 +15,7 @@ import json
 import os
 from pathlib import Path
 
-from .. import host
+from .. import host, pkgs
 from ..config import HOME
 from ..runner import StoreError
 from .base import Command, Game, Store
@@ -124,7 +124,7 @@ class Prism(Store):
 
     def problem(self):
         if data_dirs() and not any(prism_argv(k) for _d, k in data_dirs()):
-            return "Prism Launcher's folder is here but the program is not (sudo pacman -S prismlauncher, or Flathub)"
+            return f"Prism Launcher's folder is here but the program is not ({pkgs.hint('prismlauncher')})"
         return ""
 
     def logged_in(self):

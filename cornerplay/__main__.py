@@ -1,6 +1,7 @@
 """Cornerplay: one library for Steam, Epic, GOG, Amazon and Battle.net."""
 import argparse
 import os
+import shutil
 import signal
 import sys
 from pathlib import Path
@@ -161,7 +162,35 @@ def fetch_backends():
         except Exception as e:
             print(f"{name}: not downloaded: {e}")
             failed += 1
+    # umu-launcher (Proton for non-Steam games): most distributions other than Arch do not
+    # package it, so a portable copy (one Python zipapp) goes next to the others when it is missing.
+    if not find_tool("umu-run") and not shutil.which("wine"):
+        try:
+            fetch_umu(BIN_DIR)
+        except Exception as e:
+            print(f"umu-launcher: not downloaded: {e}")
+            failed += 1
     return 1 if failed else 0
+
+
+def fetch_umu(bin_dir):
+    import tarfile
+    import tempfile
+    from .net import download_checked, github_asset
+    tag, url, sha = github_asset("Open-Wine-Components/umu-launcher", lambda n: n.endswith("-zipapp.tar"))
+    print(f"umu-launcher {tag}: downloading {url}" + ("" if sha else " (no checksum published)"))
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        tar_path = download_checked(url, os.path.join(tmp, "umu.tar"), sha)
+        with tarfile.open(tar_path) as tar:
+            member = next(m for m in tar.getmembers() if m.isfile() and os.path.basename(m.name) == "umu-run")
+            data = tar.extractfile(member).read()
+    dest = bin_dir / "umu-run"
+    with open(f"{dest}.part", "wb") as f:
+        f.write(data)
+    os.chmod(f"{dest}.part", 0o755)
+    os.replace(f"{dest}.part", dest)
+    print(f"umu-launcher: installed to {dest}")
 
 
 def status():

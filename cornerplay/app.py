@@ -17,7 +17,7 @@ import shlex
 
 import sys
 
-from . import humbleshop, patchnotes, mods, workshop, cleanup, steambundles, syscontrol, achievements, backup, perf, search, couch, host, hostimport, statsdata, steamrun, wishlist, health, savebackup, importer, personal, problems, storage, updates, covers, details, epicfree, shelves, gamecolour, playtime, protondb, steamcompat, proton, runner, saves, session, steamgames, steamshortcut, theme as themes
+from . import humbleshop, pkgs, patchnotes, mods, workshop, cleanup, steambundles, syscontrol, achievements, backup, perf, search, couch, host, hostimport, statsdata, steamrun, wishlist, health, savebackup, importer, personal, problems, storage, updates, covers, details, epicfree, shelves, gamecolour, playtime, protondb, steamcompat, proton, runner, saves, session, steamgames, steamshortcut, theme as themes
 from . import __version__
 from .config import CACHE_DIR, DEFAULTS, LANGUAGES, LOG_DIR, game_options, read_json, settings, write_json
 from .net import redact
@@ -1329,6 +1329,11 @@ class AioLaunch(QObject):
         self._detach([sys.executable, "-m", "cornerplay", "--fetch-backends"],
                      {"PYTHONPATH": str(Path(__file__).resolve().parent.parent)}, "", "fetch-backends")
         QTimer.singleShot(20000, self.checkHealth)
+
+    @Slot(str, result=str)
+    def installHint(self, thing):
+        """How to install a program on this distribution ("sudo apt-get install gamescope", ...)."""
+        return pkgs.hint(thing)
 
     @Slot(str)
     def copyText(self, text):
@@ -2661,7 +2666,7 @@ class AioLaunch(QObject):
     @Slot()
     def blizzardLink(self):
         if not self.web_login:
-            self.toast.emit("Linking a Blizzard account needs Qt WebEngine (sudo pacman -S qt6-webengine)")
+            self.toast.emit(f"Linking a Blizzard account needs Qt WebEngine ({pkgs.hint('webengine')})")
             return
         self.loginWeb.emit("blizzard", "Blizzard", self.BLIZZARD_LOGIN)
 
@@ -3804,7 +3809,7 @@ class AioLaunch(QObject):
             self.toast.emit("Steam picks the Proton version of its games: compare them in Steam's Properties > Compatibility")
             return
         if not shutil.which("mangohud"):
-            self.toast.emit("The Proton test measures with MangoHud: install it first (on Arch: sudo pacman -S mangohud lib32-mangohud)")
+            self.toast.emit(f"The Proton test measures with MangoHud: install it first ({pkgs.hint('mangohud')})")
             return
         from . import abtest
         mine = game_options.get(key).get("proton") or settings.get("proton") or ""

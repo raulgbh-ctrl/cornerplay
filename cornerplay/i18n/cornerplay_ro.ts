@@ -3985,8 +3985,8 @@
     </message>
     <message>
         <location filename="../qml/Main.qml" line="6286"/>
-        <source>gamescope is not installed (on Arch: sudo pacman -S gamescope). Until it is, games start without it.</source>
-        <translation>gamescope nu e instalat (pe Arch: sudo pacman -S gamescope). Până atunci, jocurile pornesc fără el.</translation>
+        <source>gamescope is not installed (%1). Until it is, games start without it.</source>
+        <translation>gamescope nu e instalat (%1). Până atunci, jocurile pornesc fără el.</translation>
     </message>
     <message>
         <location filename="../qml/Main.qml" line="6018"/>
@@ -7748,8 +7748,8 @@
     </message>
     <message>
         <location filename="../toastsi18n.py" line="188"/>
-        <source>Linking a Blizzard account needs Qt WebEngine (sudo pacman -S qt6-webengine)</source>
-        <translation>Legarea unui cont Blizzard cere Qt WebEngine (sudo pacman -S qt6-webengine)</translation>
+        <source>Linking a Blizzard account needs Qt WebEngine (%1)</source>
+        <translation>Legarea unui cont Blizzard cere Qt WebEngine (%1)</translation>
     </message>
     <message>
         <location filename="../toastsi18n.py" line="189"/>
@@ -7933,8 +7933,8 @@
     </message>
     <message>
         <location filename="../toastsi18n.py" line="225"/>
-        <source>The Proton test measures with MangoHud: install it first (on Arch: sudo pacman -S mangohud lib32-mangohud)</source>
-        <translation>Testul Proton măsoară cu MangoHud: instalează-l mai întâi (pe Arch: sudo pacman -S mangohud lib32-mangohud)</translation>
+        <source>The Proton test measures with MangoHud: install it first (%1)</source>
+        <translation>Testul Proton măsoară cu MangoHud: instalează-l mai întâi (%1)</translation>
     </message>
     <message>
         <location filename="../toastsi18n.py" line="226"/>

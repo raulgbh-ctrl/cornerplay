@@ -6283,7 +6283,7 @@ ApplicationWindow {
                                 label: qsTr("Gamescope for every game")
                                 hint: app.hasGamescope
                                       ? qsTr("Runs Epic, GOG, Amazon and added games inside Valve's gamescope: a clean full-screen window at your screen's resolution, or drawn smaller and upscaled with FSR for more frames. Each game can choose its own under Options. Steam games: use Steam's launch options.")
-                                      : qsTr("gamescope is not installed (on Arch: sudo pacman -S gamescope). Until it is, games start without it.")
+                                      : qsTr("gamescope is not installed (%1). Until it is, games start without it.").arg(app.installHint("gamescope"))
                                 KCombo {
                                     theme: win.theme; Layout.fillWidth: true
                                     model: [{ label: qsTr("Off"), value: "" }, { label: qsTr("Full screen at screen resolution"), value: "fullscreen" },

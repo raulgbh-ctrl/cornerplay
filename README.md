@@ -96,14 +96,18 @@ Blizzard's own app:
    **Accounts > Battle.net > Link account**.
 
 If the Battle.net app closes as soon as it opens, your GPU has no Vulkan driver: the
-**Health check** in the sidebar says which package to install (for Intel graphics on Arch:
-`vulkan-intel lib32-vulkan-intel`).
+**Health check** in the sidebar says which package to install on your distribution (for Intel
+graphics: `vulkan-intel lib32-vulkan-intel` on Arch, `mesa-vulkan-drivers mesa-vulkan-drivers:i386`
+on Debian/Ubuntu).
 
 ## Requirements
 
-- **Linux**, 64-bit. Developed and tested on **CachyOS (Arch)** with Hyprland and KDE Plasma; the
-  installer also knows Debian/Ubuntu (apt), Fedora (dnf) and openSUSE (zypper), which have had
-  less testing. Steam Deck: works in Desktop Mode and from Game Mode (add it to Steam from
+- **Linux**, 64-bit. Developed on **CachyOS (Arch)** with Hyprland and KDE Plasma. The installer
+  is tested from a clean install on **Ubuntu 22.04 and 24.04, Debian 12 and 13, Fedora 43 and
+  openSUSE Tumbleweed**: it installs Steam the way each one does it (Ubuntu's package with 32-bit
+  support switched on, Valve's `steam.deb` on Debian, RPM Fusion or Flathub on Fedora), a portable
+  umu-launcher where the distribution has none, and any system library Qt is missing. The Health
+  check names each distribution's own packages. Steam Deck: works in Desktop Mode and from Game Mode (add it to Steam from
   Settings > Library), lightly tested.
 - **Python 3.10+** and **PySide6 (Qt 6.6 or newer)**. If your system has no PySide6, the installer
   sets up a private copy (about 260 MB).

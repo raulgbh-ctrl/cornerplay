@@ -12,6 +12,7 @@
 #          --session  (also add "Cornerplay (TV)" to the login screen: TV mode as the whole
 #                      session, in gamescope, like a console; needs sudo)
 set -eu
+PATH=$PATH:/usr/games   # Debian/Ubuntu put Steam there
 
 SRC=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PREFIX=${PREFIX:-$HOME/.local}
@@ -109,6 +110,7 @@ pkg_for() {  # pkg_for <thing>: this distribution's package for it ("" when unkn
         yaml:pacman) echo python-yaml ;;      yaml:apt-get) echo python3-yaml ;;
         yaml:dnf) echo python3-pyyaml ;;      yaml:zypper) echo python3-PyYAML ;;
         steam:pacman) echo steam ;;           steam:apt-get) echo steam-installer ;;
+        steam:dnf) echo steam ;;              steam:zypper) echo steam ;;   # dnf: only with RPM Fusion
         umu:pacman) echo umu-launcher ;;
         sdl:pacman) echo sdl2-compat ;;       sdl:apt-get) echo libsdl2-2.0-0 ;;
         sdl:dnf) echo SDL2 ;;                 sdl:zypper) echo libSDL2-2_0-0 ;;
@@ -176,9 +178,9 @@ if [ "$SYSTEM_PY" != 0 ] && ! python3 -c "import yaml" >/dev/null 2>&1; then
     want_pkg yaml "save backups" || true
 fi
 
-STEAM_FLATPAK=0
+STEAM_FLATPAK=0; SYSTEM_STEAM=0
 if ! have steam && [ ! -d "$HOME/.var/app/com.valvesoftware.Steam" ]; then
-    want_pkg steam "Steam" || { have flatpak && STEAM_FLATPAK=1; }
+    if want_pkg steam "Steam"; then SYSTEM_STEAM=1; else have flatpak && STEAM_FLATPAK=1; fi
 fi
 
 UMU_PORTABLE=0
@@ -241,6 +243,18 @@ want() {  # want "question": yes when the answer above was "all", else ask (one 
 # ---------------------------------------------------------------- system packages
 if [ -n "$PKGS" ] && want "Install the system packages ($PKGS)?"; then
     say "Installing system packages"
+    if [ "$PM" = apt-get ] && echo " $PKGS " | grep -q " steam-installer "; then
+        # Steam is 32-bit: Debian and Ubuntu need the i386 architecture switched on first.
+        if ! dpkg --print-foreign-architectures | grep -qx i386; then
+            note "Switching on 32-bit packages (Steam needs them)"
+            sudo dpkg --add-architecture i386 && sudo apt-get update -qq || true
+        fi
+        # Debian keeps steam-installer in "contrib", which is off by default: use Valve's own package.
+        if ! apt-cache policy steam-installer 2>/dev/null | grep -q 'Candidate: [0-9]'; then
+            PKGS=$(echo " $PKGS " | sed 's/ steam-installer / /'); PKGS=$(echo $PKGS)
+            STEAM_VALVE_DEB=1
+        fi
+    fi
     cmd=$(pm_cmd $PKGS)
     if ! $cmd; then
         # One package can fail (on Arch, Steam needs the multilib repository): the others still go in.
@@ -250,11 +264,39 @@ if [ -n "$PKGS" ] && want "Install the system packages ($PKGS)?"; then
             note "pacman cannot find 'steam': enable [multilib] in /etc/pacman.conf, run 'sudo pacman -Syu', then this installer again."
         fi
     fi
+    if [ "${STEAM_VALVE_DEB:-0}" = 1 ]; then
+        note "Installing Steam from Valve (steam.deb from steampowered.com)"
+        deb=$(mktemp -d "${TMPDIR:-/tmp}/cornerplay-steam.XXXXXX")
+        if python3 -c 'import sys, urllib.request; urllib.request.urlretrieve(sys.argv[1], sys.argv[2])' \
+               https://cdn.akamai.steamstatic.com/client/installer/steam.deb "$deb/steam.deb" \
+           && chmod 755 "$deb" && chmod 644 "$deb/steam.deb" && sudo apt-get install -y "$deb/steam.deb"; then
+            :
+        else
+            note "Not installed: Steam (Valve's package)"
+        fi
+        rm -rf "$deb"
+    fi
+    # No Steam package worked (Fedora without RPM Fusion, say): Flathub's Steam instead.
+    if [ "$SYSTEM_STEAM" = 1 ] && ! have steam && have flatpak; then STEAM_FLATPAK=1; fi
 elif [ -n "$PKGS" ]; then
     note "Skipped. To add them later: $(pm_cmd $PKGS)"
 fi
 
 # ---------------------------------------------------------------- Python
+qt_libs() {  # qt_libs "modules": install system libraries pip's Qt needs but this PC lacks
+    # Fedora and openSUSE install a library by the file name it provides; minimal installs
+    # (and some spins) can lack one or two that every full desktop has.
+    case $PM in dnf|zypper) ;; *) return 0 ;; esac
+    [ "$CAN_SUDO" = 1 ] || return 0
+    tries=0
+    while [ $tries -lt 12 ]; do
+        lib=$("$PYTHON" -c "import $1" 2>&1 | sed -n 's/.*ImportError: \(lib[^ :]*\.so[^ :]*\): cannot open.*/\1/p' | head -n 1)
+        [ -n "$lib" ] || return 0
+        note "Qt needs $lib: installing it"
+        $(pm_cmd "$lib()(64bit)") >/dev/null 2>&1 || { note "Could not install $lib"; return 1; }
+        tries=$((tries + 1))
+    done
+}
 PYTHON=python3
 if [ "$FORCE_VENV" = 0 ] && uses_system_python; then
     note "Using the system's PySide6 (Qt 6) and requests."
@@ -274,6 +316,7 @@ else
         || die "Could not download PySide6. Check your internet connection and run this again."
     PYTHON=$LIB/venv/bin/python
     WEB_PIP=1   # the system's Qt did not come in after all: offer the sign-in window here
+    qt_libs "PySide6.QtGui, PySide6.QtQml, PySide6.QtQuick" || true
 fi
 
 # ---------------------------------------------------------------- files
@@ -397,6 +440,7 @@ if [ "$WEB_PIP" = 1 ] && ! "$PYTHON" -c 'import PySide6.QtWebEngineQuick' >/dev/
     "$PYTHON" -m pip install --quiet "PySide6-Addons==$v" >/dev/null 2>&1
     "$PYTHON" -c 'import PySide6.QtWebEngineQuick' >/dev/null 2>&1 \
         || "$PYTHON" -m pip install --quiet "PySide6-WebEngine==$v.*" >/dev/null 2>&1
+    qt_libs "PySide6.QtWebEngineQuick" || true
     "$PYTHON" -c 'import PySide6.QtWebEngineQuick' >/dev/null 2>&1 \
         && note "Built-in sign-in window: added" || note "Could not add it; sign-in will use your browser instead."
 fi

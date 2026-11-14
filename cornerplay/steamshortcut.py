@@ -19,6 +19,7 @@ from .config import HOME
 NAME = "Cornerplay"
 ROOTS = [HOME / ".local/share/Steam", HOME / ".steam/steam", HOME / ".steam/root",
          HOME / ".var/app/com.valvesoftware.Steam/.local/share/Steam",
+         HOME / "snap/steam/common/.local/share/Steam",
          HOME / ".var/app/com.valvesoftware.Steam/data/Steam"]
 
 

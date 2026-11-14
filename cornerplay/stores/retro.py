@@ -12,7 +12,7 @@ import os
 import re
 from pathlib import Path
 
-from .. import host
+from .. import host, pkgs
 from ..config import HOME, XDG_CONFIG, settings
 from ..runner import StoreError
 from .base import Command, Game, Store
@@ -164,7 +164,7 @@ class Retro(Store):
     def problem(self):
         if not rom_dirs():
             return ""
-        return "" if retroarch()[0] else "RetroArch is not installed (sudo pacman -S retroarch, or RetroArch from Flathub)"
+        return "" if retroarch()[0] else f"RetroArch is not installed ({pkgs.hint('retroarch')})"
 
     def logged_in(self):
         return True

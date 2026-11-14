@@ -72,7 +72,8 @@ def compat():
     wine = shutil.which("wine")
     if wine:
         return "wine", wine
-    raise StoreError("umu-launcher is not installed (sudo pacman -S umu-launcher)")
+    from . import pkgs
+    raise StoreError(f"umu-launcher is not installed ({pkgs.hint('umu-launcher')})")
 
 
 def prefix_path(store: str, game_id: str, create: bool = False) -> str:
@@ -168,9 +169,9 @@ def perf_env(store: str, game_id: str) -> dict:
 
 
 # Vulkan: DXVK and VKD3D (how Proton draws Windows games) need the GPU's Vulkan driver.
-_VENDORS = {"0x8086": ("Intel", "intel", "vulkan-intel lib32-vulkan-intel"),
-            "0x1002": ("AMD", "radeon", "vulkan-radeon lib32-vulkan-radeon"),
-            "0x10de": ("NVIDIA", "nvidia", "nvidia-utils lib32-nvidia-utils")}
+_VENDORS = {"0x8086": ("Intel", "intel", "vulkan-intel"),   # (name, ICD file word, pkgs.NAMES key)
+            "0x1002": ("AMD", "radeon", "vulkan-amd"),
+            "0x10de": ("NVIDIA", "nvidia", "vulkan-nvidia")}
 
 
 def _vulkan_gpus() -> int:
@@ -224,7 +225,10 @@ def vulkan_problem() -> str:
             except OSError:
                 pass
         missing = [_VENDORS[v] for v in sorted(vendors) if v in _VENDORS and _VENDORS[v][1] not in icds]
-        fix = (f"Install the {missing[0][0]} Vulkan driver: sudo pacman -S {missing[0][2]}" if missing
+        from . import pkgs
+        cmd = pkgs.install_command(missing[0][2]) if missing else ""
+        fix = (f"Install the {missing[0][0]} Vulkan driver: {cmd}" if cmd
+               else f"Install the {missing[0][0]} Vulkan driver." if missing
                else "Check that your GPU's Vulkan driver is installed and the GPU is switched on.")
         msg = "Vulkan has no GPU to draw with, so Windows games and the Battle.net app will crash. " + fix
     _vulkan_cache = msg

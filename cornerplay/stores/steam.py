@@ -1,10 +1,11 @@
 """Steam: reads the local client's libraries; installs and launches via steam:// URLs."""
 import glob
 import os
+from pathlib import Path
 
 from ..net import redact, requests
 
-from .. import host
+from .. import host, pkgs
 from .. import vdf
 import json
 
@@ -18,6 +19,7 @@ ROOTS = [
     HOME / ".steam/steam",
     HOME / ".steam/root",
     HOME / f".var/app/{FLATPAK_ID}/.local/share/Steam",
+    HOME / "snap/steam/common/.local/share/Steam",  # Ubuntu's Snap Steam
     HOME / f".var/app/{FLATPAK_ID}/data/Steam",
 ]
 # Runtimes and tools that live in steamapps but are not games.
@@ -50,14 +52,20 @@ class Steam(Store):
 
     def client(self):
         exe = host.which("steam")
+        if not exe and not host.IN_FLATPAK and os.access("/usr/games/steam", os.X_OK):
+            exe = "/usr/games/steam"  # Debian/Ubuntu's place, not always on PATH from a menu
         if exe:
             return host.argv([exe])
-        if host.which("flatpak") and (HOME / f".var/app/{FLATPAK_ID}").is_dir():
+        # Flathub's Steam: run once (its data folder), or installed but not started yet
+        # (a finished install has a "current" link; a failed one leaves an empty folder)
+        installed = [HOME / f".var/app/{FLATPAK_ID}", HOME / f".local/share/flatpak/app/{FLATPAK_ID}/current",
+                     Path(f"/var/lib/flatpak/app/{FLATPAK_ID}/current")]
+        if host.which("flatpak") and any(p.exists() for p in installed):
             return host.argv(["flatpak", "run", FLATPAK_ID])
         return None
 
     def problem(self):
-        return "" if self.client() else "Steam is not installed (sudo pacman -S steam)"
+        return "" if self.client() else f"Steam is not installed ({pkgs.hint('steam')})"
 
     def _users(self) -> dict:
         root = self.root()

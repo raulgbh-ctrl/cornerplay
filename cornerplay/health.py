@@ -1,24 +1,20 @@
 """Health check: is everything a game needs in place? One row per check, with a fix.
 
 Each row: {"id", "name", "ok": True/False/None (None = not needed here), "detail", "fix": {...}}
-fix kinds: {"kind": "command", "command": "sudo pacman -S ..."}  (shown, copied; never run as root)
+fix kinds: {"kind": "command", "command": "sudo apt-get install ..."}  (shown, copied; never run as root)
            {"kind": "action", "action": "<app slot name>", "arg": "...", "label": "..."}
 """
 import os
 
-from . import host, runner, storage
+from . import host, pkgs, runner, storage
 from .config import find_tool, settings
 from .runner import StoreError
 
 
-def _pm_install(pkgs):
-    if host.which("pacman"):
-        return f"sudo pacman -S --needed {pkgs}"
-    if host.which("apt-get"):
-        return f"sudo apt-get install {pkgs}"
-    if host.which("dnf"):
-        return f"sudo dnf install {pkgs}"
-    return pkgs
+def _install(thing):
+    """A fix that installs `thing` the way this distribution does it (pkgs.py), or none."""
+    cmd = pkgs.install_command(thing)
+    return {"kind": "command", "command": cmd} if cmd else {}
 
 
 def checks(stores, gamepad_available=True):
@@ -53,8 +49,9 @@ def checks(stores, gamepad_available=True):
         kind, path = runner.compat()
         add("umu", "Proton runner (umu-launcher)", True, f"{os.path.basename(path)} found" + ("" if kind == "umu" else " (plain Wine)"))
     except StoreError as e:
+        # Packaged on Arch; elsewhere a portable copy downloads like the store tools.
         add("umu", "Proton runner (umu-launcher)", False, str(e),
-            {"kind": "command", "command": _pm_install("umu-launcher")})
+            _install("umu-launcher") or {"kind": "action", "action": "fetchBackends", "label": "Download"})
 
     # Proton version
     versions = runner.proton_versions()
@@ -76,13 +73,14 @@ def checks(stores, gamepad_available=True):
         add("retroarch", "RetroArch (retro games)", bool(argv) and not no_core,
             ("Missing" if not argv else f"No core yet for: {', '.join(no_core)} (RetroArch > Online Updater > Core Downloader)"
              if no_core else f"Ready for {len(systems)} system{'s' if len(systems) != 1 else ''}"),
-            {} if argv else {"kind": "command", "command": _pm_install("retroarch")})
+            {} if argv else _install("retroarch"))
 
     # Steam client
     steam = stores.get("steam")
     has_steam = bool(steam and steam.client())
-    add("steam", "Steam", has_steam, "Installed" if has_steam else "Not installed",
-        {} if has_steam else {"kind": "command", "command": _pm_install("steam")})
+    where = pkgs.note("steam") if pkgs.install_command("steam").startswith("sudo") else ""
+    add("steam", "Steam", has_steam, "Installed" if has_steam else "Not installed" + (f" (install it {where})" if where else ""),
+        {} if has_steam else _install("steam"))
 
     # Sign-ins
     for sid in ("steam", "epic", "gog", "amazon", "battlenet", "humble"):
@@ -114,7 +112,7 @@ def checks(stores, gamepad_available=True):
             add("yaml", "Save backups", True, "Ready (save locations for 20,000+ games)")
         except ImportError:
             add("yaml", "Save backups", False, "Needs PyYAML to read where games keep their saves",
-                {"kind": "command", "command": _pm_install("python-yaml")})
+                _install("yaml"))
 
     # Built-in sign-in window, controllers
     from PySide6.QtCore import QLibraryInfo
@@ -123,10 +121,10 @@ def checks(stores, gamepad_available=True):
     web = (qml / "QtWebEngine" / "qmldir").is_file()
     add("webengine", "Built-in sign-in window", web if web else None,
         "Available" if web else "Missing: sign-ins open your browser instead",
-        {} if web else {"kind": "command", "command": _pm_install("qt6-webengine")})
+        {} if web else _install("webengine"))
     from . import sdl
     add("sdl", "Controller support (SDL2)", True if gamepad_available else False,
         "Ready" if gamepad_available else
         ("Being set up (downloading a private SDL2)" if sdl.can_fetch() else "SDL2 missing: controllers do nothing"),
-        {} if gamepad_available or sdl.can_fetch() else {"kind": "command", "command": _pm_install("sdl2-compat")})
+        {} if gamepad_available or sdl.can_fetch() else _install("sdl2"))
     return rows
