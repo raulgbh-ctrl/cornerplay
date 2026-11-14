@@ -26,6 +26,7 @@ package() {
   install -d "$pkgdir/usr/lib/$pkgname"
   cp -r cornerplay "$pkgdir/usr/lib/$pkgname/"
   find "$pkgdir/usr/lib/$pkgname" -name '__pycache__' -prune -exec rm -rf {} +
+  chmod -R u=rwX,go=rX "$pkgdir/usr/lib/$pkgname"   # whatever the checkout's modes, everyone can read it
 
   install -Dm755 /dev/stdin "$pkgdir/usr/bin/cornerplay" <<SH
 #!/bin/sh

@@ -106,7 +106,10 @@ on Debian/Ubuntu).
   is tested from a clean install on **Ubuntu 22.04 and 24.04, Linux Mint 22, Debian 12 and 13, Fedora 43 and
   openSUSE Tumbleweed**: it installs Steam the way each one does it (Ubuntu's package with 32-bit
   support switched on, Valve's `steam.deb` on Debian, RPM Fusion or Flathub on Fedora), a portable
-  umu-launcher where the distribution has none, and any system library Qt is missing. The Health
+  umu-launcher where the distribution has none, and any system library Qt is missing. It also adds
+  what an Arch install gets from the AUR package's optional dependencies, where the release has them:
+  Qt Multimedia (trailers, sounds), MangoHud, GameMode, gamescope, notifications, bsdtar/7-Zip (mod
+  archives) and 32-bit Vulkan drivers for Intel and AMD GPUs. The Health
   check names each distribution's own packages. Steam Deck: works in Desktop Mode and from Game Mode (add it to Steam from
   Settings > Library), lightly tested.
 - **Python 3.10+** and **PySide6 (Qt 6.6 or newer)**. If your system has no PySide6, the installer

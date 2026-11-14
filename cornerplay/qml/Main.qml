@@ -830,12 +830,31 @@ ApplicationWindow {
                     onClicked: addBox.show()
                 }
                 // Downloads: only while something downloads, waits or is paused.
+                // While one runs it shows how far it is, with a thin bar along the bottom (as Heroic does).
                 Rectangle {
+                    id: dlButton
                     visible: app.downloads.length > 0
-                    width: 38; height: 38; radius: 19
-                    color: dlHover.hovered || downloadsBox.opened ? theme.surfaceContainerHigh : "transparent"
-                    Icon { anchors.centerIn: parent; name: "download"; size: 17; color: theme.primary }
+                    readonly property var running: app.downloads.find(d => d.state === "running") || null
+                    readonly property real pct: running && running.progress >= 0 ? running.progress : -1
+                    width: pct >= 0 ? dlPct.implicitWidth + 52 : 38; height: 38; radius: 19
+                    Behavior on width { enabled: !app.still; NumberAnimation { duration: 160 } }
+                    color: dlHover.hovered || downloadsBox.opened ? theme.surfaceContainerHigh
+                           : dlButton.pct >= 0 ? Qt.alpha(theme.surfaceContainerHigh, 0.6) : "transparent"
+                    clip: true
+                    Icon { x: dlButton.pct >= 0 ? 12 : (parent.width - width) / 2; anchors.verticalCenter: parent.verticalCenter
+                           name: "download"; size: 17; color: theme.primary }
+                    Text { id: dlPct; visible: dlButton.pct >= 0; x: 34; anchors.verticalCenter: parent.verticalCenter
+                           text: Math.floor(dlButton.pct) + "%"; color: theme.onSurface; font.pixelSize: 12; font.weight: Font.DemiBold
+                           font.features: { "tnum": 1 } }
                     Rectangle {
+                        visible: dlButton.pct >= 0
+                        anchors { left: parent.left; bottom: parent.bottom; leftMargin: 12; bottomMargin: 6 }
+                        width: (parent.width - 24) * Math.max(0, dlButton.pct) / 100; height: 2; radius: 1
+                        color: theme.primary
+                        Behavior on width { enabled: !app.still; NumberAnimation { duration: 300 } }
+                    }
+                    Rectangle {
+                        visible: dlButton.pct < 0
                         anchors { right: parent.right; top: parent.top; rightMargin: 2; topMargin: 2 }
                         width: Math.max(16, dlCount.implicitWidth + 8); height: 16; radius: 8
                         color: theme.primary
@@ -1679,6 +1698,7 @@ ApplicationWindow {
                         required property real playtime
                         required property real lastPlayed
                         required property real sizeBytes
+                        required property string job
                         width: table.width; height: 56
                         radius: 10
                         color: rowHover.hovered ? theme.surfaceContainerHigh : index % 2 ? Qt.alpha(theme.surfaceContainerLow, 0.6) : "transparent"
@@ -1689,8 +1709,30 @@ ApplicationWindow {
                                 width: table.titleW; height: parent.height
                                 RoundedArt { x: 8; anchors.verticalCenter: parent.verticalCenter; width: 30; height: 44; radius: 5
                                              ArtImage { anchors.fill: parent; sources: trow.covers || []; sourceSize.width: 60 } }
-                                Text { x: 56; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 64
+                                Text { x: 56; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 64 - (rowPlay.visible ? rowPlay.width + 12 : 0)
                                        text: trow.title; color: theme.onSurface; font.pixelSize: 14; elide: Text.ElideRight }
+                                // Play / Install at the end of the title while the row is pointed at (as in Lutris).
+                                Rectangle {
+                                    id: rowPlay
+                                    visible: rowHover.hovered && trow.job === ""
+                                    anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
+                                    height: 30; radius: 15
+                                    width: rowPlayRow.implicitWidth + 24
+                                    color: rowPlayHover.hovered ? Qt.lighter(theme.primary, 1.08) : theme.primary
+                                    Row {
+                                        id: rowPlayRow
+                                        anchors.centerIn: parent; spacing: 6
+                                        Icon { anchors.verticalCenter: parent.verticalCenter; name: trow.installed ? "play" : "download"; size: 14; color: theme.onPrimary }
+                                        Text { anchors.verticalCenter: parent.verticalCenter; text: trow.installed ? qsTr("Play") : qsTr("Install")
+                                               color: theme.onPrimary; font.pixelSize: 12; font.weight: Font.DemiBold }
+                                    }
+                                    HoverHandler { id: rowPlayHover; cursorShape: Qt.PointingHandCursor }
+                                    TapHandler {
+                                        gesturePolicy: TapHandler.WithinBounds
+                                        grabPermissions: PointerHandler.CanTakeOverFromAnything
+                                        onTapped: win.activate(trow.key)
+                                    }
+                                }
                             }
                             Row {
                                 width: 140; height: parent.height; spacing: 6
@@ -1710,8 +1752,8 @@ ApplicationWindow {
                         }
                         HoverHandler { id: rowHover; cursorShape: Qt.PointingHandCursor }
                         TapHandler {
-                            onSingleTapped: win.select(trow.key)
-                            onDoubleTapped: win.activate(trow.key)
+                            onSingleTapped: if (!rowPlayHover.hovered) win.select(trow.key)
+                            onDoubleTapped: if (!rowPlayHover.hovered) win.activate(trow.key)
                             onLongPressed: gameMenu.showFor(trow.key, trow, point.position)
                         }
                         TapHandler {

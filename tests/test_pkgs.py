@@ -58,3 +58,14 @@ def test_private_python_uses_pip(distro):
     distro("apt-get", venv=True)
     assert "-m pip install" in pkgs.install_command("webengine")
     assert pkgs.install_command("yaml").endswith("-m pip install pyyaml")
+
+
+def test_mangohud_32bit_missing(tmp_path):
+    from cornerplay import health
+    d = tmp_path / "layers"
+    d.mkdir()
+    assert not health.mangohud_32bit_missing([str(d)])          # no MangoHud at all
+    (d / "MangoHud.x86_64.json").write_text("{}")
+    assert health.mangohud_32bit_missing([str(d)])              # 64-bit only
+    (d / "MangoHud.x86.json").write_text("{}")
+    assert not health.mangohud_32bit_missing([str(d)])          # both halves

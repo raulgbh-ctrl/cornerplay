@@ -5,7 +5,7 @@
 Actions run one after another, 0.6 s apart after a 2.5 s start:
     wait:MS       wait longer          shot:NAME     save OUTDIR/NAME.png
     key:Name      a key (Qt.Key_Name)  ctrl:X        Ctrl+X (ctrl:Comma for Ctrl+,)
-    type:text     type text            click:x,y     a click
+    type:text     type text            click:x,y     a click         hover:x,y   move the pointer there
     open:NAME     call show() on the object with that objectName
     opts:KEY      open a game's Options (opts:custom:abc123)
     panel:NAME    save the in-game panel   quick:NAME    save quick access over a game (cshift:A opens it)
@@ -123,6 +123,9 @@ def run(*_):
                 inst._recap(v, 4380)
             elif k == "size":
                 W, H = map(int, v.split("x")); w.setMinimumSize(w.minimumSize().boundedTo(__import__("PySide6.QtCore", fromlist=["QSize"]).QSize(W, H))); w.resize(W, H)
+            elif k == "hover":
+                x, y = map(float, v.split(","))
+                QGuiApplication.sendEvent(w, QMouseEvent(QEvent.MouseMove, QPointF(x, y), QPointF(x, y), Qt.NoButton, Qt.NoButton, Qt.NoModifier))
             elif k == "click":
                 x, y = map(float, v.split(","))
                 for typ in (QEvent.MouseButtonPress, QEvent.MouseButtonRelease):

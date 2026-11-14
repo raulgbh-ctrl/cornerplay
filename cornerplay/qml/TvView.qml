@@ -821,6 +821,7 @@ FocusScope {
             onCountChanged: { if (currentIndex < 0 && count > 0) currentIndex = 0; tv.sync() }
             delegate: GameCard {
                 id: tvCard
+                quickAction: false   // TV mode: the controller's A button plays
                 required property int index
                 width: grid.cellWidth
                 height: grid.cellHeight

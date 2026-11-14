@@ -20,6 +20,7 @@ NAMES = {
     "yaml": {"pacman": "python-yaml", "apt-get": "python3-yaml", "dnf": "python3-pyyaml", "zypper": "python3-PyYAML"},
     "sdl2": {"pacman": "sdl2-compat", "apt-get": "libsdl2-2.0-0", "dnf": "SDL2", "zypper": "libSDL2-2_0-0"},
     "mangohud": {"pacman": "mangohud lib32-mangohud", "apt-get": "mangohud", "dnf": "mangohud", "zypper": "mangohud"},
+    "mangohud32": {"pacman": "lib32-mangohud", "apt-get": "mangohud:i386", "dnf": "mangohud.i686", "zypper": "mangohud-32bit"},
     "gamescope": {"pacman": "gamescope", "apt-get": "gamescope", "dnf": "gamescope", "zypper": "gamescope"},
     "retroarch": {"pacman": "retroarch", "apt-get": "retroarch", "dnf": "retroarch", "zypper": "retroarch"},
     "prismlauncher": {"pacman": "prismlauncher", "zypper": "prismlauncher"},

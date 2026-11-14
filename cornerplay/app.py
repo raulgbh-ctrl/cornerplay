@@ -5223,7 +5223,8 @@ class AioLaunch(QObject):
 
     def _downloads(self):
         rows = []
-        for key in list(self.procs):
+        # (--demo has a job with no process behind it: list it too, so the demo shows downloads.)
+        for key in list(self.procs) + ([k for k in self.model.jobs if k not in self.procs] if self.demo else []):
             job = self.model.jobs.get(key) or {}
             if job.get("kind") in self.DOWNLOADS:
                 rows.append(self._download_row(key, job, "running"))

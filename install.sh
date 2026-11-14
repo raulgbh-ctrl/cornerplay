@@ -118,6 +118,30 @@ pkg_for() {  # pkg_for <thing>: this distribution's package for it ("" when unkn
         xcb:dnf) echo xcb-util-cursor ;;      xcb:zypper) echo libxcb-cursor0 ;;
         web:pacman) echo qt6-webengine ;;     web:apt-get) echo python3-pyside6.qtwebenginequick ;;
         web:dnf) echo "python3-pyside6 qt6-qtwebengine" ;;  web:zypper) echo "python3-pyside6 qt6-webengine" ;;
+        # The extras an Arch install gets from the package's optional dependencies; packages a
+        # release does not have are dropped before installing (avail), so lists can offer several.
+        media:pacman) echo qt6-multimedia ;;
+        media:apt-get) echo "python3-pyside6.qtmultimedia qml6-module-qtmultimedia" ;;
+        media:dnf) echo qt6-qtmultimedia ;;   media:zypper) echo qt6-multimedia-imports ;;
+        mangohud:pacman) echo "mangohud lib32-mangohud" ;;
+        mangohud:apt-get) echo "mangohud mangohud:i386" ;;
+        mangohud:dnf) echo "mangohud mangohud.i686" ;;
+        mangohud:zypper) echo "mangohud mangohud-32bit" ;;
+        mangohud32:pacman) echo lib32-mangohud ;;    mangohud32:apt-get) echo "mangohud:i386" ;;
+        mangohud32:dnf) echo mangohud.i686 ;;        mangohud32:zypper) echo mangohud-32bit ;;
+        gamemode:pacman) echo "gamemode lib32-gamemode" ;;
+        gamemode:*) echo gamemode ;;
+        gamescope:*) echo gamescope ;;
+        notify:pacman) echo libnotify ;;      notify:apt-get) echo libnotify-bin ;;
+        notify:dnf) echo libnotify ;;         notify:zypper) echo libnotify-tools ;;
+        unpack:pacman) echo "libarchive 7zip" ;;
+        unpack:apt-get) echo "libarchive-tools 7zip p7zip-full" ;;
+        unpack:dnf) echo "bsdtar 7zip p7zip" ;;
+        unpack:zypper) echo "bsdtar 7zip" ;;
+        vk32-intel:pacman) echo lib32-vulkan-intel ;;   vk32-amd:pacman) echo lib32-vulkan-radeon ;;
+        vk32-*:apt-get) echo "mesa-vulkan-drivers:i386" ;;
+        vk32-*:dnf) echo mesa-vulkan-drivers.i686 ;;
+        vk32-intel:zypper) echo libvulkan_intel-32bit ;; vk32-amd:zypper) echo libvulkan_radeon-32bit ;;
         *) echo "" ;;
     esac
 }
@@ -128,6 +152,20 @@ pm_cmd() {  # the install command for these packages
         dnf)     echo "sudo dnf install -y $*" ;;
         zypper)  echo "sudo zypper install -y $*" ;;
     esac
+}
+avail() {  # avail <package>: this distribution's repositories have it (installed or not)
+    case $PM in
+        pacman)  pacman -Si "$1" >/dev/null 2>&1 || pacman -Qi "$1" >/dev/null 2>&1 ;;
+        apt-get) apt-cache policy "$1" 2>/dev/null | grep -q 'Candidate: [0-9]' ;;
+        dnf)     dnf -q info "$1" >/dev/null 2>&1 ;;
+        zypper)  zypper -q -n info "$1" 2>/dev/null | grep -q '^Name' ;;
+        *) return 1 ;;
+    esac
+}
+gpu_vendors() {  # intel / amd, once each, for the GPUs in this PC
+    for v in /sys/class/drm/card*/device/vendor; do cat "$v" 2>/dev/null; done | sort -u | while read -r id; do
+        case $id in 0x8086) echo intel ;; 0x1002) echo amd ;; esac
+    done
 }
 
 # ---------------------------------------------------------------- what is needed
@@ -208,6 +246,34 @@ elif [ "$SYSTEM_PY" = 0 ]; then
     WEB_PIP=1   # checked again once the private environment exists
 fi
 
+# Extras, so every distribution gets what an Arch install has: trailers and sounds (Qt Multimedia),
+# the FPS counter, GameMode, gamescope, notifications, mod archives, and 32-bit Vulkan drivers
+# (Proton runs 32-bit games, Mafia II say, on them). Missing from a release? Simply left out.
+EXTRAS=""; EXTRA_WHAT=""
+want_extra() {  # want_extra <thing> "what it is for"
+    [ "$CAN_SUDO" = 1 ] || return 0
+    p=$(pkg_for "$1"); [ -n "$p" ] || return 0
+    EXTRAS="$EXTRAS $p"; EXTRA_WHAT="${EXTRA_WHAT:+$EXTRA_WHAT, }$2"
+}
+if [ "$SYSTEM_PY" != 0 ] && ! python3 -c 'import PySide6.QtMultimedia' >/dev/null 2>&1; then
+    want_extra media "trailers and sounds"
+fi
+VK32=0
+if ! have mangohud; then want_extra mangohud "FPS counter"
+elif [ -e /usr/share/vulkan/implicit_layer.d/MangoHud.x86_64.json ] && [ ! -e /usr/share/vulkan/implicit_layer.d/MangoHud.x86.json ]; then
+    want_extra mangohud32 "FPS counter in 32-bit games"; VK32=1   # Debian/Ubuntu: an i386 package
+fi
+have gamemoderun || want_extra gamemode "GameMode"
+have gamescope || want_extra gamescope "gamescope"
+have notify-send || want_extra notify "notifications"
+have bsdtar || have 7z || want_extra unpack "mod archives"
+for v in $(gpu_vendors); do
+    case $v in intel) pat='intel*i686*' ;; amd) pat='radeon*i686*' ;; esac
+    ls /usr/share/vulkan/icd.d/$pat >/dev/null 2>&1 || { want_extra "vk32-$v" "32-bit graphics"; VK32=1; }
+done
+case " $EXTRAS " in *:i386*) VK32=1 ;; esac   # any i386 package needs Debian's 32-bit architecture on
+EXTRA_WHAT=$(echo "$EXTRA_WHAT" | sed 's/32-bit graphics, 32-bit graphics/32-bit graphics/')
+
 BACKENDS=0
 [ "$(uname -m)" = x86_64 ] && BACKENDS=1
 TO_STEAM=0
@@ -216,8 +282,10 @@ ls "$HOME"/.local/share/Steam/userdata/[0-9]* "$HOME"/.var/app/com.valvesoftware
 # ---------------------------------------------------------------- one question
 PKGS=$(echo $PKGS)  # tidy spaces
 say "Cornerplay will set up"
-[ "$SYSTEM_PY" = 0 ] && note "* Qt for Python in a private environment (about 200 MB)"
+EXTRAS=$(echo $EXTRAS)
+[ "$SYSTEM_PY" = 0 ] && note "* Qt for Python in a private environment, with trailers and sounds (about 260 MB)"
 [ -n "$PKGS" ] && note "* System packages for $PKG_WHAT: $PKGS  (one password prompt)"
+[ -n "$EXTRAS" ] && note "* Game extras ($EXTRA_WHAT), whichever this release has"
 [ "$STEAM_FLATPAK" = 1 ] && note "* Steam from Flathub, for your user"
 [ "$UMU_PORTABLE" = 1 ] && note "* umu-launcher (Proton for non-Steam games), portable, in $DATA/bin"
 note "* Controller support (SDL2)"
@@ -241,22 +309,33 @@ want() {  # want "question": yes when the answer above was "all", else ask (one 
 }
 
 # ---------------------------------------------------------------- system packages
-if [ -n "$PKGS" ] && want "Install the system packages ($PKGS)?"; then
+if [ -n "$PKGS$EXTRAS" ] && want "Install the system packages (${PKGS:+$PKGS, }game extras)?"; then
     say "Installing system packages"
-    if [ "$PM" = apt-get ] && echo " $PKGS " | grep -q " steam-installer "; then
-        # Steam is 32-bit: Debian and Ubuntu need the i386 architecture switched on first.
-        if ! dpkg --print-foreign-architectures | grep -qx i386; then
-            note "Switching on 32-bit packages (Steam needs them)"
-            sudo dpkg --add-architecture i386 && sudo apt-get update -qq || true
+    if [ "$PM" = apt-get ]; then
+        if { echo " $PKGS " | grep -q " steam-installer " || [ "$VK32" = 1 ]; } \
+           && ! dpkg --print-foreign-architectures | grep -qx i386; then
+            # Steam and 32-bit games: Debian and Ubuntu need the i386 architecture switched on first.
+            note "Switching on 32-bit packages (Steam and 32-bit games need them)"
+            sudo dpkg --add-architecture i386 || true
         fi
+        sudo apt-get update -qq || true   # fresh package lists, so avail() sees what is there
+    fi
+    if [ "$PM" = apt-get ] && echo " $PKGS " | grep -q " steam-installer "; then
         # Debian keeps steam-installer in "contrib", which is off by default: use Valve's own package.
         if ! apt-cache policy steam-installer 2>/dev/null | grep -q 'Candidate: [0-9]'; then
             PKGS=$(echo " $PKGS " | sed 's/ steam-installer / /'); PKGS=$(echo $PKGS)
             STEAM_VALVE_DEB=1
         fi
     fi
+    for p in $EXTRAS; do
+        case " $PKGS " in *" $p "*) continue ;; esac
+        avail "$p" && PKGS="$PKGS $p"
+    done
+    PKGS=$(echo $PKGS)
     cmd=$(pm_cmd $PKGS)
-    if ! $cmd; then
+    if [ -z "$PKGS" ]; then
+        :
+    elif ! $cmd; then
         # One package can fail (on Arch, Steam needs the multilib repository): the others still go in.
         note "Some did not install; trying them one at a time."
         for p in $PKGS; do $(pm_cmd "$p") >/dev/null 2>&1 || note "Not installed: $p"; done
@@ -278,8 +357,8 @@ if [ -n "$PKGS" ] && want "Install the system packages ($PKGS)?"; then
     fi
     # No Steam package worked (Fedora without RPM Fusion, say): Flathub's Steam instead.
     if [ "$SYSTEM_STEAM" = 1 ] && ! have steam && have flatpak; then STEAM_FLATPAK=1; fi
-elif [ -n "$PKGS" ]; then
-    note "Skipped. To add them later: $(pm_cmd $PKGS)"
+elif [ -n "$PKGS$EXTRAS" ]; then
+    note "Skipped. To add them later: $(pm_cmd $PKGS $EXTRAS)"
 fi
 
 # ---------------------------------------------------------------- Python
@@ -317,6 +396,13 @@ else
     PYTHON=$LIB/venv/bin/python
     WEB_PIP=1   # the system's Qt did not come in after all: offer the sign-in window here
     qt_libs "PySide6.QtGui, PySide6.QtQml, PySide6.QtQuick" || true
+    # Qt Multimedia (TV-mode trailers, sounds) is in PySide6-Addons, as qt6-multimedia is on Arch.
+    if ! "$PYTHON" -c 'import PySide6.QtMultimedia' >/dev/null 2>&1; then
+        v=$("$PYTHON" -c 'import PySide6; print(PySide6.__version__)')
+        "$PYTHON" -m pip install --quiet "PySide6-Addons==$v" >/dev/null 2>&1 \
+            || note "Could not add Qt Multimedia; trailers and sounds stay off."
+    fi
+    qt_libs "PySide6.QtMultimedia" || true
 fi
 
 # ---------------------------------------------------------------- files

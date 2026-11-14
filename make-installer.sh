@@ -19,7 +19,7 @@ sh "$TMP/cornerplay/install.sh" "$@"
 exit $?
 __PAYLOAD__
 EOF
-tar -cz -C "$SRC/.." --exclude='__pycache__' --exclude='dist' --exclude='.git' --exclude='docs' --exclude='packaging' \
+tar -cz --mode='u+rwX,go+rX,go-w' -C "$SRC/.." --exclude='__pycache__' --exclude='dist' --exclude='.git' --exclude='docs' --exclude='packaging' \
     --transform "s,^$(basename "$SRC"),cornerplay," \
     "$(basename "$SRC")/cornerplay" "$(basename "$SRC")/install.sh" "$(basename "$SRC")/README.md" >> "$OUT"
 chmod +x "$OUT"

@@ -17,6 +17,20 @@ def _install(thing):
     return {"kind": "command", "command": cmd} if cmd else {}
 
 
+LAYER_DIRS = ("/usr/share/vulkan/implicit_layer.d", "/etc/vulkan/implicit_layer.d")
+
+
+def mangohud_32bit_missing(layer_dirs=LAYER_DIRS) -> bool:
+    """MangoHud is installed for 64-bit games but not for 32-bit ones (its x86 Vulkan layer)."""
+    names = set()
+    for d in layer_dirs:
+        try:
+            names.update(n.lower() for n in os.listdir(d))
+        except OSError:
+            pass
+    return "mangohud.x86_64.json" in names and "mangohud.x86.json" not in names
+
+
 def checks(stores, gamepad_available=True):
     rows = []
 
@@ -65,6 +79,13 @@ def checks(stores, gamepad_available=True):
     versions = runner.proton_versions()
     add("proton", "Proton versions", bool(versions), f"{len(versions)} available" if versions else "None found",
         {} if versions else {"kind": "action", "action": "downloadGe", "label": "Get GE-Proton"})
+
+    # MangoHud's 32-bit half: without it a 32-bit game (Mafia II, say) starts with no FPS counter
+    # and the log fills with "libMangoHud_shim.so ... cannot be preloaded".
+    if not host.IN_FLATPAK and mangohud_32bit_missing():
+        wanted = bool(settings.get("mangohud") or settings.get("show_fps") or settings.get("perf_log"))
+        add("mangohud32", "FPS counter in 32-bit games", False if wanted else None,
+            "MangoHud's 32-bit part is missing, so older 32-bit games run without the counter", _install("mangohud32"))
 
     # Store tools
     for tool, store in (("legendary", "Epic"), ("gogdl", "GOG"), ("nile", "Amazon")):

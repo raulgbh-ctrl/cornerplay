@@ -346,7 +346,8 @@ Item {
                     GradientStop { position: 1; color: Qt.alpha("black", 0.9) }
                 }
                 Text {
-                    anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: 12; bottomMargin: 11 }
+                    anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: 12; bottomMargin: 11
+                              rightMargin: quick.shown ? quick.width + 20 : 12 }
                     text: card.title
                     color: "white"
                     font.pixelSize: 14
@@ -412,6 +413,38 @@ Item {
         }
 
         Rectangle { id: mask; anchors.fill: parent; radius: frame.radius; layer.enabled: true; visible: false }
+
+        // Play (or Install) right on the cover while the pointer is on it, as in Heroic and Lutris:
+        // one click instead of opening the game or double-clicking.
+        Rectangle {
+            id: quick
+            readonly property bool shown: card.quickAction && card.hovered && card.job === "" && !card.picking
+            visible: opacity > 0
+            opacity: shown ? 1 : 0
+            scale: shown ? (quickHover.hovered ? 1.08 : 1) : 0.8
+            Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 140 } }
+            Behavior on scale { enabled: !app.still; NumberAnimation { duration: 160; easing.type: Easing.OutBack } }
+            anchors { right: parent.right; bottom: parent.bottom; margins: 10; bottomMargin: card.achieved > 0 ? 20 : 10 }
+            width: Math.max(34, Math.min(44, Math.round(frame.width * 0.2))); height: width; radius: width / 2
+            color: quickHover.hovered ? Qt.lighter(card.theme.primary, 1.08) : card.theme.primary
+            border.width: 1; border.color: Qt.alpha("white", 0.25)
+            Icon {
+                anchors.centerIn: parent
+                anchors.horizontalCenterOffset: card.installed ? 1 : 0   // a play triangle looks centred a touch right
+                name: card.installed ? "play" : "download"
+                size: Math.round(parent.width * 0.42)
+                color: card.theme.onPrimary
+            }
+            HoverHandler { id: quickHover; cursorShape: Qt.PointingHandCursor }
+            TapHandler {
+                gesturePolicy: TapHandler.WithinBounds
+                grabPermissions: PointerHandler.CanTakeOverFromAnything
+                onTapped: card.activated()
+            }
+            ToolTip.visible: quickHover.hovered
+            ToolTip.delay: 600
+            ToolTip.text: card.installed ? qsTr("Play") : qsTr("Install")
+        }
 
         // Achievements earned: a thin bar along the bottom edge, in gold once all are done.
         Item {
@@ -510,12 +543,13 @@ Item {
     // Off while a pop-up is open (and just after one closes), so a click meant for the
     // pop-up never reaches the card underneath.
     property bool interactive: true
+    property bool quickAction: true   // the Play / Install button on the cover while pointed at
     HoverHandler { id: hover; enabled: card.interactive; cursorShape: Qt.PointingHandCursor }
     TapHandler {
         enabled: card.interactive
         acceptedModifiers: Qt.NoModifier
-        onSingleTapped: if (card.interactive) { if (card.picking) card.pickRequested(false); else card.opened() }
-        onDoubleTapped: if (card.interactive && !card.picking) card.activated()
+        onSingleTapped: if (card.interactive && !quickHover.hovered) { if (card.picking) card.pickRequested(false); else card.opened() }
+        onDoubleTapped: if (card.interactive && !card.picking && !quickHover.hovered) card.activated()
         onLongPressed: if (card.interactive) card.menuRequested(point.position)
     }
     TapHandler { enabled: card.interactive; acceptedModifiers: Qt.ControlModifier; onTapped: card.pickRequested(false) }
