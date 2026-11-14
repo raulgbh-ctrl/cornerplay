@@ -33,3 +33,37 @@ def test_pad_layouts():
     p.current_mappings = lambda: [XBOX]
     assert p.env("swap_ab")["SDL_GAMECONTROLLERCONFIG"].count("a:b1") == 1
     assert p.env("none") == {} and p.env("") == {}
+
+
+def test_keyboard_layouts():
+    from cornerplay import padkeys, kbdmouse
+
+    class Dev:
+        def __init__(self):
+            self.log, self.down = [], set()
+
+        def key(self, code, down):
+            self.log.append(("key", code, down)); (self.down.add if down else self.down.discard)(code)
+
+        def move(self, dx, dy):
+            self.log.append(("move", dx, dy))
+
+        def wheel(self, n, horizontal=False):
+            self.log.append(("wheel", n))
+
+        def release_all(self):
+            self.down.clear()
+
+        def close(self):
+            pass
+    m = padkeys.Mapper(padkeys.template("wasd"), Dev())
+    m.button(0, True)
+    assert m.dev.log[-1] == ("key", kbdmouse.KEYS["Space"], True)
+    m.axis(1, -32000); m.tick()
+    assert ("key", kbdmouse.KEYS["W"], True) in m.dev.log
+    m.axis(5, 32000); m.tick()
+    assert ("key", kbdmouse.BTN_LEFT, True) in m.dev.log
+    m.axis(2, 32000); m.tick()
+    assert any(e[0] == "move" and e[1] > 0 for e in m.dev.log)
+    custom = padkeys.template("custom", {"left": "arrows", "buttons": {"a": "Enter"}})
+    assert custom["left"] == "arrows" and custom["buttons"]["a"] == "Enter"

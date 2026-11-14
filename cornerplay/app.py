@@ -612,6 +612,7 @@ class AioLaunch(QObject):
         self._focus = None          # focus.py's undo state while a game is being played
         self._focus_paused = []     # downloads paused for it
         self.nowPlayingChanged.connect(self._focus_check)
+        self.nowPlayingChanged.connect(self._keys_check)
         self.nightChanged.connect(self.downloadsChanged)
         self.downloadsChanged.connect(self._night_done_check)
         self.procs: dict[str, QProcess] = {}
@@ -4743,6 +4744,48 @@ class AioLaunch(QObject):
         self._bg(work)
 
     nowPlaying = Property("QVariantList", _now_playing, notify=nowPlayingChanged)
+
+    # --- controller as keyboard and mouse (padkeys.py) --------------------------------------
+    _keys_for = ""  # the game whose layout is running
+
+    def _keys_check(self):
+        """A game with a keyboard layout is running: map the controller onto keys while it is
+        in front; stop when it closes."""
+        pad = getattr(self, "gamepad", None)
+        if pad is None or self.demo:
+            return
+        from . import padkeys
+        want, layout = "", None
+        for p in self._now_playing():
+            g = self.model.find(p["key"])
+            name = game_options.get(p["key"]).get("pad_keys") or ""
+            if g and name:
+                layout = padkeys.template(name, settings.get("pad_keys_custom"))
+                if layout:
+                    want = p["key"]
+                    break
+        if want == self._keys_for:
+            return
+        self._keys_for = want
+        if not want:
+            pad.set_mapper(None)
+            return
+        try:
+            pad.set_mapper(padkeys.Mapper(layout))
+            self.toast.emit("Controller as keyboard and mouse is on for this game (Guide still opens Cornerplay)")
+        except OSError as e:
+            self._keys_for = ""
+            self.toast.emit("Could not make a virtual keyboard (" + (e.strerror or str(e)) + "): /dev/uinput needs to be "
+                            "writable (Steam's steam-devices udev rules allow it)")
+
+    @Slot(result="QVariantMap")
+    def padKeysInfo(self):
+        """For the layout editor: the templates, the custom layout, what can be chosen."""
+        from . import padkeys, kbdmouse
+        return {"templates": [{"id": k, "name": v["name"]} for k, v in padkeys.TEMPLATES.items()],
+                "custom": settings.get("pad_keys_custom") or {}, "order": padkeys.ORDER,
+                "actions": padkeys.ACTIONS, "sticks": padkeys.STICKS, "available": kbdmouse.available(),
+                "layouts": {k: v for k, v in padkeys.TEMPLATES.items()}}
 
     # --- focus while playing (focus.py) ---------------------------------------------------
     def _focus_check(self):

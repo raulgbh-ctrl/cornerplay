@@ -189,6 +189,12 @@ FocusScope {
         // Backlog status: one row that steps through the choices.
         const names = { "": qsTr("None"), playing: qsTr("Playing"), want: qsTr("Want to play"), finished: qsTr("Finished"), dropped: qsTr("Dropped") }
         out.push({ label: qsTr("Status: ") + names[cur.status || ""] + "  \u25B8", act: "status", key: cur.key })
+        // Controller as keyboard and mouse (padkeys.py): one row that steps through the layouts.
+        {
+            const keys = app.gameOptions(cur.key).pad_keys || ""
+            const names = { "": qsTr("Off"), wasd: qsTr("WASD"), strategy: qsTr("Strategy"), pointclick: qsTr("Point and click"), custom: qsTr("My layout") }
+            out.push({ label: qsTr("Controller as keyboard: ") + names[keys] + "  \u25B8", act: "padkeys", key: cur.key })
+        }
         // Controller layout for this game (padlayout.py): one row that steps through them.
         if (cur.store !== "steam") {
             const lay = app.gameOptions(cur.key).pad_layout || ""
@@ -631,7 +637,8 @@ FocusScope {
                     readonly property string trophies: tv.ach.total ? "\u{1F3C6} " + tv.ach.done + " / " + tv.ach.total : ""
                     visible: text !== ""
                     readonly property string pad: tv.info.controller === "partial" ? qsTr("\u{1F3AE} Partial controller support")
-                                                  : tv.info.controller === "" && !!tv.cur.steamAppId ? qsTr("\u2328 Mouse and keyboard") : ""
+                                                  : tv.info.controller === "" && !!tv.cur.steamAppId
+                                                    ? qsTr("\u2328 Mouse and keyboard") + (app.gameOptions(tv.cur.key).pad_keys ? qsTr(" (controller set up as keyboard)") : qsTr(" (More > Options: controller as keyboard)")) : ""
                     readonly property string stars: tv.cur.rating ? "\u2605".repeat(tv.cur.rating) + "\u2606".repeat(5 - tv.cur.rating) : ""
                     text: [played, trophies, stars, pad].filter(t => !!t).join("   \u00B7   ")
                     color: theme.onSurfaceVariant
@@ -1331,6 +1338,13 @@ FocusScope {
             else if (a.act === "hide" || a.act === "unhide") app.setHidden(a.key, a.act === "hide")
             else if (a.act === "fav") app.toggleFavourite(a.key)
             else if (a.act === "quit" || a.act === "kill") app.quitGame(a.key, a.act === "kill")
+            else if (a.act === "padkeys") {
+                const order = ["", "wasd", "strategy", "pointclick", "custom"]
+                const now = app.gameOptions(a.key).pad_keys || ""
+                app.setGameOption(a.key, "pad_keys", order[(order.indexOf(now) + 1) % order.length])
+                rows = tv.buildActions()
+                return
+            }
             else if (a.act === "padlayout") {
                 const order = ["", "none", "swap_ab", "nintendo", "southpaw", "shoulders"]
                 const now = app.gameOptions(a.key).pad_layout || ""
@@ -1478,7 +1492,7 @@ FocusScope {
                         size: 22
                         name: ({ play: "play", install: "download", update: "arrow-up", cancel: "x", uninstall: "trash-2",
                                  fav: "star", status: "bookmark", hide: "eye-off", unhide: "eye", close: "x",
-                                 quit: "x", kill: "x", padlayout: "gamepad-2", tonight: "moon" })[parent.modelData.act] || "ellipsis"
+                                 quit: "x", kill: "x", padlayout: "gamepad-2", tonight: "moon", padkeys: "keyboard" })[parent.modelData.act] || "ellipsis"
                         color: parent.ListView.isCurrentItem ? tv.tint.onPrimary
                                : parent.modelData.act === "uninstall" ? theme.error : theme.onSurfaceVariant
                     }

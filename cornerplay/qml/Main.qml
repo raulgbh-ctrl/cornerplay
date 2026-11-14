@@ -3123,7 +3123,7 @@ ApplicationWindow {
         Rectangle {
             id: abBox
             readonly property var t: detail.ab || ({})
-            readonly property bool proton: win.selected.installed && ["epic", "gog", "amazon", "humble", "custom"].indexOf(win.selected.store) !== -1
+            readonly property bool proton: !!win.selected.installed && ["epic", "gog", "amazon", "humble", "custom"].indexOf(win.selected.store) !== -1
                                            && win.selected.platform !== "linux"
             function nm(p) { return p ? p.split("/").filter(x => x).pop() : qsTr("UMU-Proton") }
             visible: proton
@@ -4874,6 +4874,98 @@ ApplicationWindow {
         }
     }
 
+    // -------------------------------------------------------------------- my keyboard layout
+    // Controller as keyboard and mouse, your own layout (padkeys.py): each button's key or click,
+    // and what each stick does. Starts from a template.
+    KDialog {
+        id: keysEdit
+        objectName: "keysEdit"
+        theme: win.theme
+        heading: qsTr("My layout: controller as keyboard and mouse")
+        headingIcon: "gamepad-2"
+        width: Math.min(win.width - 60, 640)
+        height: Math.min(win.height - 60, 760)
+        property var info: ({})
+        property var lay: ({ buttons: {} })
+        function show() {
+            info = app.padKeysInfo()
+            const c = info.custom || {}
+            lay = c.buttons ? JSON.parse(JSON.stringify(c)) : JSON.parse(JSON.stringify(info.layouts.wasd))
+            open()
+        }
+        function put(name, v) {
+            const l = JSON.parse(JSON.stringify(lay))
+            if (["left", "right", "lt", "rt"].indexOf(name) !== -1) l[name] = v; else l.buttons[name] = v
+            lay = l
+            app.setSetting("pad_keys_custom", lay)
+        }
+        readonly property var names: ({ a: "A", b: "B", x: "X", y: "Y", lb: "LB", rb: "RB", lt: "LT", rt: "RT", back: qsTr("View / Select"),
+                                        start: qsTr("Menu / Start"), ls: qsTr("Left stick click"), rs: qsTr("Right stick click"),
+                                        up: qsTr("D-pad up"), down: qsTr("D-pad down"), left: qsTr("D-pad left"), right: qsTr("D-pad right") })
+        contentItem: ColumnLayout {
+            spacing: 10
+            Text {
+                Layout.fillWidth: true; wrapMode: Text.WordWrap
+                visible: keysEdit.info.available === false
+                text: qsTr("/dev/uinput is not writable here, so the layout cannot be used yet. Steam's udev rules (the steam-devices package) allow it.")
+                color: theme.error; font.pixelSize: 12
+            }
+            Flow {
+                Layout.fillWidth: true
+                spacing: 8
+                Text { height: 36; verticalAlignment: Text.AlignVCenter; text: qsTr("Start from"); color: theme.onSurfaceVariant; font.pixelSize: 13 }
+                Repeater {
+                    model: keysEdit.info.templates || []
+                    KButton { required property var modelData; theme: win.theme; text: modelData.name
+                              onClicked: { keysEdit.lay = JSON.parse(JSON.stringify(keysEdit.info.layouts[modelData.id])); app.setSetting("pad_keys_custom", keysEdit.lay) } }
+                }
+            }
+            Flickable {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                contentHeight: keyGrid.implicitHeight
+                ScrollBar.vertical: KScrollBar { }
+                GridLayout {
+                    id: keyGrid
+                    width: parent.width - 14
+                    columns: 2; columnSpacing: 14; rowSpacing: 6
+                    Repeater {
+                        model: [{ id: "left", stick: true }, { id: "right", stick: true }].concat((keysEdit.info.order || []).map(n => ({ id: n })))
+                        delegate: RowLayout {
+                            required property var modelData
+                            Layout.columnSpan: 2
+                            Layout.fillWidth: true
+                            spacing: 10
+                            Row {
+                                Layout.preferredWidth: 200
+                                spacing: 8
+                                PadButton { visible: !modelData.stick && ["a", "b", "x", "y", "lb", "rb", "lt", "rt", "back", "start"].indexOf(modelData.id) !== -1
+                                            anchors.verticalCenter: parent.verticalCenter; button: modelData.id; style: pad.style; size: 24 }
+                                Text { anchors.verticalCenter: parent.verticalCenter; color: theme.onSurface; font.pixelSize: 13
+                                       text: modelData.stick ? (modelData.id === "left" ? qsTr("Left stick") : qsTr("Right stick")) : (keysEdit.names[modelData.id] || modelData.id) }
+                            }
+                            KCombo {
+                                theme: win.theme; Layout.fillWidth: true
+                                readonly property string cur: modelData.stick || modelData.id === "lt" || modelData.id === "rt"
+                                                              ? (keysEdit.lay[modelData.id] || "") : ((keysEdit.lay.buttons || {})[modelData.id] || "")
+                                model: modelData.stick
+                                       ? [{ label: qsTr("Nothing"), value: "" }, { label: "W A S D", value: "wasd" }, { label: qsTr("Arrow keys"), value: "arrows" },
+                                          { label: qsTr("Mouse"), value: "mouse" }, { label: qsTr("Scroll wheel"), value: "scroll" }]
+                                       : (keysEdit.info.actions || []).map(a => ({ label: a || qsTr("Nothing"), value: a }))
+                                onCurChanged: select(cur)
+                                Component.onCompleted: select(cur)
+                                onActivated: keysEdit.put(modelData.id, currentValue)
+                            }
+                        }
+                    }
+                }
+            }
+            Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.outline; font.pixelSize: 12
+                   text: qsTr("Pick My layout for a game under its Options (or in TV mode's game menu). Guide, Guide + A and Guide + Y stay Cornerplay's.") }
+        }
+    }
+
     // -------------------------------------------------------------------- collections
     // Which collections a game is in: one row per collection, tap to add or remove.
     KDialog {
@@ -6610,6 +6702,7 @@ ApplicationWindow {
             optPlatform.select(opts.platform === undefined ? "default" : opts.platform)
             optFps.select(opts.show_fps === undefined ? "default" : opts.show_fps)
             optPad.select(opts.pad_layout === undefined ? "default" : opts.pad_layout)
+            optKeys.select(opts.pad_keys === undefined ? "default" : opts.pad_keys)
             optScope.select(opts.gamescope === undefined ? "default" : opts.gamescope)
             optHdr.select(opts.gamescope_hdr === undefined ? "default" : opts.gamescope_hdr)
             resetArmed = false
@@ -6704,6 +6797,19 @@ ApplicationWindow {
                     label: qsTr("FPS counter")
                     KCombo { id: optFps; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
                              onActivated: app.setGameOption(gameOpts.key, "show_fps", currentValue) }
+                }
+            }
+            Row2 {
+                label: qsTr("Controller as keyboard and mouse")
+                hint: qsTr("For games that only take a keyboard and mouse: while the game is in front the controller types keys, clicks and moves the mouse. Guide still opens Cornerplay.")
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+                    KCombo { id: optKeys; theme: win.theme; Layout.fillWidth: true
+                             model: [{ label: qsTr("Off"), value: "default" }].concat((app.padKeysInfo().templates || []).map(t => ({ label: t.name, value: t.id })))
+                                    .concat([{ label: qsTr("My layout"), value: "custom" }])
+                             onActivated: app.setGameOption(gameOpts.key, "pad_keys", currentValue) }
+                    KButton { theme: win.theme; text: qsTr("Edit my layout"); iconName: "gamepad-2"; onClicked: keysEdit.show() }
                 }
             }
             Row2 {

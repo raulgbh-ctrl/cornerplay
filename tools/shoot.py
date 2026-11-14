@@ -6,6 +6,7 @@ Actions run one after another, 0.6 s apart after a 2.5 s start:
     wait:MS       wait longer          shot:NAME     save OUTDIR/NAME.png
     key:Name      a key (Qt.Key_Name)  ctrl:X        Ctrl+X (ctrl:Comma for Ctrl+,)
     type:text     type text            click:x,y     a click
+    open:NAME     call show() on the object with that objectName
     panel:NAME    save the in-game panel   quick:NAME    save quick access over a game (cshift:A opens it)
     size:WxH      resize the window    recap:KEY     show the after-session card for a demo game
     tv            start in TV mode
@@ -98,6 +99,16 @@ def run(*_):
                 code = getattr(Qt, "Key_" + v) if len(v) > 1 else ord(v.upper())
                 for typ in (QEvent.KeyPress, QEvent.KeyRelease):
                     QGuiApplication.sendEvent(w, QKeyEvent(typ, code, Qt.ControlModifier))
+            elif k == "open":  # open:objectName calls that object's show() (a dialog, a page)
+                from PySide6.QtCore import QMetaObject, QObject as _QO
+                obj = w.findChild(_QO, v) if hasattr(w, "findChild") else None
+                if obj is None:
+                    for x in QGuiApplication.topLevelWindows():
+                        obj = x.findChild(_QO, v) if hasattr(x, "findChild") else None
+                        if obj is not None:
+                            break
+                if obj is not None:
+                    QMetaObject.invokeMethod(obj, "show")
             elif k == "recap":
                 import cornerplay.app as A
                 inst = A._shot_instance

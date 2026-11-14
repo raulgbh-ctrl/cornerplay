@@ -149,6 +149,7 @@ DEFAULTS = {
     "focus_power": False,      # the Performance power mode while playing
     "focus_downloads": True,   # pause downloads while playing
     # Controllers
+    "pad_keys_custom": {},     # My layout: controller as keyboard and mouse (padkeys.py)
     "pad_layout": "",          # games' controller layout (padlayout.py): "", "swap_ab", "nintendo", "southpaw", "shoulders"
     "pad_glyphs": "",          # button prompts: "" (from the controller), "xbox", "playstation", "nintendo"
     "pad_swap_confirm": False, # Cornerplay's menus: B chooses and A goes back (the Nintendo / Japanese way)
@@ -270,7 +271,7 @@ class GameOptions:
     """Per-game overrides, keyed "store:id". A missing key means "use the default"."""
     KEYS = ("proton", "mangohud", "gamemode", "env", "args", "cover", "prefer", "cloud_saves", "hidden", "collections",
             "status", "rating", "note", "perf", "show_fps", "platform", "gamescope", "gamescope_hdr",
-            "before", "after", "pad_layout", "put_away")
+            "before", "after", "pad_layout", "put_away", "pad_keys")
 
     def __init__(self):
         self.path = CONFIG_DIR / "games.json"

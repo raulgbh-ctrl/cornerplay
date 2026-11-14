@@ -92,6 +92,7 @@ class Gamepad(QObject):
         self._info = {}            # instance id -> {"name", "style", "mapping"}
         self._capture = False
         self._target = None  # a window the pad steers even without the focus (quick access over a game)
+        self._mapper = None  # padkeys.Mapper while a keyboard-only game with a layout is in front
         self._buttons = dict(BUTTONS)
         self._deck = self._is_deck()
         self.reload()
@@ -116,7 +117,7 @@ class Gamepad(QObject):
 
     def _pace(self):
         """Fast polling only while a controller is plugged in and this app has focus."""
-        interval = IDLE_MS if not self._pads else ACTIVE_MS if QGuiApplication.focusWindow() is not None else BACKGROUND_MS
+        interval = IDLE_MS if not self._pads else ACTIVE_MS if (QGuiApplication.focusWindow() is not None or self._mapper) else BACKGROUND_MS
         if self._timer.interval() != interval:
             self._timer.setInterval(interval)
 
@@ -247,6 +248,27 @@ class Gamepad(QObject):
 
     capture = Property(bool, lambda s: s._capture, _set_capture, notify=captureChanged)
 
+    def set_mapper(self, mapper):
+        """Controller as keyboard and mouse (padkeys.py) for the game in front; None stops it."""
+        old, self._mapper = self._mapper, mapper
+        if old is not None and old is not mapper:
+            old.close()
+        if self._timer:
+            self._pace()
+
+    def _mapping(self):
+        """Map only while the game has the focus: not over Cornerplay, quick access or the tester,
+        and not while Guide is held (Guide + A / Y stay Cornerplay's)."""
+        m = self._mapper
+        if m is None:
+            return None
+        if QGuiApplication.focusWindow() is not None or self._target is not None or self._capture or self._guide:
+            if m.dev.down:
+                m.dev.release_all()
+                m.held.clear()
+            return None
+        return m
+
     @Slot(QObject)
     def steer(self, window):
         """Send the pad's keys to this window even when the game has the focus; None stops it."""
@@ -335,6 +357,9 @@ class Gamepad(QObject):
                 if self._capture:
                     self.activity.emit()
                     continue
+                m = self._mapping()
+                if m is not None and ev.raw[12] != GUIDE:
+                    m.button(ev.raw[12], kind == BUTTON_DOWN)
                 self._button(ev.raw[12], kind == BUTTON_DOWN)
             elif kind == AXIS_MOTION:
                 axis = ev.raw[12]
@@ -342,10 +367,15 @@ class Gamepad(QObject):
                 self.rawAxis.emit(axis, value)
                 if self._capture:
                     continue
+                if self._mapper is not None:
+                    self._mapper.axis(axis, value)  # kept current; tick() only acts while mapping
                 if axis in (0, 1):
                     self._axis(which, axis, value)
                 elif axis in TRIGGERS:
                     self._trigger(which, axis, value)
+        m = self._mapping()
+        if m is not None:
+            m.tick()
         now = time.monotonic()
         for held, (due, since) in list(self._held.items()):
             if now >= due:
