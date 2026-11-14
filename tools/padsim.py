@@ -15,7 +15,6 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from evdev import AbsInfo, UInput, ecodes as e  # noqa: E402
-from PySide6.QtCore import QTimer  # noqa: E402
 from PySide6.QtGui import QGuiApplication  # noqa: E402
 
 # (name the pad gives itself, vendor, product, the prompts Cornerplay should pick)
