@@ -127,6 +127,13 @@ DEFAULTS = {
     "tv_screensaver": 3,       # TV mode: minutes without input before the slideshow of your games (0 = never)
     "tv_who": True,            # TV mode: "Who's playing?" at start when there are several people
     "show_protondb": True,     # ProtonDB rating badge on covers
+    # gamescope's live display settings (TV mode's Performance tab), set again when a session starts
+    "gs_fps_limit": 0,         # frames per second cap for games, 0 = none
+    "gs_filter": "linear",     # upscaling: "linear", "nearest", "fsr", "nis", "pixel"
+    "gs_scaler": "auto",       # fitting: "auto", "integer", "fit", "fill", "stretch"
+    "gs_sharpness": 18,        # FSR / NIS sharpness, 0..20 (higher is sharper)
+    "gs_tearing": False,       # allow tearing (lower latency)
+    "gs_hdr": False,           # gamescope's HDR output, when the screen supports it
 }
 
 # Where Heroic keeps its bundled copies of legendary / gogdl / nile.

@@ -9,6 +9,12 @@ FocusScope {
     id: tv
     required property var theme
     signal exit()
+    // The Guide menus open from anywhere in TV mode (a game's page, Settings, Downloads), like
+    // Steam's: keys nothing else used come up to here.
+    Keys.onPressed: event => {
+        if (event.key === Qt.Key_F10) { mainMenu.show(); event.accepted = true }
+        else if (event.key === Qt.Key_F9) { quickMenu.show(); event.accepted = true }
+    }
 
     property var cur: ({})
 
@@ -40,6 +46,18 @@ FocusScope {
     readonly property bool plugged: topStatus.batt.level === undefined || !!topStatus.batt.charging
     // A menu or the keyboard covers the screen: what moves behind it can rest.
     readonly property bool frosted: searching || (typeof mainMenu !== "undefined" && (mainMenu.open || quickMenu.open)) || panel.visible
+                                    || (typeof tvSettings !== "undefined" && tvSettings.visible)
+    // Steam-style status icons (top bar, quick access): Wi-Fi or wired, Bluetooth in use, volume.
+    readonly property var statusIcons: {
+        const s = app.system, n = s.network || {}, b = s.bluetooth || {}, a = s.audio || {}
+        const out = []
+        if (n.ssid) out.push("wifi"); else if (n.wifi === false && !n.wired) out.push("wifi-off")
+        if ((b.devices || []).some(d => d.connected)) out.push("bluetooth")
+        if (a.volume !== undefined) out.push(controls.volumeIcon(a))
+        return out
+    }
+    Timer { interval: 30000; repeat: true; triggeredOnStart: true; running: tv.visible && Qt.application.state === Qt.ApplicationActive
+            onTriggered: app.refreshSystem() }
     readonly property bool animOk: !!app.settingsMap.tv_animated && !app.light && !tv.calm && tv.plugged && !tv.frosted
                                    && tv.visible && Qt.application.state === Qt.ApplicationActive
     onCurChanged: {
@@ -474,6 +492,14 @@ FocusScope {
                     batt = app.battery()
                 }
                 Timer { interval: 20000; running: tv.visible; repeat: true; triggeredOnStart: true; onTriggered: topStatus.tick() }
+                Row {
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 14
+                    Repeater {
+                        model: tv.statusIcons
+                        Icon { required property var modelData; anchors.verticalCenter: parent.verticalCenter; name: modelData; size: 22; color: theme.onSurfaceVariant }
+                    }
+                }
                 Row {
                     visible: topStatus.batt.level !== undefined
                     anchors.verticalCenter: parent.verticalCenter
@@ -1468,7 +1494,8 @@ FocusScope {
     }
 
     // ------------------------------------------------------------ side menus (SteamOS style)
-    // Guide: the main menu slides in from the left. Guide + A (or Share): quick access from the right.
+    // Guide: the main menu slides in from the left. Guide + A (or Share): quick access from the
+    // right, in tabs like Steam's: quick settings, performance, now playing, TV mode.
     function mainRows() {
         return [
             { label: qsTr("Home"), icon: "library", act: "home" },
@@ -1476,40 +1503,35 @@ FocusScope {
             { label: qsTr("Installed only"), icon: "filter", act: "installed", on: tvLibrary.installedOnly },
             { label: qsTr("Next store"), icon: "layout-grid", act: "store",
               value: (app.storesInfo.find(x => x.id === tvLibrary.storeFilter) || { name: qsTr("All games") }).name },
-            { label: qsTr("Quick access"), icon: "ellipsis", act: "quick" },
             { label: qsTr("Downloads"), icon: "download", act: "downloads", value: app.downloads.length ? String(app.downloads.length) : "" },
             { label: qsTr("Your stats"), icon: "trophy", act: "stats" },
             ...(app.settingsMap.stream_pc ? [{ label: qsTr("Play on ") + app.settingsMap.stream_pc, icon: "tv", act: "stream" }] : []),
-            app.inSession ? { label: qsTr("Switch to desktop"), icon: "log-out", act: "quit", group: qsTr("Power") }
-                          : { label: qsTr("Exit TV mode"), icon: "log-out", act: "exit", group: qsTr("Power") },
-            ...(app.inSession ? [] : [{ label: qsTr("Quit Cornerplay"), icon: "x", act: "quit", group: qsTr("Power"), danger: true }]),
-            { label: tv.powerArmed === "suspend" ? qsTr("Sleep?") : qsTr("Sleep"), icon: "battery", act: "power", what: "suspend", group: qsTr("Power") },
-            { label: tv.powerArmed === "restart" ? qsTr("Restart?") : qsTr("Restart"), icon: "refresh-cw", act: "power", what: "restart", group: qsTr("Power"), danger: true },
-            { label: tv.powerArmed === "shutdown" ? qsTr("Shut down?") : qsTr("Shut down"), icon: "log-out", act: "power", what: "shutdown", group: qsTr("Power"), danger: true }
+            { label: qsTr("Quick access"), icon: "sliders-horizontal", act: "quick" },
+            { label: qsTr("Settings"), icon: "settings-2", act: "settings" },
+            ...controls.powerRows(qsTr("Power")),
+            ...controls.leaveRows(qsTr("Power"))
         ]
     }
-    // The power rows ask for a second press (a slip of the thumb should not turn the PC off).
-    property string powerArmed: ""
-    Timer { id: powerDisarm; interval: 4000; onTriggered: { tv.powerArmed = ""; mainMenu.refresh() } }
-    function pressPower(what) {
-        if (powerArmed !== what) { powerArmed = what; powerDisarm.restart(); mainMenu.refresh(); return }
-        powerArmed = ""
-        mainMenu.hide()
-        app.power(what)
-    }
-    function quickRows() {
+    readonly property var quickTabs: [
+        { id: "quick", label: qsTr("Quick settings"), icon: "sliders-horizontal" },
+        { id: "perf", label: qsTr("Performance"), icon: "gauge" },
+        { id: "playing", label: qsTr("Now playing"), icon: "gamepad-2" },
+        { id: "tv", label: qsTr("TV mode"), icon: "tv" }
+    ]
+    function quickRows(tab) {
+        if (tab === "perf") return controls.performance()
+        if (tab === "tv") return controls.tvQuick()
+        if (tab !== "playing") return controls.quick(topStatus.batt)
         const out = []
-        for (const p of app.nowPlaying)
-            out.push({ group: qsTr("Now playing"), label: qsTr("Quit ") + p.title, icon: "x", act: "quitgame", key: p.key })
+        for (const p of app.nowPlaying) {
+            out.push({ group: qsTr("Now playing"), label: p.title, icon: "play", sub: qsTr("Running") })
+            out.push({ group: qsTr("Now playing"), label: controls.armed === "kill:" + p.key ? qsTr("Press again to force close") : qsTr("Quit game"),
+                       icon: "x", act: "quitgame", key: p.key, alt: qsTr("Force close"), danger: controls.armed === "kill:" + p.key })
+        }
         for (const j of app.jobList())
-            out.push({ group: qsTr("Downloads"), label: j.title, icon: j.job === "update" ? "arrow-up" : "download", act: "",
+            out.push({ group: qsTr("Downloads"), label: j.title, icon: j.job === "update" ? "arrow-up" : "download", act: "downloads",
                        value: j.job === "queued" ? qsTr("Queued") : j.progress < 0 ? qsTr("Starting") : Math.floor(j.progress) + "%", sub: j.detail })
-        if (!out.length) out.push({ group: qsTr("Now playing"), label: qsTr("Nothing running"), icon: "gamepad-2", act: "" })
-        out.push({ group: qsTr("Quick settings"), label: qsTr("Sounds"), icon: "sparkles", act: "set", setting: "tv_sounds", on: !!app.settingsMap.tv_sounds })
-        out.push({ group: qsTr("Quick settings"), label: qsTr("Trailers"), icon: "play", act: "set", setting: "tv_trailers", on: !!app.settingsMap.tv_trailers })
-        out.push({ group: qsTr("Quick settings"), label: qsTr("Animated art"), icon: "tv", act: "set", setting: "tv_animated", on: !!app.settingsMap.tv_animated })
-        out.push({ group: qsTr("Quick settings"), label: qsTr("Music"), icon: "sparkles", act: "set", setting: "tv_music", on: !!app.settingsMap.tv_music })
-        out.push({ group: qsTr("Quick settings"), label: qsTr("Rumble"), icon: "gamepad-2", act: "set", setting: "tv_rumble", on: !!app.settingsMap.tv_rumble })
+        if (!out.length) out.push({ group: qsTr("Now playing"), label: qsTr("Nothing running"), icon: "gamepad-2", sub: qsTr("Games you start show here, with Quit") })
         return out
     }
     SideSheet {
@@ -1517,55 +1539,128 @@ FocusScope {
         objectName: "tvMainMenu"
         side: "left"
         title: qsTr("Cornerplay")
-        rowsFn: tv.mainRows
+        rowsFn: tab => tv.mainRows()
         onPicked: (row) => {
             if (row.act === "home") { hide(); if (tvLibrary.search !== "") tv.clearSearch(); if (tv.shelfAt > 0) tv.stepShelf(-tv.shelfAt) }
             else if (row.act === "search") { hide(); tv.openSearch("") }
             else if (row.act === "installed") { tvLibrary.installedOnly = !tvLibrary.installedOnly; refresh() }
             else if (row.act === "store") { tv.cycleStore(1); refresh() }
             else if (row.act === "quick") { hide(); quickMenu.show() }
+            else if (row.act === "settings") { hide(); tvSettings.show("") }
             else if (row.act === "downloads") { hide(); tvDownloads.show() }
             else if (row.act === "stats") { hide(); tvStats.show() }
             else if (row.act === "stream") { hide(); app.streamFromPc() }
-            else if (row.act === "exit") { hide(); tv.exit() }
-            else if (row.act === "quit") Qt.quit()
-            else if (row.act === "power") tv.pressPower(row.what)
+            else controls.run(row)
         }
     }
     SideSheet {
         id: quickMenu
         objectName: "tvQuickMenu"
         side: "right"
+        tabs: tv.quickTabs
         title: topStatus.clock + (topStatus.batt.level !== undefined ? "   ·   " + topStatus.batt.level + "%" + (topStatus.batt.charging ? " ⚡" : "") : "")
-        rowsFn: tv.quickRows
-        Timer { interval: 1000; repeat: true; running: quickMenu.open; onTriggered: quickMenu.refresh() }  // download progress
+        rowsFn: tab => tv.quickRows(tab)
+        // Download progress and what is running change by themselves.
+        Timer { interval: 1000; repeat: true; running: quickMenu.open && quickMenu.tabId === "playing"; onTriggered: quickMenu.refresh() }
         onPicked: (row) => {
             if (row.act === "quitgame") { app.quitGame(row.key, false); hide() }
-            else if (row.act === "set") { app.setSetting(row.setting, !row.on); Qt.callLater(refresh) }
+            else if (row.act === "downloads") { hide(); tvDownloads.show() }
+            else controls.run(row)
+        }
+        onAlt: (row) => {
+            if (row.act === "quitgame") { if (controls.arm("kill:" + row.key)) { app.quitGame(row.key, true); hide() } }
+            else controls.runAlt(row)
         }
     }
 
-    // A menu that slides in from one side over a dimmed screen. A chooses, B (or the way
-    // it came from) closes it. Rows: { label, icon, act, group, value, on (a switch), danger }.
+    // What the menus control (TvControls.qml), the Settings screen, and a keyboard for passwords.
+    TvControls {
+        id: controls
+        onAskPassword: ssid => { tv.joining = ssid; prompt.back = tv.Window.activeFocusItem; prompt.ask(qsTr("Join ") + ssid, qsTr("Type the Wi-Fi password."), true) }
+        onOpenSettings: section => { mainMenu.hide(); quickMenu.hide(); tvSettings.show(section) }
+        onPower: what => { mainMenu.hide(); quickMenu.hide(); app.power(what) }
+        onLeave: how => {
+            mainMenu.hide(); quickMenu.hide(); tvSettings.visible = false
+            if (how === "exit") tv.exit()
+            else Qt.quit()
+        }
+    }
+    property string joining: ""
+    TvSettings {
+        id: tvSettings
+        anchors.fill: parent
+        z: 60
+        theme: tv.theme
+        tint: tv.tint
+        controls: controls
+        batt: topStatus.batt
+        onClosed: grid.forceActiveFocus()
+    }
+    TvTextPrompt {
+        id: prompt
+        anchors.fill: parent
+        theme: tv.theme
+        tint: tv.tint
+        property Item back: null
+        onAccepted: text => { app.wifiConnect(tv.joining, text, false); tv.refocus(back) }
+        onClosed: tv.refocus(back)
+    }
+    // Back to where the keys were before an overlay took them (Settings under a menu, say).
+    function refocus(item) {
+        if (item && item.visible) item.forceActiveFocus()
+        else if (tvSettings.visible) tvSettings.forceActiveFocus()
+        else if (gamePage.visible) gamePage.forceActiveFocus()
+        else grid.forceActiveFocus()
+    }
+    // The menus, Settings and the keyboard show the PC as it is: read again when one opens.
+    Connections {
+        target: app
+        enabled: quickMenu.open || mainMenu.open
+        function onSystemChanged() { if (quickMenu.open) quickMenu.refresh() }
+        function onSettingsChanged() { if (quickMenu.open) Qt.callLater(quickMenu.refresh) }
+    }
+    Connections {
+        target: controls
+        function onArmedChanged() { if (quickMenu.open) quickMenu.refresh(); if (mainMenu.open) mainMenu.refresh() }
+    }
+
+    // A menu that slides in from one side over a dimmed screen. A chooses, B (or the way it came
+    // from) closes it; with tabs, LB / RB switch them. Rows: see TvRowList.qml.
     component SideSheet: Item {
         id: sheet
         property string side: "left"
         property string title: ""
-        property var rowsFn: function() { return [] }
+        property var tabs: []
+        property int tab: 0
+        readonly property string tabId: (tabs[tab] || {}).id || ""
+        property var rowsFn: function(tab) { return [] }
         property var rows: []
         property bool open: false
+        property Item back: null
         signal picked(var row)
+        signal alt(var row)
         anchors.fill: parent
         z: 90
         visible: open || slide.running || fadeIn.running
         function show() {
             if (open) { hide(); return }
-            app.uiSound("select"); refresh(); sheetList.currentIndex = firstPickable(); open = true; sheetList.forceActiveFocus()
+            const f = tv.Window.activeFocusItem
+            back = f && f !== sheetList ? f : null
+            app.uiSound("select"); app.refreshSystem(); refresh(); sheetList.first(); open = true; sheetList.forceActiveFocus()
         }
-        function hide() { if (!open) return; app.uiSound("back"); open = false; grid.forceActiveFocus() }
-        function refresh() { const i = sheetList.currentIndex; rows = rowsFn(); sheetList.currentIndex = Math.min(Math.max(0, i), rows.length - 1) }
-        function firstPickable() { const i = rows.findIndex(r => r.act); return Math.max(0, i) }
-        readonly property real w: Math.round(Math.min(460, Math.max(320, tv.width * 0.3)))
+        function hide() { if (!open) return; app.uiSound("back"); open = false; tv.refocus(back) }
+        function refresh() { const i = sheetList.currentIndex; rows = rowsFn(tabId); sheetList.currentIndex = Math.min(Math.max(0, i), rows.length - 1)
+                             if (!sheetList.pickable(rows[sheetList.currentIndex])) sheetList.first() }
+        function setTab(i) {
+            if (!tabs.length) return
+            tab = (i + tabs.length) % tabs.length
+            app.uiSound("move")
+            rows = rowsFn(tabId); sheetList.first(); sheetList.positionViewAtBeginning()
+            tabSwap.restart()
+        }
+        readonly property real w: Math.round(Math.min(480, Math.max(340, tv.width * 0.31)))
+        // The state is read again now and then while it is open (a controller that connects).
+        Timer { interval: 5000; repeat: true; running: sheet.open && sheet.tabs.length > 0; onTriggered: app.refreshSystem() }
 
         Frost { opacity: sheet.open ? 1 : 0; visible: opacity > 0; Behavior on opacity { NumberAnimation { duration: 200 } } }
         Rectangle {  // the dimmed screen behind; a click on it closes the menu
@@ -1581,7 +1676,7 @@ FocusScope {
             height: parent.height
             x: sheet.side === "left" ? (sheet.open ? 0 : -width) : (sheet.open ? parent.width - width : parent.width)
             Behavior on x { enabled: !app.light; NumberAnimation { id: slide; duration: 220; easing.type: Easing.OutCubic } }
-            color: Qt.alpha(theme.surfaceContainerLow, 0.88)
+            color: Qt.alpha(theme.surfaceContainerLow, 0.9)
             MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onWheel: w => w.accepted = true }
             RectangularShadow {
                 z: -1
@@ -1595,137 +1690,101 @@ FocusScope {
                 x: sheet.side === "left" ? parent.width - 1 : 0
                 color: Qt.alpha("white", 0.08)
             }
+            // The way it came from closes it: Guide for the main menu, Guide + A for quick access;
+            // the other one swaps to it. LB / RB: the tabs.
+            Keys.onPressed: event => {
+                const k = event.key
+                if ((k === Qt.Key_F10 && sheet.side === "left") || (k === Qt.Key_F9 && sheet.side === "right")) { sheet.hide(); event.accepted = true }
+                else if (k === Qt.Key_F10 || k === Qt.Key_F9) {
+                    const other = k === Qt.Key_F10 ? mainMenu : quickMenu
+                    sheet.open = false
+                    other.show(); other.back = sheet.back
+                    event.accepted = true
+                }
+                else if ((k === Qt.Key_PageUp || k === Qt.Key_PageDown) && sheet.tabs.length) { sheet.setTab(sheet.tab + (k === Qt.Key_PageDown ? 1 : -1)); event.accepted = true }
+            }
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 28
-                anchors.topMargin: 36
-                spacing: 18
+                anchors.topMargin: 32
+                spacing: 16
                 Item {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 40
                     WordMark { visible: sheet.side === "left"; anchors.verticalCenter: parent.verticalCenter; size: 28 }
                     Text { visible: sheet.side !== "left"; anchors.verticalCenter: parent.verticalCenter
                            text: sheet.title; color: theme.onSurface; font.pixelSize: 24; font.weight: Font.Medium }
+                    // Steam-style status at a glance: Wi-Fi, Bluetooth, volume.
+                    Row {
+                        visible: sheet.side !== "left"
+                        anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+                        spacing: 12
+                        Repeater {
+                            model: tv.statusIcons
+                            Icon { required property var modelData; name: modelData; size: 20; color: theme.onSurfaceVariant }
+                        }
+                    }
                 }
-                ListView {
+                // The tabs: LB / RB (or a tap). The open one shows its name.
+                Row {
+                    visible: sheet.tabs.length > 0
+                    Layout.fillWidth: true
+                    spacing: 8
+                    PadButton { visible: pad.connected; anchors.verticalCenter: parent.verticalCenter; button: "lb"; style: pad.style; size: 24 }
+                    Repeater {
+                        model: sheet.tabs
+                        Rectangle {
+                            id: tabPill
+                            required property var modelData
+                            required property int index
+                            readonly property bool on: index === sheet.tab
+                            height: 44; radius: 22
+                            width: on ? tabName.implicitWidth + 70 : 50
+                            Behavior on width { enabled: !app.light; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                            color: on ? Qt.alpha(tv.tint.primary, 0.22) : tabHov.hovered ? Qt.alpha(theme.onSurface, 0.08) : Qt.alpha(theme.onSurface, 0.04)
+                            border.width: on ? 1 : 0; border.color: tv.tint.primary
+                            clip: true
+                            Icon { x: 14; anchors.verticalCenter: parent.verticalCenter; name: tabPill.modelData.icon; size: 22
+                                   color: tabPill.on ? tv.tint.primary : theme.onSurfaceVariant }
+                            Text { id: tabName; x: 46; anchors.verticalCenter: parent.verticalCenter; visible: tabPill.on
+                                   text: tabPill.modelData.label; color: theme.onSurface; font.pixelSize: 16; font.weight: Font.DemiBold }
+                            HoverHandler { id: tabHov; cursorShape: Qt.PointingHandCursor }
+                            TapHandler { onTapped: { sheet.setTab(tabPill.index); sheetList.forceActiveFocus() } }
+                        }
+                    }
+                    PadButton { visible: pad.connected; anchors.verticalCenter: parent.verticalCenter; button: "rb"; style: pad.style; size: 24 }
+                }
+                TvRowList {
                     id: sheetList
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    clip: true
-                    spacing: 6
-                    model: sheet.rows
-                    keyNavigationWraps: true
-                    boundsBehavior: Flickable.StopAtBounds
-                    highlightMoveDuration: app.light ? 0 : 120
-                    section.property: "group"
-                    section.delegate: Text {
-                        required property string section
-                        width: ListView.view.width
-                        height: section ? 44 : 0
-                        visible: section !== ""
-                        verticalAlignment: Text.AlignBottom
-                        bottomPadding: 8
-                        text: section.toUpperCase()
-                        color: theme.outline; font.pixelSize: 13; font.weight: Font.DemiBold; font.letterSpacing: 1.4
-                    }
-                    delegate: Rectangle {
-                        id: row
-                        required property var modelData
-                        required property int index
-                        readonly property bool lit: ListView.isCurrentItem && sheetList.activeFocus
-                        width: sheetList.width
-                        height: modelData.sub ? 66 : 56
-                        radius: 16
-                        color: lit ? tv.tint.primary : "transparent"
-                        RectangularShadow {
-                            z: -1
-                            anchors.fill: parent
-                            visible: row.lit && !app.light && GraphicsInfo.api !== GraphicsInfo.Software
-                            radius: parent.radius; blur: 24
-                            color: Qt.alpha(tv.tint.primary, 0.45)
-                        }
-                        Behavior on color { enabled: !app.light; ColorAnimation { duration: 100 } }
-                        opacity: modelData.act ? 1 : 0.7
-                        Icon {
-                            anchors { left: parent.left; leftMargin: 16; verticalCenter: parent.verticalCenter }
-                            name: row.modelData.icon || "ellipsis"; size: 22
-                            color: row.lit ? tv.tint.onPrimary : row.modelData.danger ? theme.error : theme.onSurfaceVariant
-                        }
-                        Text {  // a second, small line (a download's speed and time left)
-                            visible: !!row.modelData.sub
-                            anchors { left: parent.left; leftMargin: 54; right: rowEnd.left; rightMargin: 12; bottom: parent.bottom; bottomMargin: 8 }
-                            text: row.modelData.sub || ""
-                            color: row.lit ? tv.tint.onPrimary : theme.onSurfaceVariant
-                            font.pixelSize: 14
-                            elide: Text.ElideRight
-                        }
-                        Text {
-                            anchors { left: parent.left; leftMargin: 54; right: rowEnd.left; rightMargin: 12; verticalCenter: parent.verticalCenter
-                                      verticalCenterOffset: row.modelData.sub ? -9 : 0 }
-                            text: row.modelData.label
-                            color: row.lit ? tv.tint.onPrimary : row.modelData.danger ? theme.error : theme.onSurface
-                            font.pixelSize: 19; font.weight: Font.DemiBold
-                            elide: Text.ElideRight
-                        }
-                        Item {
-                            id: rowEnd
-                            anchors { right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter }
-                            width: row.modelData.on !== undefined ? 44 : valueText.implicitWidth
-                            height: 26
-                            Text {
-                                id: valueText
-                                visible: row.modelData.on === undefined && !!row.modelData.value
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: row.modelData.value || ""
-                                color: row.lit ? tv.tint.onPrimary : theme.onSurfaceVariant
-                                font.pixelSize: 16
-                            }
-                            Rectangle {  // a switch
-                                visible: row.modelData.on !== undefined
-                                anchors.fill: parent
-                                radius: 13
-                                color: row.modelData.on ? (row.lit ? tv.tint.onPrimary : tv.tint.primary) : Qt.alpha(theme.onSurface, 0.18)
-                                Rectangle {
-                                    width: 20; height: 20; radius: 10
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    x: row.modelData.on ? parent.width - width - 3 : 3
-                                    Behavior on x { enabled: !app.light; NumberAnimation { duration: 140 } }
-                                    color: row.modelData.on ? (row.lit ? tv.tint.primary : tv.tint.onPrimary) : theme.onSurface
-                                }
-                            }
-                        }
-                        TapHandler { onTapped: { sheetList.currentIndex = row.index; if (row.modelData.act) sheet.picked(row.modelData) } }
-                    }
-                    onCurrentIndexChanged: if (sheet.open) app.uiSound("move")
-                    // Skip rows that do nothing (headers of a sort, like "Nothing running").
-                    function step(d) {
-                        let i = currentIndex
-                        for (let n = 0; n < count; n++) {
-                            i = (i + d + count) % count
-                            if (sheet.rows[i] && sheet.rows[i].act) { currentIndex = i; return }
-                        }
-                    }
-                    Keys.onUpPressed: step(-1)
-                    Keys.onDownPressed: step(1)
-                    Keys.onReturnPressed: { const r = sheet.rows[currentIndex]; if (r && r.act) { app.uiSound("select"); sheet.picked(r) } }
-                    Keys.onEnterPressed: { const r = sheet.rows[currentIndex]; if (r && r.act) { app.uiSound("select"); sheet.picked(r) } }
-                    Keys.onEscapePressed: sheet.hide()
-                    Keys.onPressed: event => {
-                        // The way it came from closes it: Guide for the main menu, Guide + A for quick access,
-                        // or the stick pushed back toward the edge.
-                        if ((event.key === Qt.Key_F10 && sheet.side === "left") || (event.key === Qt.Key_F9 && sheet.side === "right")
-                            || (event.key === Qt.Key_Left && sheet.side === "left") || (event.key === Qt.Key_Right && sheet.side === "right")) {
-                            sheet.hide(); event.accepted = true
-                        } else if (event.key === Qt.Key_F10 || event.key === Qt.Key_F9) {
-                            sheet.hide(); (event.key === Qt.Key_F10 ? mainMenu : quickMenu).show(); event.accepted = true
-                        }
-                    }
+                    theme: tv.theme
+                    tint: tv.tint
+                    rows: sheet.rows
+                    catchBack: true
+                    catchLeft: sheet.side === "left"
+                    catchRight: sheet.side === "right"
+                    onBack: sheet.hide()
+                    onEdge: sheet.hide()
+                    onPicked: row => sheet.picked(row)
+                    onAlt: row => sheet.alt(row)
+                    transform: Translate { id: tabShift }
+                    NumberAnimation { id: tabSwap; target: tabShift; property: "x"; from: 18; to: 0; duration: 200; easing.type: Easing.OutCubic }
                 }
                 Row {
-                    spacing: 22
+                    spacing: 20
                     Repeater {
-                        model: pad.connected || pad.deck ? [{ b: ["a"], t: qsTr("Choose") }, { b: ["b"], t: qsTr("Back") }]
-                                                         : [{ k: qsTr("Enter"), t: qsTr("Choose") }, { k: qsTr("Esc"), t: qsTr("Back") }]
+                        model: {
+                            const r = sheetList.current
+                            const adj = r.kind === "slider" || r.kind === "choice"
+                            const out = pad.connected || pad.deck
+                                ? [{ b: ["a"], t: r.kind === "slider" && r.press ? qsTr("Mute") : qsTr("Choose") },
+                                   adj ? { k: "← →", t: qsTr("Change") } : null,
+                                   r.alt ? { b: ["x"], t: r.alt } : null, { b: ["b"], t: qsTr("Back") }]
+                                : [{ k: qsTr("Enter"), t: qsTr("Choose") }, adj ? { k: "← →", t: qsTr("Change") } : null,
+                                   r.alt ? { k: "F2", t: r.alt } : null, { k: qsTr("Esc"), t: qsTr("Back") }]
+                            return out.filter(h => h)
+                        }
                         Hint { required property var modelData; hint: modelData }
                     }
                 }

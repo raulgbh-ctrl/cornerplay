@@ -17,7 +17,7 @@ import shlex
 
 import sys
 
-from . import humbleshop, patchnotes, mods, workshop, cleanup, steambundles, achievements, backup, perf, search, couch, host, hostimport, statsdata, steamrun, wishlist, health, savebackup, importer, personal, problems, storage, updates, covers, details, epicfree, shelves, gamecolour, playtime, protondb, steamcompat, proton, runner, saves, session, steamgames, steamshortcut, theme as themes
+from . import humbleshop, patchnotes, mods, workshop, cleanup, steambundles, syscontrol, achievements, backup, perf, search, couch, host, hostimport, statsdata, steamrun, wishlist, health, savebackup, importer, personal, problems, storage, updates, covers, details, epicfree, shelves, gamecolour, playtime, protondb, steamcompat, proton, runner, saves, session, steamgames, steamshortcut, theme as themes
 from . import __version__
 from .config import CACHE_DIR, DEFAULTS, LANGUAGES, LOG_DIR, game_options, read_json, settings, write_json
 from .net import redact
@@ -597,6 +597,10 @@ class AioLaunch(QObject):
         self.tvProxy = LibraryProxy(self.model)  # TV mode's own list: its shelves leave the main view alone
         self.tvNextProxy = LibraryProxy(self.model)  # the shelf below, shown as a preview under TV mode's row
         self.pool = ThreadPoolExecutor(min(4, os.cpu_count() or 2))
+        # TV mode's system controls (syscontrol.py): one worker, so presses apply in order.
+        self._sys_pool = ThreadPoolExecutor(1)
+        self._system = {}
+        self._sys_busy = set()
         self.procs: dict[str, QProcess] = {}
         self.logs: dict[str, list] = {}
         self._pending = set()
@@ -630,6 +634,11 @@ class AioLaunch(QObject):
         QTimer.singleShot(90 * 1000, self._reports_tick)
         self._worker_toast.connect(self.toast)
         self._after.connect(lambda fn: fn())
+        # A Cornerplay (TV) session: gamescope starts with its defaults; put back the frame
+        # limit, scaling and the rest chosen last time (syscontrol.gs_restore).
+        if syscontrol.in_gamescope() and not demo:
+            QTimer.singleShot(1500, lambda: self._sys(
+                lambda: syscontrol.gs_restore({k: settings.get(k) for k in syscontrol.GS_SETTINGS})))
 
         self._theme = themes.current(self._dark_now())
         if settings.get("evening_warmth") is not False:  # the same as _load_theme, from the first frame
@@ -2931,6 +2940,143 @@ class AioLaunch(QObject):
             return start
         self._bg(work)
 
+    # --- TV mode's system controls (syscontrol.py), like SteamOS's quick access ---------
+    systemChanged = Signal()
+    system = Property("QVariantMap", lambda s: dict(s._system, busy=sorted(s._sys_busy)), notify=systemChanged)
+
+    def _sys(self, fn, busy="", refresh=True, scan=False):
+        """Run fn on the system worker, then read the state again. busy names what is working
+        (a row shows a spinner-like "…" meanwhile). fn may return a message for a toast.
+        Demo mode reads the PC but never changes it."""
+        if self.demo:
+            fn = None
+        if busy:
+            self._sys_busy.add(busy)
+            self.systemChanged.emit()
+
+        def work():
+            try:
+                msg = fn() if fn else None
+            except Exception as e:
+                msg = f"{type(e).__name__}: {e}"
+            fresh = syscontrol.state(scan) if refresh else None
+
+            def done():
+                self._sys_busy.discard(busy)
+                if fresh is not None:
+                    nearby = self._system.get("nearby", [])
+                    self._system = dict(fresh, nearby=[d for d in nearby
+                                                       if d["mac"] not in {x["mac"] for x in fresh.get("bluetooth", {}).get("devices", [])}])
+                if isinstance(msg, str) and msg:
+                    self.toast.emit(msg)
+                self.systemChanged.emit()
+            self._after.emit(done)
+        self._sys_pool.submit(work)
+
+    @Slot()
+    def refreshSystem(self):
+        self._sys(None)
+
+    @Slot()
+    def scanNetworks(self):
+        self._sys(None, busy="wifi-scan", scan=True)
+
+    @Slot(str, "QVariant")
+    def setSystem(self, what, value):
+        """One control: volume, muted, mic, output, brightness, wifi, bluetooth, power, or a
+        gamescope setting (gs_*). The menus show the new value at once; the PC follows."""
+        s = self._system
+        if what == "volume":
+            value = max(0, min(100, int(value)))
+            s.setdefault("audio", {}).update(volume=value, muted=False if value > 0 else s.get("audio", {}).get("muted", False))
+            self.systemChanged.emit()
+            self._sys(lambda: None if syscontrol.set_volume(value) else "Could not change the volume", refresh=False)
+        elif what == "muted":
+            s.setdefault("audio", {})["muted"] = bool(value)
+            self.systemChanged.emit()
+            self._sys(lambda: syscontrol.set_muted(bool(value)) and None, refresh=False)
+        elif what == "mic":
+            s.setdefault("audio", {})["micMuted"] = bool(value)
+            self.systemChanged.emit()
+            self._sys(lambda: syscontrol.set_mic_muted(bool(value)) and None, refresh=False)
+        elif what == "output":
+            s.setdefault("audio", {})["output"] = str(value)
+            self.systemChanged.emit()
+            self._sys(lambda: None if syscontrol.set_output(str(value)) else "Could not switch the sound output")
+        elif what == "brightness":
+            s["brightness"] = max(5, min(100, int(value)))
+            self.systemChanged.emit()
+            self._sys(lambda: syscontrol.set_brightness(int(value)) and None, refresh=False)
+        elif what == "wifi":
+            s.setdefault("network", {})["wifi"] = bool(value)
+            self.systemChanged.emit()
+            self._sys(lambda: None if syscontrol.set_wifi(bool(value)) else "Could not switch Wi-Fi", busy="wifi")
+        elif what == "bluetooth":
+            s.setdefault("bluetooth", {})["on"] = bool(value)
+            self.systemChanged.emit()
+            self._sys(lambda: None if syscontrol.set_bluetooth(bool(value)) else "Could not switch Bluetooth", busy="bluetooth")
+        elif what == "power":
+            s.setdefault("power", {})["profile"] = str(value)
+            self.systemChanged.emit()
+            self._sys(lambda: None if syscontrol.set_power_profile(str(value)) else "Could not change the power mode")
+        elif what.startswith("gs_"):
+            if what != "gs_refresh":
+                self.setSetting(what, value)  # remembered, and set again in the next session
+            gs = s.get("gamescope", {})
+            field = {"gs_fps_limit": "fpsLimit", "gs_filter": "filter", "gs_scaler": "scaler", "gs_sharpness": "sharpness",
+                     "gs_tearing": "tearing", "gs_hdr": "hdr", "gs_refresh": "refreshTarget"}.get(what)
+            if field and gs:
+                gs[field] = value
+                self.systemChanged.emit()
+            atom = gs.get("refreshAtom", "") if what == "gs_refresh" else ""
+            self._sys(lambda: None if syscontrol.gs_apply(what, value, atom) else "gamescope did not take the change",
+                      refresh=what in ("gs_hdr", "gs_refresh"))
+
+    @Slot(str, str, bool)
+    def wifiConnect(self, ssid, password, saved):
+        def work():
+            why = syscontrol.connect_wifi(ssid, password, saved)
+            return f"Connected to {ssid}" if not why else f"Could not connect to {ssid}: {why}"
+        self._sys(work, busy="wifi:" + ssid)
+
+    @Slot(str)
+    def wifiDisconnect(self, ssid):
+        self._sys(lambda: None if syscontrol.disconnect_wifi(ssid) else f"Could not disconnect from {ssid}", busy="wifi:" + ssid)
+
+    @Slot(str)
+    def wifiForget(self, ssid):
+        self._sys(lambda: f"Forgot {ssid}" if syscontrol.forget_wifi(ssid) else f"Could not forget {ssid}", busy="wifi:" + ssid)
+
+    @Slot(str, bool)
+    def btConnect(self, mac, connect):
+        name = next((d["name"] for d in self._system.get("bluetooth", {}).get("devices", []) if d["mac"] == mac), mac)
+        def work():
+            ok = syscontrol.bt_connect(mac, connect)
+            if connect:
+                return f"{name} connected" if ok else f"{name} did not connect (is it on, and near?)"
+            return None
+        self._sys(work, busy="bt:" + mac)
+
+    @Slot()
+    def btScan(self):
+        """Look for devices to pair for ten seconds (a controller in pairing mode, headphones)."""
+        def work():
+            near = syscontrol.bt_scan(10)
+            def keep():
+                self._system["nearby"] = near
+            self._after.emit(keep)
+            return None if near else "Nothing new found. Put the device in pairing mode and search again."
+        self._sys(work, busy="bt-scan")
+
+    @Slot(str)
+    def btPair(self, mac):
+        name = next((d["name"] for d in self._system.get("nearby", []) if d["mac"] == mac), mac)
+        self._sys(lambda: f"{name} paired" if syscontrol.bt_pair(mac) else f"Could not pair {name}", busy="bt:" + mac)
+
+    @Slot(str)
+    def btForget(self, mac):
+        self._sys(lambda: None if syscontrol.bt_forget(mac) else "Could not forget the device", busy="bt:" + mac)
+
     # --- TV mode's power menu ---------------------------------------------------------
     @Slot(str)
     def power(self, what):
@@ -4845,6 +4991,7 @@ class AioLaunch(QObject):
             p.terminate()
             p.waitForFinished(3000)
         self.pool.shutdown(wait=False, cancel_futures=True)
+        self._sys_pool.shutdown(wait=False, cancel_futures=True)
 
     # --- demo ------------------------------------------------------------
     def _load_demo(self):
