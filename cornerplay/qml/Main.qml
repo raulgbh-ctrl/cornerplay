@@ -182,7 +182,7 @@ ApplicationWindow {
     }
 
     // A narrow window folds the sidebar into a rail of icons (names show as tooltips).
-    readonly property bool rail: width < 980
+    readonly property bool rail: width < 1080
 
     // TV mode is built the first time it is opened (it costs ~45 ms at start otherwise), then kept.
     property bool tvUsed: startTv
@@ -1143,7 +1143,8 @@ ApplicationWindow {
                                 }
                                 x: 8
                                 width: parent.width - 16
-                                height: Math.round(Math.min(340, Math.max(250, width * 0.28)))
+                                // A short window (a laptop) keeps the banner low, so the library still shows under it.
+                                height: Math.round(Math.max(210, Math.min(340, width * 0.28, win.height * 0.36)))
 
                                 Item {
                                     id: heroArt
@@ -4634,7 +4635,7 @@ ApplicationWindow {
                                         width: parent.width
                                         height: Math.max(4, (parent.height - 40) * dayBar.modelData / days14.peak)
                                         radius: 4
-                                        color: dayBar.modelData > 0 ? theme.primary : theme.surfaceContainerHighest
+                                        color: dayBar.modelData > 0 ? theme.primary : Qt.alpha(theme.onSurface, 0.08)
                                         Behavior on height { enabled: !app.still; NumberAnimation { duration: 380; easing.type: Easing.OutCubic } }
                                     }
                                     Text {
@@ -4680,14 +4681,15 @@ ApplicationWindow {
                                     width: (parent.width - 11 * 6) / 12
                                     height: parent.height
                                     Text { id: wkHours; anchors.horizontalCenter: parent.horizontalCenter; y: wkBar.y - height - 2
-                                           visible: modelData.hours > 0; text: modelData.hours; color: theme.onSurfaceVariant; font.pixelSize: 10 }
+                                           visible: modelData.hours > 0; color: theme.onSurfaceVariant; font.pixelSize: 10
+                                           text: modelData.hours >= 1 ? Math.round(modelData.hours * 10) / 10 + "h" : Math.max(1, Math.round(modelData.hours * 60)) + "m" }
                                     Rectangle {
                                         id: wkBar
                                         anchors.bottom: wkLabel.top; anchors.bottomMargin: 4
                                         width: parent.width
                                         height: Math.max(3, (parent.height - 36) * modelData.hours / parent.parent.parent.peak)
                                         radius: 4
-                                        color: modelData.hours > 0 ? theme.primary : theme.surfaceContainerHighest
+                                        color: modelData.hours > 0 ? theme.primary : Qt.alpha(theme.onSurface, 0.08)
                                     }
                                     Text { id: wkLabel; anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
                                            text: modelData.label; color: theme.outline; font.pixelSize: 10 }

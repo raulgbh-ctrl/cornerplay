@@ -1342,6 +1342,11 @@ class AioLaunch(QObject):
 
         def work():
             rows = health.checks(self.stores, pad)
+            from . import toastsi18n
+            for r in rows:  # in the interface language (the templates come from health.py, see toastsi18n)
+                r["name"], r["detail"] = toastsi18n.translate(r["name"]), toastsi18n.translate(r["detail"])
+                if r["fix"].get("label"):
+                    r["fix"] = dict(r["fix"], label=toastsi18n.translate(r["fix"]["label"]))
             return lambda: self.healthReady.emit(rows)
         self._bg(work)
 
