@@ -1,4 +1,5 @@
 import QtQuick
+import "glyphs.js" as Glyphs
 
 // The rows behind TV mode's quick access tabs and its Settings screen (TvRowList.qml), built
 // from the PC's state (app.system, syscontrol.py) and Cornerplay's settings: everything you can
@@ -180,11 +181,11 @@ QtObject {
                                           southpaw: qsTr("Southpaw"), shoulders: qsTr("Swap bumpers and triggers") })
     readonly property var layoutOrder: ["", "swap_ab", "nintendo", "southpaw", "shoulders"]
     function controllers() {
-        const pads = pad.pads || [], styles = { xbox: "Xbox", playstation: "PlayStation", nintendo: "Nintendo" }
+        const pads = pad.pads || []
         const out = []
         for (const p of pads)
             out.push({ group: qsTr("Connected"), label: p.name, icon: "gamepad-2",
-                       sub: (styles[p.style] || "") + (p.wired ? qsTr(" · wired") : ""),
+                       sub: Glyphs.of(p.style).name + (p.wired ? qsTr(" · wired") : ""),
                        value: p.battery >= 0 ? p.battery + "%" : "" })
         if (!pads.length)
             out.push({ group: qsTr("Connected"), label: pad.deck ? qsTr("Steam Deck controls") : qsTr("No controller connected"), icon: "gamepad-2",
@@ -194,7 +195,7 @@ QtObject {
         const g = "Cornerplay"
         out.push({ group: g, label: qsTr("Test buttons"), icon: "gamepad-2", sub: qsTr("See every button and stick as games see them"), act: "padtest" })
         out.push({ group: g, kind: "choice", label: qsTr("Button prompts"), icon: "eye", cur: st.pad_glyphs || "",
-                   options: [{ v: "", t: qsTr("Auto") }, { v: "xbox", t: "Xbox" }, { v: "playstation", t: "PlayStation" }, { v: "nintendo", t: "Nintendo" }],
+                   options: [{ v: "", t: qsTr("Auto") + " (" + Glyphs.of(pad.style).name + ")" }].concat(Glyphs.choices()),
                    set: v => { app.setSetting("pad_glyphs", v); pad.reload() } })
         out.push({ group: g, kind: "choice", label: qsTr("Choose with"), icon: "check", cur: !!st.pad_swap_confirm,
                    options: [{ v: false, t: qsTr("Bottom button") }, { v: true, t: qsTr("Right button") }],

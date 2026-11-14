@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import QtQuick.Layouts
+import "glyphs.js" as Glyphs
 
 // Settings > Controllers > Test buttons: the controller drawn on screen, every button and stick
 // lighting up as you use it (SDL's view of it, the same games get). While it is open the pad
@@ -54,13 +55,15 @@ Rectangle {
     component Plain: Rectangle {
         property int b: 0
         property string text: ""
+        property real w: pt.u
         readonly property bool lit: pt.on(b)
+        width: Math.max(w, plainText.implicitWidth + pt.u * 0.35)
         radius: height / 2
         color: lit ? pt.tint.primary : Qt.alpha(pt.theme.onSurface, 0.12)
         border.width: 1; border.color: Qt.alpha("white", 0.12)
         Behavior on color { ColorAnimation { duration: 70 } }
-        Text { anchors.centerIn: parent; text: parent.text; color: parent.lit ? pt.tint.onPrimary : pt.theme.onSurface
-               font.pixelSize: Math.round(pt.u * 0.3); font.weight: Font.DemiBold }
+        Text { id: plainText; anchors.centerIn: parent; text: parent.text; color: parent.lit ? pt.tint.onPrimary : pt.theme.onSurface
+               font.pixelSize: Math.round(pt.u * (parent.text.length > 4 ? 0.22 : 0.3)); font.weight: Font.DemiBold }
     }
     component Stick: Rectangle {
         property int ax: 0
@@ -115,30 +118,30 @@ Rectangle {
             Row {
                 x: pt.u * 1.1; y: 0; spacing: pt.u * 0.4
                 Trigger { ax: 4; glyph: "lt" }
-                Plain { b: 9; text: ({ playstation: "L1", nintendo: "L" })[pad.style] || "LB"; width: pt.u * 1.3; height: pt.u * 0.55; anchors.bottom: parent.bottom }
+                Plain { b: 9; text: Glyphs.label(pad.style, "lb"); w: pt.u * 1.3; height: pt.u * 0.55; anchors.bottom: parent.bottom }
             }
             Row {
                 anchors.right: parent.right; anchors.rightMargin: pt.u * 1.1; y: 0; spacing: pt.u * 0.4; layoutDirection: Qt.RightToLeft
                 Trigger { ax: 5; glyph: "rt" }
-                Plain { b: 10; text: ({ playstation: "R1", nintendo: "R" })[pad.style] || "RB"; width: pt.u * 1.3; height: pt.u * 0.55; anchors.bottom: parent.bottom }
+                Plain { b: 10; text: Glyphs.label(pad.style, "rb"); w: pt.u * 1.3; height: pt.u * 0.55; anchors.bottom: parent.bottom }
             }
             Stick { ax: 0; b: 7; x: pt.u * 1.3; y: pt.u * 1.9 }
             // D-pad
             Item {
                 x: pt.u * 2.9; y: pt.u * 4.0; width: pt.u * 1.8; height: width
-                Plain { b: 11; x: parent.width / 3; y: 0; width: parent.width / 3; height: width; radius: pt.u * 0.12 }
-                Plain { b: 12; x: parent.width / 3; y: parent.height * 2 / 3; width: parent.width / 3; height: width; radius: pt.u * 0.12 }
-                Plain { b: 13; x: 0; y: parent.height / 3; width: parent.width / 3; height: width; radius: pt.u * 0.12 }
-                Plain { b: 14; x: parent.width * 2 / 3; y: parent.height / 3; width: parent.width / 3; height: width; radius: pt.u * 0.12 }
+                Plain { b: 11; x: parent.width / 3; y: 0; w: parent.width / 3; height: width; radius: pt.u * 0.12 }
+                Plain { b: 12; x: parent.width / 3; y: parent.height * 2 / 3; w: parent.width / 3; height: width; radius: pt.u * 0.12 }
+                Plain { b: 13; x: 0; y: parent.height / 3; w: parent.width / 3; height: width; radius: pt.u * 0.12 }
+                Plain { b: 14; x: parent.width * 2 / 3; y: parent.height / 3; w: parent.width / 3; height: width; radius: pt.u * 0.12 }
             }
             // Middle: View / Select, Guide, Menu / Start, Share
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter; y: pt.u * 2.3; spacing: pt.u * 0.3
-                Plain { b: 4; text: ({ playstation: "CREATE", nintendo: "−" })[pad.style] || "⧉"; width: pt.u * 0.85; height: pt.u * 0.45 }
-                Plain { b: 5; text: ({ playstation: "PS", nintendo: "HOME" })[pad.style] || "GUIDE"; width: pt.u * 1.0; height: pt.u * 0.8; anchors.verticalCenter: parent.verticalCenter }
-                Plain { b: 6; text: ({ playstation: "OPTIONS", nintendo: "+" })[pad.style] || "☰"; width: pt.u * 0.85; height: pt.u * 0.45 }
+                Plain { b: 4; text: Glyphs.label(pad.style, "back"); w: pt.u * 0.85; height: pt.u * 0.45 }
+                Plain { b: 5; text: Glyphs.label(pad.style, "guide"); w: pt.u * 1.0; height: pt.u * 0.8; anchors.verticalCenter: parent.verticalCenter }
+                Plain { b: 6; text: Glyphs.label(pad.style, "start"); w: pt.u * 0.85; height: pt.u * 0.45 }
             }
-            Plain { b: 15; text: qsTr("Share"); width: pt.u * 0.9; height: pt.u * 0.4; anchors.horizontalCenter: parent.horizontalCenter; y: pt.u * 3.3 }
+            Plain { b: 15; visible: Glyphs.label(pad.style, "share") !== "" || pt.on(15); text: Glyphs.label(pad.style, "share") || qsTr("Share"); w: pt.u * 0.9; height: pt.u * 0.4; anchors.horizontalCenter: parent.horizontalCenter; y: pt.u * 3.3 }
             // Face buttons, by position
             Item {
                 x: parent.width - pt.u * 3.5; y: pt.u * 1.75; width: pt.u * 2.5; height: width
@@ -146,6 +149,18 @@ Rectangle {
                 Face { b: 0; glyph: "a"; x: (parent.width - width) / 2; y: parent.height - height }
                 Face { b: 2; glyph: "x"; x: 0; y: (parent.height - height) / 2 }
                 Face { b: 1; glyph: "b"; x: parent.width - width; y: (parent.height - height) / 2 }
+            }
+            // Back buttons (Steam Deck's L4 / L5 / R4 / R5, Xbox Elite's paddles), on pads that have them.
+            Row {
+                visible: Glyphs.of(pad.style).name === "Steam Deck" || pt.on(16) || pt.on(17) || pt.on(18) || pt.on(19)
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom; anchors.bottomMargin: pt.u * 0.35
+                spacing: pt.u * 0.25
+                Plain { b: 17; text: "L4"; w: pt.u * 0.8; height: pt.u * 0.4 }
+                Plain { b: 19; text: "L5"; w: pt.u * 0.8; height: pt.u * 0.4 }
+                Item { width: pt.u * 0.6; height: 1 }
+                Plain { b: 18; text: "R5"; w: pt.u * 0.8; height: pt.u * 0.4 }
+                Plain { b: 16; text: "R4"; w: pt.u * 0.8; height: pt.u * 0.4 }
             }
             Stick { ax: 2; b: 8; x: parent.width - pt.u * 4.8; y: pt.u * 4.2 }
         }

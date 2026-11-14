@@ -29,10 +29,15 @@ BUTTONS = {
 GUIDE, BUTTON_A, BUTTON_Y = 5, 0, 3
 MAIN_MENU, QUICK_ACCESS = Qt.Key_F10, Qt.Key_F9
 REPEATING = {Qt.Key_Up, Qt.Key_Down, Qt.Key_Left, Qt.Key_Right}
-# SDL_GameControllerType -> which button glyphs to show. Unknown pads (and the Steam Deck,
-# which Steam presents as an Xbox pad) get Xbox glyphs.
-STYLES = {3: "playstation", 4: "playstation", 7: "playstation",
-          5: "nintendo", 11: "nintendo", 12: "nintendo", 13: "nintendo"}
+# SDL_GameControllerType -> which button prompts to show (qml/glyphs.js draws them).
+STYLES = {1: "xbox360", 2: "xbox", 3: "ps3", 4: "ps4", 5: "switch", 7: "ps5", 8: "luna", 9: "stadia",
+          10: "shield", 11: "switch", 12: "switch", 13: "switch"}
+GLYPHS = {"xbox", "xbox360", "ps5", "ps4", "ps3", "switch", "deck", "steam", "stadia", "luna", "shield", "generic"}
+OLD_GLYPHS = {"playstation": "ps5", "nintendo": "switch"}
+VALVE = 0x28DE
+STEAM_CONTROLLERS = {0x1102, 0x1142}   # wired and wireless
+DECK_PRODUCT = 0x1205
+STEAM_VIRTUAL = 0x11FF                # Steam Input's virtual pad (Game Mode presents every pad this way)
 # SDL_JoystickPowerLevel -> a battery percentage to show (wired and unknown: None).
 POWER = {0: 5, 1: 20, 2: 60, 3: 100, 5: 100}
 STICK_ON, STICK_OFF = 18000, 12000
@@ -154,6 +159,12 @@ class Gamepad(QObject):
         sdl.SDL_JoystickInstanceID.argtypes = [ctypes.c_void_p]
         sdl.SDL_JoystickInstanceID.restype = ctypes.c_int32
         sdl.SDL_GameControllerClose.argtypes = [ctypes.c_void_p]
+        for fn in ("SDL_GameControllerGetVendor", "SDL_GameControllerGetProduct"):  # SDL 2.0.6+
+            try:
+                getattr(sdl, fn).argtypes = [ctypes.c_void_p]
+                getattr(sdl, fn).restype = ctypes.c_uint16
+            except AttributeError:
+                pass
         sdl.SDL_GameControllerName.argtypes = [ctypes.c_void_p]
         sdl.SDL_GameControllerName.restype = ctypes.c_char_p
         sdl.SDL_GameControllerMapping.argtypes = [ctypes.c_void_p]
@@ -193,14 +204,17 @@ class Gamepad(QObject):
     available = Property(bool, lambda s: s._sdl is not None, notify=availableChanged)
     deck = Property(bool, lambda s: s._deck, constant=True)
     connected = Property(bool, lambda s: bool(s._pads), notify=connectedChanged)
-    style = Property(str, lambda s: s._style, notify=styleChanged)  # "xbox", "playstation" or "nintendo"
+    style = Property(str, lambda s: s._style, notify=styleChanged)  # a key of qml/glyphs.js
 
     @Slot()
     def reload(self):
         """Settings > Controllers changed: the button prompts and which button chooses."""
         from .config import settings
         glyphs = settings.get("pad_glyphs") or ""
-        style = glyphs if glyphs in ("xbox", "playstation", "nintendo") else self._pad_style
+        glyphs = OLD_GLYPHS.get(glyphs, glyphs)
+        # No pad seen yet on a Steam Deck: its own controls (Steam turns them into keys on the desktop).
+        own = self._pad_style if self._pads or not self._deck else "deck"
+        style = glyphs if glyphs in GLYPHS else own
         if style != self._style:
             self._style = style
             self.styleChanged.emit()
@@ -236,6 +250,28 @@ class Gamepad(QObject):
         """Settings > Controllers > Test rumble: a firm half-second buzz."""
         self.rumble(strength / 100, strength / 100, 500)
 
+    def _style_of(self, handle, name):
+        """Which prompts this controller has: Valve's own pads by their ids, the rest by SDL's type."""
+        sdl = self._sdl
+        try:
+            vendor, product = sdl.SDL_GameControllerGetVendor(handle), sdl.SDL_GameControllerGetProduct(handle)
+        except AttributeError:
+            vendor = product = 0
+        if vendor == VALVE:
+            if product == DECK_PRODUCT or (product == STEAM_VIRTUAL and self._deck):
+                return "deck"
+            if product in STEAM_CONTROLLERS:
+                return "steam"
+        kind = self._get_type(handle) if self._get_type else 0
+        if kind in STYLES:
+            return STYLES[kind]
+        low = name.lower()
+        if "steam deck" in low:
+            return "deck"
+        if "8bitdo" in low or "xinput" in low or "x-box" in low or "xbox" in low:
+            return "xbox"
+        return "generic" if kind in (0, 6) and name else "xbox"
+
     def _remember(self, iid, handle):
         sdl = self._sdl
         name = sdl.SDL_GameControllerName(handle) or b""
@@ -244,7 +280,7 @@ class Gamepad(QObject):
         if ptr:
             mapping = ctypes.string_at(ptr).decode("utf-8", "replace")
             sdl.SDL_free(ptr)
-        style = STYLES.get(self._get_type(handle), "xbox") if self._get_type else "xbox"
+        style = self._style_of(handle, name.decode("utf-8", "replace"))
         self._info[iid] = {"name": name.decode("utf-8", "replace"), "style": style, "mapping": mapping}
 
     # --- SDL events ------------------------------------------------------
@@ -266,6 +302,9 @@ class Gamepad(QObject):
             elif kind == DEVICE_REMOVED:
                 handle = self._pads.pop(which, None)
                 self._info.pop(which, None)
+                if self._info:  # the prompts follow the pad that is still there
+                    self._pad_style = list(self._info.values())[-1]["style"]
+                self.reload()
                 if handle:
                     sdl.SDL_GameControllerClose(handle)
                     self.connectedChanged.emit()

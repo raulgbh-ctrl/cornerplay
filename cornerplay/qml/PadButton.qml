@@ -1,26 +1,28 @@
 import QtQuick
+import "glyphs.js" as Glyphs
 
-// One controller button, drawn the way the connected pad labels it.
-// button: the position SDL reports ("a" bottom, "b" right, "x" left, "y" top, "lb", "rb", "lt", "rt", "start");
-// style: "xbox", "playstation" or "nintendo" (from pad.style).
+// One controller button, drawn the way the connected pad labels it (glyphs.js has every kind:
+// Xbox and Xbox 360, PlayStation 3 / 4 / 5, Switch, Steam Deck, Steam Controller, Stadia, Luna,
+// Shield, generic).
+// button: the position SDL reports ("a" bottom, "b" right, "x" left, "y" top, "lb", "rb", "lt",
+// "rt", "back", "start", "guide", "share", "ls", "rs"); style: pad.style.
 Item {
     id: pb
     property string button: "a"
     property string style: "xbox"
     property int size: 26
-    readonly property bool shoulder: ["lb", "rb", "lt", "rt", "start", "back", "guide"].indexOf(button) !== -1
-    implicitWidth: shoulder ? label.implicitWidth + size * 0.7 : size
+    readonly property bool face: ["a", "b", "x", "y"].indexOf(button) !== -1
+    readonly property bool shoulder: !face
+    readonly property bool ps: face && Glyphs.isPlayStation(style)
+    readonly property string text: Glyphs.label(style, button)
+    readonly property color ink: face ? Glyphs.colour(style, button) : "#ececf0"
+    // Words (OPTIONS, STEAM) get smaller type than symbols and short names.
+    readonly property bool wordy: !face && text.length > 3
+    readonly property bool symbol: !face && text.length === 1 && !/[A-Za-z0-9+]/.test(text)
+    implicitWidth: shoulder ? Math.max(size, label.implicitWidth + size * 0.7) : size
     implicitHeight: size
     width: implicitWidth
     height: implicitHeight
-
-    readonly property var xbox: ({ a: ["A", "#6dc04b"], b: ["B", "#e5574d"], x: ["X", "#3d8fea"], y: ["Y", "#f2c230"] })
-    readonly property var nintendo: ({ a: "B", b: "A", x: "Y", y: "X" })   // by position: bottom is B on a Switch pad
-    readonly property var psColour: ({ a: "#7fa9ec", b: "#ec6f6f", x: "#d58ad8", y: "#41c7a0" })
-    readonly property var shoulders: ({
-        xbox: { lb: "LB", rb: "RB", lt: "LT", rt: "RT", start: "☰", back: "⧉", guide: "GUIDE" },
-        playstation: { lb: "L1", rb: "R1", lt: "L2", rt: "R2", start: "OPTIONS", back: "CREATE", guide: "PS" },
-        nintendo: { lb: "L", rb: "R", lt: "ZL", rt: "ZR", start: "+", back: "−", guide: "HOME" } })
 
     // PlayStation face symbols as SVG (cross, circle, square, triangle).
     function psSvg(b, c) {
@@ -41,19 +43,18 @@ Item {
     }
     Text {
         id: label
-        visible: pb.shoulder || pb.style !== "playstation"
+        visible: !pb.ps
         anchors.centerIn: parent
-        font.pixelSize: pb.shoulder ? Math.round(pb.size * ((pb.button === "start" && pb.style === "playstation") || (pb.button === "guide" && pb.style !== "playstation") ? 0.34 : 0.46))
-                                    : Math.round(pb.size * 0.56)
+        font.pixelSize: Math.round(pb.size * (pb.face ? 0.56 : pb.wordy ? 0.34 : pb.symbol ? 0.62 : 0.46))
         font.weight: Font.Bold
-        color: pb.shoulder || pb.style === "nintendo" ? "#ececf0" : pb.xbox[pb.button][1]
-        text: pb.shoulder ? pb.shoulders[pb.style][pb.button]
-              : pb.style === "nintendo" ? pb.nintendo[pb.button] : pb.xbox[pb.button][0]
+        font.letterSpacing: pb.wordy ? 0.4 : 0
+        color: pb.ink
+        text: pb.text
     }
     Image {
-        visible: !pb.shoulder && pb.style === "playstation"
+        visible: pb.ps
         anchors.fill: parent
-        source: visible ? pb.psSvg(pb.button, pb.psColour[pb.button]) : ""
+        source: visible ? pb.psSvg(pb.button, pb.ink) : ""
         sourceSize: Qt.size(Math.ceil(pb.size * Math.max(2, Screen.devicePixelRatio)), Math.ceil(pb.size * Math.max(2, Screen.devicePixelRatio)))
     }
 }
