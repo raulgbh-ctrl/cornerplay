@@ -7,6 +7,7 @@ import uuid
 
 from ..config import CONFIG_DIR, read_json, write_json
 from ..runner import StoreError, extras, perf_env, user_env, wine_env, wrapper_argv
+from .. import redist
 from .base import Command, Game, Store
 
 FILE = CONFIG_DIR / "custom_games.json"
@@ -47,6 +48,23 @@ def add(exe, title="", args=""):
     data = entries() + [entry]
     write_json(FILE, data)
     return entry
+
+
+def set_exe(gid, exe):
+    """Point a game added by hand at another program (the launcher vs the game itself, a moved
+    folder). Windows or Linux is worked out again from the new file."""
+    exe = os.path.expanduser(exe.strip())
+    if not os.path.isfile(exe):
+        raise StoreError("That file does not exist")
+    kind = "windows" if exe.lower().endswith(WINDOWS_EXT) else "linux"
+    if kind == "linux" and not _is_program(exe):
+        raise StoreError("That file is not a program: pick the game's executable, start script or AppImage")
+    data = entries()
+    for e in data:
+        if e["id"] == gid:
+            e.update(exe=exe, kind=kind)
+    write_json(FILE, data)
+    return kind
 
 
 def remove(gid):
@@ -96,4 +114,5 @@ class Custom(Store):
             env = {k: v for k, v in perf_env(self.id, game.id).items() if k == "MANGOHUD_CONFIG"}
             env.update(user_env())
             return Command([*extras(), e["exe"], *args], env=env, cwd=cwd)
-        return Command([*wrapper_argv(), e["exe"], *args], env=wine_env(self.id, game.id), cwd=cwd)
+        env = wine_env(self.id, game.id)
+        return Command(redist.wrap([*wrapper_argv(), e["exe"], *args], e["exe"], env["WINEPREFIX"]), env=env, cwd=cwd)

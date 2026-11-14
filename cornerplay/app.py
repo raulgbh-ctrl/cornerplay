@@ -98,6 +98,9 @@ def _translatable_names():
             QCoreApplication.translate("app", "Settings used in this game's Options"),
             QCoreApplication.translate("app", "This game already has these settings"),
             QCoreApplication.translate("app", "A command before the game did not work:"),
+            QCoreApplication.translate("app", "Windows games can start now"),
+            QCoreApplication.translate("app", "Program changed"),
+            QCoreApplication.translate("app", "Not allowed. In a terminal: "),
             QCoreApplication.translate("app", "Games"),
             QCoreApplication.translate("app", "added to Favourites"),
             QCoreApplication.translate("app", "removed from Favourites"),
@@ -1191,6 +1194,25 @@ class AioLaunch(QObject):
         self.toast.emit(f"Added {e['title']} ({'Linux program' if e['kind'] == 'linux' else 'Windows program, runs through Proton'})")
         self.refresh("custom")
 
+    @Slot(str, result=str)
+    def customExe(self, key):
+        """The program a game added by hand runs ("" for other games)."""
+        store, _, gid = key.partition(":")
+        if store != "custom":
+            return ""
+        return next((e["exe"] for e in custom_games.entries() if e["id"] == gid), "")
+
+    @Slot(str, str)
+    def setCustomExe(self, key, exe):
+        exe = QUrl(exe).toLocalFile() if exe.startswith("file:") else exe
+        try:
+            kind = custom_games.set_exe(key.partition(":")[2], exe)
+        except StoreError as err:
+            self.toast.emit(str(err))
+            return
+        self.toast.emit(_t("Program changed") + f" ({'Linux' if kind == 'linux' else 'Windows, Proton'})")
+        self.refresh("custom")
+
     @Slot(str, result="QVariantList")
     def ownedNotInstalled(self, store_id):
         return sorted(({"id": g.id, "title": g.title} for g in self.model.games
@@ -1321,6 +1343,17 @@ class AioLaunch(QObject):
         def work():
             rows = health.checks(self.stores, pad)
             return lambda: self.healthReady.emit(rows)
+        self._bg(work)
+
+    @Slot()
+    def allowUserns(self):
+        """Ubuntu: let Proton's container start (asks for the administrator password once)."""
+        from . import userns
+
+        def work():
+            ok = userns.allow()
+            return lambda: self.toast.emit(_t("Windows games can start now") if ok else
+                                           _t("Not allowed. In a terminal: ") + userns.manual_command())
         self._bg(work)
 
     @Slot()

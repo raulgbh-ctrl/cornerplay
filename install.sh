@@ -406,6 +406,21 @@ if [ "$UMU_PORTABLE" = 1 ] && ! have umu-run && want "Download a portable umu-la
     fi
 fi
 
+# Ubuntu 23.10+ (Kubuntu, Mint 22, ...): only programs with an AppArmor profile may create user
+# namespaces, and Proton's game container from umu needs them, or every Windows game crashes at
+# start. The profile is the same kind Ubuntu ships for Steam (cornerplay/userns.py).
+if [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null)" = 1 ] \
+   && [ ! -e /etc/apparmor.d/cornerplay-umu ] && [ "$CAN_SUDO" = 1 ] \
+   && want "Allow Proton's game container (Ubuntu blocks it; Windows games crash without it)?"; then
+    say "Allowing Proton's game container (AppArmor profile, sudo)"
+    if "$BIN/cornerplay" --userns-profile | sudo tee /etc/apparmor.d/cornerplay-umu >/dev/null \
+       && sudo apparmor_parser -r /etc/apparmor.d/cornerplay-umu; then
+        note "Allowed"
+    else
+        note "Not allowed; Cornerplay asks again the first time you play a Windows game."
+    fi
+fi
+
 # Controller support: always, no question (the system's SDL2, else a private copy).
 "$BIN/cornerplay" --fetch-sdl | sed 's/^/    /' || note "Controllers: SDL2 could not be set up; the app tries again when it starts."
 

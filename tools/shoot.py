@@ -7,6 +7,7 @@ Actions run one after another, 0.6 s apart after a 2.5 s start:
     key:Name      a key (Qt.Key_Name)  ctrl:X        Ctrl+X (ctrl:Comma for Ctrl+,)
     type:text     type text            click:x,y     a click
     open:NAME     call show() on the object with that objectName
+    opts:KEY      open a game's Options (opts:custom:abc123)
     panel:NAME    save the in-game panel   quick:NAME    save quick access over a game (cshift:A opens it)
     size:WxH      resize the window    recap:KEY     show the after-session card for a demo game
     tv            start in TV mode
@@ -109,6 +110,13 @@ def run(*_):
                             break
                 if obj is not None:
                     QMetaObject.invokeMethod(obj, "show")
+            elif k == "opts":  # opts:KEY opens that game's Options
+                from PySide6.QtCore import QMetaObject, QObject as _QO, Q_ARG
+                for x in QGuiApplication.topLevelWindows():
+                    obj = x.findChild(_QO, "gameOpts") if hasattr(x, "findChild") else None
+                    if obj is not None:
+                        QMetaObject.invokeMethod(obj, "show", Q_ARG("QVariant", v))
+                        break
             elif k == "recap":
                 import cornerplay.app as A
                 inst = A._shot_instance

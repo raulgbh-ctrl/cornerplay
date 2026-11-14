@@ -298,7 +298,12 @@ def extras(gamescope: bool = True) -> list:
 
 def wrapper_argv(gamescope: bool = True) -> list:
     """argv prefix that runs a Windows executable."""
-    _, path = compat()
+    kind, path = compat()
+    if kind == "umu":
+        from . import userns
+        if userns.blocked() and not userns.allow():  # Ubuntu: asks for the password once
+            raise StoreError("Ubuntu blocks Proton's game container, so Windows games would crash at start. "
+                             "Allow it once in Tools > Health check (Allow), or in a terminal: " + userns.manual_command())
     return [*extras(gamescope), path]
 
 

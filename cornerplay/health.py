@@ -53,6 +53,14 @@ def checks(stores, gamepad_available=True):
         add("umu", "Proton runner (umu-launcher)", False, str(e),
             _install("umu-launcher") or {"kind": "action", "action": "fetchBackends", "label": "Download"})
 
+    # Ubuntu 23.10+: Proton's container needs an AppArmor profile to start (userns.py)
+    from . import userns
+    if userns.restricted():
+        ok = not userns.blocked()
+        add("userns", "Proton game container (Ubuntu)", ok,
+            "Allowed" if ok else "Blocked by Ubuntu: Windows games crash at start",
+            {} if ok else {"kind": "action", "action": "allowUserns", "label": "Allow"})
+
     # Proton version
     versions = runner.proton_versions()
     add("proton", "Proton versions", bool(versions), f"{len(versions)} available" if versions else "None found",

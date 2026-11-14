@@ -4262,6 +4262,7 @@ ApplicationWindow {
                             else if (f.action === "loginBegin") { healthBox.close(); app.loginBegin(f.arg) }
                             else if (f.action === "fetchBackends") app.fetchBackends()
                             else if (f.action === "downloadGe") app.downloadGe()
+                            else if (f.action === "allowUserns") { app.allowUserns(); healthBox.close() }
                         }
                     }
                 }
@@ -6694,9 +6695,11 @@ ApplicationWindow {
         readonly property bool runsNative: game.platform === "linux"
         heading: qsTr("Options · ") + (game.title || "")
         width: Math.min(win.width - 60, 600)
+        property string exe: ""
         function show(k) {
             key = k
             game = app.game(k)
+            exe = app.customExe(k)
             opts = app.gameOptions(k)
             optProton.select(opts.proton === undefined ? "default" : opts.proton)
             steamProton = game.store === "steam" ? app.steamProton(k) : ({ choices: [], current: "" })
@@ -6718,246 +6721,288 @@ ApplicationWindow {
             optBefore.text = opts.before || ""
             optAfter.text = opts.after || ""
             optCover.text = opts.cover || ""
+            optsScroll.contentY = 0
             open()
         }
         readonly property var triState: [{ label: qsTr("Use default"), value: "default" }, { label: qsTr("On"), value: true }, { label: qsTr("Off"), value: false }]
         property bool resetArmed: false
 
-        contentItem: ColumnLayout {
-            spacing: 14
-            Text {
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                color: theme.onSurfaceVariant
-                font.pixelSize: 12
-                visible: !gameOpts.compat && gameOpts.game.store !== "steam"
-                text: qsTr("Battle.net games all run inside the Battle.net app, so Proton and overlay options are set on the Battle.net tile.")
-            }
-            // Steam games: Steam's own per-game compatibility tool, set from here.
-            Row2 {
-                visible: gameOpts.game.store === "steam"
-                label: qsTr("Proton version (Steam's setting)")
-                hint: gameOpts.steamProton.choices.length
-                      ? qsTr("The same as the game's Properties → Compatibility in Steam. Cornerplay closes and reopens Steam to change it; Steam downloads a Valve Proton the first time a game uses it. Launch options stay in Steam.")
-                      : qsTr("Steam is not set up on this PC yet: start Steam and sign in once.")
-                KCombo {
-                    id: optSteamProton
-                    theme: win.theme; Layout.fillWidth: true
-                    enabled: gameOpts.steamProton.choices.length > 0 && !app.steamShortcut.busy
-                    onActivated: { const k = gameOpts.key, v = currentValue; win.protonChange(k, () => app.setSteamProton(k, v), () => optSteamProton.select(gameOpts.steamProton.current)) }
-                }
-            }
-            Row2 {
-                visible: gameOpts.compat && !gameOpts.runsNative
-                label: qsTr("Proton version")
-                KCombo {
-                    id: optProton
-                    theme: win.theme; Layout.fillWidth: true
-                    model: [{ label: qsTr("Use default"), value: "default" }].concat(app.protonVersions)
-                    onActivated: { const k = gameOpts.key, v = currentValue; win.protonChange(k, () => app.setGameOption(k, "proton", v),
-                                                    () => optProton.select(gameOpts.opts.proton === undefined ? "default" : gameOpts.opts.proton)) }
-                }
-            }
-            RowLayout {
-                visible: gameOpts.compat
+        // Taller than the window on most screens: it scrolls, like Settings.
+        contentItem: Flickable {
+            id: optsScroll
+            implicitWidth: optsCol.implicitWidth
+            implicitHeight: Math.min(optsCol.implicitHeight, win.height - 150)
+            contentHeight: optsCol.implicitHeight
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: KScrollBar { }
+            ColumnLayout {
+                id: optsCol
+                width: optsScroll.width - 12
                 spacing: 14
-                Row2 {
-                    label: qsTr("MangoHud")
-                    KCombo { id: optHud; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
-                             onActivated: app.setGameOption(gameOpts.key, "mangohud", currentValue) }
-                }
-                Row2 {
-                    label: qsTr("GameMode")
-                    KCombo { id: optMode; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
-                             onActivated: app.setGameOption(gameOpts.key, "gamemode", currentValue) }
-                }
-            }
-            // GOG games with a Linux version: which one to install.
-            Row2 {
-                visible: gameOpts.game.store === "gog" && !!gameOpts.game.linuxVersion
-                label: qsTr("Version")
-                hint: gameOpts.game.installed
-                      ? qsTr("Installed: the ") + (gameOpts.game.platform === "linux" ? qsTr("Linux") : qsTr("Windows")) + qsTr(" version. To switch, pick the other one, then uninstall and install again.")
-                      : qsTr("The Linux version runs without Proton (lighter, but old ones can need extra libraries); the Windows version runs through Proton.")
-                KCombo { id: optPlatform; theme: win.theme; Layout.fillWidth: true
-                         model: [{ label: qsTr("Use default (Settings)"), value: "default" }, { label: qsTr("Linux version (native)"), value: "linux" },
-                                 { label: qsTr("Windows version (Proton)"), value: "windows" }]
-                         onActivated: app.setGameOption(gameOpts.key, "platform", currentValue) }
-            }
-            // Performance profile: frame cap + FSR upscaling (Steam games: set in Steam).
-            RowLayout {
-                visible: gameOpts.compat && gameOpts.game.store !== "battlenet"
-                spacing: 14
-                Row2 {
-                    label: qsTr("Performance")
-                    hint: qsTr("Battery saver caps at 30 fps, Balanced at 60, both with FSR upscaling when the game runs below your screen's resolution.")
-                    KCombo { id: optPerf; theme: win.theme; Layout.fillWidth: true
-                             model: [{ label: qsTr("Use default"), value: "default" }, { label: qsTr("No change"), value: "none" },
-                                     { label: qsTr("Battery saver (30 fps)"), value: "battery" },
-                                     { label: qsTr("Balanced (60 fps)"), value: "balanced" },
-                                     { label: qsTr("Max quality (no cap)"), value: "quality" }]
-                             onActivated: app.setGameOption(gameOpts.key, "perf", currentValue) }
-                }
-                Row2 {
-                    label: qsTr("FPS counter")
-                    KCombo { id: optFps; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
-                             onActivated: app.setGameOption(gameOpts.key, "show_fps", currentValue) }
-                }
-            }
-            Row2 {
-                label: qsTr("Controller as keyboard and mouse")
-                hint: qsTr("For games that only take a keyboard and mouse: while the game is in front the controller types keys, clicks and moves the mouse. Guide still opens Cornerplay.")
-                RowLayout {
+                Text {
                     Layout.fillWidth: true
-                    spacing: 10
-                    KCombo { id: optKeys; theme: win.theme; Layout.fillWidth: true
-                             model: [{ label: qsTr("Off"), value: "default" }].concat((app.padKeysInfo().templates || []).map(t => ({ label: t.name, value: t.id })))
-                                    .concat([{ label: qsTr("My layout"), value: "custom" }])
-                             onActivated: app.setGameOption(gameOpts.key, "pad_keys", currentValue) }
-                    KButton { theme: win.theme; text: qsTr("Edit my layout"); iconName: "gamepad-2"; onClicked: keysEdit.show() }
+                    wrapMode: Text.WordWrap
+                    color: theme.onSurfaceVariant
+                    font.pixelSize: 12
+                    visible: !gameOpts.compat && gameOpts.game.store !== "steam"
+                    text: qsTr("Battle.net games all run inside the Battle.net app, so Proton and overlay options are set on the Battle.net tile.")
                 }
-            }
-            Row2 {
-                visible: gameOpts.game.store !== "steam"
-                label: qsTr("Controller layout")
-                hint: qsTr("For games that read the controller through SDL (most Proton and native games). Steam games use Steam Input.")
-                KCombo { id: optPad; theme: win.theme; Layout.fillWidth: true
-                         model: [{ label: qsTr("Default (Settings > Games & Proton)"), value: "default" }, { label: qsTr("Standard"), value: "none" },
-                                 { label: qsTr("Swap A and B"), value: "swap_ab" }, { label: qsTr("Nintendo (A/B and X/Y swapped)"), value: "nintendo" },
-                                 { label: qsTr("Southpaw (sticks swapped)"), value: "southpaw" }, { label: qsTr("Bumpers and triggers swapped"), value: "shoulders" }]
-                         onActivated: app.setGameOption(gameOpts.key, "pad_layout", currentValue) }
-            }
-            // Gamescope (not for the Battle.net app, which stays open after its games close).
-            RowLayout {
-                visible: gameOpts.compat && gameOpts.game.store !== "battlenet"
-                spacing: 14
+                // Games added by hand: which program Play starts (the launcher or the game itself).
                 Row2 {
-                    label: qsTr("Gamescope")
-                    hint: app.hasGamescope ? qsTr("Full screen at your screen's resolution, or drawn at 2/3 size and upscaled with FSR.")
-                                           : qsTr("gamescope is not installed, so this has no effect yet.")
-                    KCombo { id: optScope; theme: win.theme; Layout.fillWidth: true
-                             model: [{ label: qsTr("Use default"), value: "default" }, { label: qsTr("Off"), value: "off" },
-                                     { label: qsTr("Full screen"), value: "fullscreen" }, { label: qsTr("FSR upscaling"), value: "fsr" }]
-                             onActivated: app.setGameOption(gameOpts.key, "gamescope", currentValue) }
+                    visible: gameOpts.game.store === "custom"
+                    label: qsTr("Program")
+                    hint: gameOpts.runsNative ? qsTr("A Linux program: it runs as it is.")
+                                              : qsTr("A Windows program: it runs through Proton. Games that need NVIDIA PhysX get it in their prefix the first time they start.")
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        KField { Layout.fillWidth: true; theme: win.theme; readOnly: true; text: gameOpts.exe }
+                        KButton { theme: win.theme; text: qsTr("Change…"); iconName: "folder-open"; onClicked: optExePicker.open() }
+                    }
+                }
+                // Steam games: Steam's own per-game compatibility tool, set from here.
+                Row2 {
+                    visible: gameOpts.game.store === "steam"
+                    label: qsTr("Proton version (Steam's setting)")
+                    hint: gameOpts.steamProton.choices.length
+                          ? qsTr("The same as the game's Properties → Compatibility in Steam. Cornerplay closes and reopens Steam to change it; Steam downloads a Valve Proton the first time a game uses it. Launch options stay in Steam.")
+                          : qsTr("Steam is not set up on this PC yet: start Steam and sign in once.")
+                    KCombo {
+                        id: optSteamProton
+                        theme: win.theme; Layout.fillWidth: true
+                        enabled: gameOpts.steamProton.choices.length > 0 && !app.steamShortcut.busy
+                        onActivated: { const k = gameOpts.key, v = currentValue; win.protonChange(k, () => app.setSteamProton(k, v), () => optSteamProton.select(gameOpts.steamProton.current)) }
+                    }
                 }
                 Row2 {
-                    label: qsTr("HDR")
-                    KCombo { id: optHdr; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
-                             onActivated: app.setGameOption(gameOpts.key, "gamescope_hdr", currentValue) }
+                    visible: gameOpts.compat && !gameOpts.runsNative
+                    label: qsTr("Proton version")
+                    KCombo {
+                        id: optProton
+                        theme: win.theme; Layout.fillWidth: true
+                        model: [{ label: qsTr("Use default"), value: "default" }].concat(app.protonVersions)
+                        onActivated: { const k = gameOpts.key, v = currentValue; win.protonChange(k, () => app.setGameOption(k, "proton", v),
+                                                        () => optProton.select(gameOpts.opts.proton === undefined ? "default" : gameOpts.opts.proton)) }
+                    }
                 }
-            }
-            Row2 {
-                visible: gameOpts.compat
-                label: qsTr("Environment variables")
-                KField { id: optEnv; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("KEY=value KEY2=value")
-                         onEditingFinished: app.setGameOption(gameOpts.key, "env", text) }
-            }
-            Row2 {
-                visible: gameOpts.compat && gameOpts.game.store !== "battlenet"
-                label: qsTr("Launch arguments")
-                KField { id: optArgs; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("-windowed -skipintro")
-                         onEditingFinished: app.setGameOption(gameOpts.key, "args", text) }
-            }
-            // Before it starts and after it closes: commands, one per line ("&" at the end: leave it running).
-            component StepsBox: Rectangle {
-                id: sb
-                property alias text: sbArea.text
-                property string placeholder: ""
-                signal saved(string text)
-                Layout.fillWidth: true
-                implicitHeight: Math.max(64, sbArea.implicitHeight + 12)
-                radius: 10
-                color: theme.surfaceContainerHigh
-                border.width: sbArea.activeFocus ? 1 : 0; border.color: theme.primary
-                TextArea {
-                    id: sbArea
-                    anchors.fill: parent; anchors.margins: 2
-                    wrapMode: TextArea.NoWrap
-                    font.family: "monospace"; font.pixelSize: 12
-                    color: theme.onSurface
-                    placeholderText: sb.placeholder; placeholderTextColor: theme.outline
-                    background: null
-                    onEditingFinished: sb.saved(text)
+                RowLayout {
+                    visible: gameOpts.compat
+                    spacing: 14
+                    Row2 {
+                        Layout.fillHeight: true; Layout.preferredWidth: 1
+                        label: qsTr("MangoHud")
+                        KCombo { id: optHud; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
+                                 onActivated: app.setGameOption(gameOpts.key, "mangohud", currentValue) }
+                    }
+                    Row2 {
+                        label: qsTr("GameMode")
+                        KCombo { id: optMode; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
+                                 onActivated: app.setGameOption(gameOpts.key, "gamemode", currentValue) }
+                    }
                 }
-            }
-            Row2 {
-                label: qsTr("Before it starts")
-                hint: qsTr("One command per line, each given up to a minute; end a line with & to leave it running (Discord, a server).")
-                StepsBox { id: optBefore; placeholder: "discord &\nnmcli connection up my-vpn"
-                           onSaved: t => app.setGameOption(gameOpts.key, "before", t) }
-            }
-            Row2 {
-                label: qsTr("After it closes")
-                hint: gameOpts.game.store === "prism" || gameOpts.game.store === "battlenet"
-                      ? qsTr("Cornerplay cannot tell when this game closes, so these do not run for it.")
-                      : qsTr("Run one after another once the game has closed.")
-                StepsBox { id: optAfter; placeholder: "powerprofilesctl set balanced"
-                           onSaved: t => app.setGameOption(gameOpts.key, "after", t) }
-            }
-            Flow {
-                Layout.fillWidth: true
-                spacing: 6
-                Repeater {
-                    model: [{ id: "discord", t: qsTr("+ Open Discord") }, { id: "power", t: qsTr("+ Performance power mode while playing") },
-                            { id: "close_discord", t: qsTr("+ Close Discord after") }]
-                    Chip2 {
-                        required property var modelData
-                        label: modelData.t
-                        onPicked: { app.addStepPreset(gameOpts.key, modelData.id); const o = app.gameOptions(gameOpts.key)
-                                    optBefore.text = o.before || ""; optAfter.text = o.after || "" }
+                // GOG games with a Linux version: which one to install.
+                Row2 {
+                    visible: gameOpts.game.store === "gog" && !!gameOpts.game.linuxVersion
+                    label: qsTr("Version")
+                    hint: gameOpts.game.installed
+                          ? qsTr("Installed: the ") + (gameOpts.game.platform === "linux" ? qsTr("Linux") : qsTr("Windows")) + qsTr(" version. To switch, pick the other one, then uninstall and install again.")
+                          : qsTr("The Linux version runs without Proton (lighter, but old ones can need extra libraries); the Windows version runs through Proton.")
+                    KCombo { id: optPlatform; theme: win.theme; Layout.fillWidth: true
+                             model: [{ label: qsTr("Use default (Settings)"), value: "default" }, { label: qsTr("Linux version (native)"), value: "linux" },
+                                     { label: qsTr("Windows version (Proton)"), value: "windows" }]
+                             onActivated: app.setGameOption(gameOpts.key, "platform", currentValue) }
+                }
+                // Performance profile: frame cap + FSR upscaling (Steam games: set in Steam).
+                RowLayout {
+                    visible: gameOpts.compat && gameOpts.game.store !== "battlenet"
+                    spacing: 14
+                    Row2 {
+                        Layout.fillHeight: true; Layout.preferredWidth: 1
+                        label: qsTr("Performance")
+                        hint: qsTr("Battery saver caps at 30 fps, Balanced at 60, both with FSR upscaling when the game runs below your screen's resolution.")
+                        KCombo { id: optPerf; theme: win.theme; Layout.fillWidth: true
+                                 model: [{ label: qsTr("Use default"), value: "default" }, { label: qsTr("No change"), value: "none" },
+                                         { label: qsTr("Battery saver (30 fps)"), value: "battery" },
+                                         { label: qsTr("Balanced (60 fps)"), value: "balanced" },
+                                         { label: qsTr("Max quality (no cap)"), value: "quality" }]
+                                 onActivated: app.setGameOption(gameOpts.key, "perf", currentValue) }
+                    }
+                    Row2 {
+                        Layout.fillHeight: true; Layout.preferredWidth: 1
+                        label: qsTr("FPS counter")
+                        KCombo { id: optFps; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
+                                 onActivated: app.setGameOption(gameOpts.key, "show_fps", currentValue) }
+                    }
+                }
+                Row2 {
+                    label: qsTr("Controller as keyboard and mouse")
+                    hint: qsTr("For games that only take a keyboard and mouse: while the game is in front the controller types keys, clicks and moves the mouse. Guide still opens Cornerplay.")
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+                        KCombo { id: optKeys; theme: win.theme; Layout.fillWidth: true
+                                 model: [{ label: qsTr("Off"), value: "default" }].concat((app.padKeysInfo().templates || []).map(t => ({ label: t.name, value: t.id })))
+                                        .concat([{ label: qsTr("My layout"), value: "custom" }])
+                                 onActivated: app.setGameOption(gameOpts.key, "pad_keys", currentValue) }
+                        KButton { theme: win.theme; text: qsTr("Edit my layout"); iconName: "gamepad-2"; onClicked: keysEdit.show() }
+                    }
+                }
+                Row2 {
+                    visible: gameOpts.game.store !== "steam"
+                    label: qsTr("Controller layout")
+                    hint: qsTr("For games that read the controller through SDL (most Proton and native games). Steam games use Steam Input.")
+                    KCombo { id: optPad; theme: win.theme; Layout.fillWidth: true
+                             model: [{ label: qsTr("Default (Settings > Games & Proton)"), value: "default" }, { label: qsTr("Standard"), value: "none" },
+                                     { label: qsTr("Swap A and B"), value: "swap_ab" }, { label: qsTr("Nintendo (A/B and X/Y swapped)"), value: "nintendo" },
+                                     { label: qsTr("Southpaw (sticks swapped)"), value: "southpaw" }, { label: qsTr("Bumpers and triggers swapped"), value: "shoulders" }]
+                             onActivated: app.setGameOption(gameOpts.key, "pad_layout", currentValue) }
+                }
+                // Gamescope (not for the Battle.net app, which stays open after its games close).
+                RowLayout {
+                    visible: gameOpts.compat && gameOpts.game.store !== "battlenet"
+                    spacing: 14
+                    Row2 {
+                        Layout.fillHeight: true; Layout.preferredWidth: 1
+                        label: qsTr("Gamescope")
+                        hint: app.hasGamescope ? qsTr("Full screen at your screen's resolution, or drawn at 2/3 size and upscaled with FSR.")
+                                               : qsTr("gamescope is not installed, so this has no effect yet.")
+                        KCombo { id: optScope; theme: win.theme; Layout.fillWidth: true
+                                 model: [{ label: qsTr("Use default"), value: "default" }, { label: qsTr("Off"), value: "off" },
+                                         { label: qsTr("Full screen"), value: "fullscreen" }, { label: qsTr("FSR upscaling"), value: "fsr" }]
+                                 onActivated: app.setGameOption(gameOpts.key, "gamescope", currentValue) }
+                    }
+                    Row2 {
+                        Layout.fillHeight: true; Layout.preferredWidth: 1
+                        label: qsTr("HDR")
+                        KCombo { id: optHdr; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
+                                 onActivated: app.setGameOption(gameOpts.key, "gamescope_hdr", currentValue) }
+                    }
+                }
+                Row2 {
+                    visible: gameOpts.compat
+                    label: qsTr("Environment variables")
+                    KField { id: optEnv; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("KEY=value KEY2=value")
+                             onEditingFinished: app.setGameOption(gameOpts.key, "env", text) }
+                }
+                Row2 {
+                    visible: gameOpts.compat && gameOpts.game.store !== "battlenet"
+                    label: qsTr("Launch arguments")
+                    KField { id: optArgs; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("-windowed -skipintro")
+                             onEditingFinished: app.setGameOption(gameOpts.key, "args", text) }
+                }
+                // Before it starts and after it closes: commands, one per line ("&" at the end: leave it running).
+                component StepsBox: Rectangle {
+                    id: sb
+                    property alias text: sbArea.text
+                    property string placeholder: ""
+                    signal saved(string text)
+                    Layout.fillWidth: true
+                    implicitHeight: Math.max(64, sbArea.implicitHeight + 12)
+                    radius: 10
+                    color: theme.surfaceContainerHigh
+                    border.width: sbArea.activeFocus ? 1 : 0; border.color: theme.primary
+                    TextArea {
+                        id: sbArea
+                        anchors.fill: parent; anchors.margins: 2
+                        wrapMode: TextArea.NoWrap
+                        font.family: "monospace"; font.pixelSize: 12
+                        color: theme.onSurface
+                        placeholderText: sb.placeholder; placeholderTextColor: theme.outline
+                        background: null
+                        onEditingFinished: sb.saved(text)
+                    }
+                }
+                Row2 {
+                    label: qsTr("Before it starts")
+                    hint: qsTr("One command per line, each given up to a minute; end a line with & to leave it running (Discord, a server).")
+                    StepsBox { id: optBefore; placeholder: "discord &\nnmcli connection up my-vpn"
+                               onSaved: t => app.setGameOption(gameOpts.key, "before", t) }
+                }
+                Row2 {
+                    label: qsTr("After it closes")
+                    hint: gameOpts.game.store === "prism" || gameOpts.game.store === "battlenet"
+                          ? qsTr("Cornerplay cannot tell when this game closes, so these do not run for it.")
+                          : qsTr("Run one after another once the game has closed.")
+                    StepsBox { id: optAfter; placeholder: "powerprofilesctl set balanced"
+                               onSaved: t => app.setGameOption(gameOpts.key, "after", t) }
+                }
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    Repeater {
+                        model: [{ id: "discord", t: qsTr("+ Open Discord") }, { id: "power", t: qsTr("+ Performance power mode while playing") },
+                                { id: "close_discord", t: qsTr("+ Close Discord after") }]
+                        Chip2 {
+                            required property var modelData
+                            label: modelData.t
+                            onPicked: { app.addStepPreset(gameOpts.key, modelData.id); const o = app.gameOptions(gameOpts.key)
+                                        optBefore.text = o.before || ""; optAfter.text = o.after || "" }
+                        }
+                    }
+                }
+                RowLayout {
+                    visible: app.cloudSaveStores.includes(gameOpts.game.store)
+                    spacing: 14
+                    Row2 {
+                        Layout.fillHeight: true; Layout.preferredWidth: 1
+                        label: qsTr("Cloud saves")
+                        KCombo { id: optSaves; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
+                                 onActivated: app.setGameOption(gameOpts.key, "cloud_saves", currentValue) }
+                    }
+                    KButton {
+                        theme: win.theme
+                        Layout.alignment: Qt.AlignBottom
+                        text: qsTr("Sync saves now")
+                        enabled: !!gameOpts.game.installed
+                        onClicked: app.syncNow(gameOpts.key)
+                    }
+                }
+                // When a game misbehaves.
+                Row2 {
+                    visible: !!gameOpts.game.installed && gameOpts.game.store !== "steam"
+                    label: qsTr("Fix it")
+                    hint: gameOpts.resetArmed
+                          ? qsTr("A fresh Proton prefix starts Windows settings from scratch. The old one is kept beside it (renamed), so saves stored there are not lost.")
+                          : ["epic", "gog", "amazon"].includes(gameOpts.game.store)
+                            ? qsTr("Repair checks every file and downloads the broken or missing ones.")
+                            : gameOpts.compat && !gameOpts.runsNative
+                              ? qsTr("Reset Proton prefix gives the game a fresh Windows setup, for when it stopped starting after a change.")
+                              : ""
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        KButton { theme: win.theme; visible: ["epic", "gog", "amazon"].includes(gameOpts.game.store)
+                                  text: qsTr("Repair files"); iconName: "refresh-cw"
+                                  onClicked: { app.verifyGame(gameOpts.key); gameOpts.close() } }
+                        KButton { theme: win.theme; visible: gameOpts.compat && !gameOpts.runsNative; danger: gameOpts.resetArmed
+                                  text: gameOpts.resetArmed ? qsTr("Really reset?") : qsTr("Reset Proton prefix"); iconName: "trash-2"
+                                  onClicked: { if (!gameOpts.resetArmed) { gameOpts.resetArmed = true; return }
+                                               gameOpts.resetArmed = false; app.resetPrefix(gameOpts.key) } }
+                        KButton { theme: win.theme; text: qsTr("Open log"); iconName: "folder-open"; onClicked: app.openLog(gameOpts.key) }
+                    }
+                }
+                Row2 {
+                    label: qsTr("Custom cover")
+                    hint: qsTr("An image file or a web address. Leave empty to use the automatic cover.")
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        KField { id: optCover; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("Automatic")
+                                 onEditingFinished: app.setGameOption(gameOpts.key, "cover", text) }
+                        KButton { theme: win.theme; text: qsTr("Choose…"); onClicked: coverPicker.open() }
+                        KButton { theme: win.theme; text: qsTr("Reset"); enabled: optCover.text !== ""
+                                  onClicked: { optCover.text = ""; app.setGameOption(gameOpts.key, "cover", "") } }
                     }
                 }
             }
-            RowLayout {
-                visible: app.cloudSaveStores.includes(gameOpts.game.store)
-                spacing: 14
-                Row2 {
-                    label: qsTr("Cloud saves")
-                    KCombo { id: optSaves; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
-                             onActivated: app.setGameOption(gameOpts.key, "cloud_saves", currentValue) }
-                }
-                KButton {
-                    theme: win.theme
-                    Layout.alignment: Qt.AlignBottom
-                    text: qsTr("Sync saves now")
-                    enabled: !!gameOpts.game.installed
-                    onClicked: app.syncNow(gameOpts.key)
-                }
-            }
-            // When a game misbehaves.
-            Row2 {
-                visible: !!gameOpts.game.installed && gameOpts.game.store !== "steam"
-                label: qsTr("Fix it")
-                hint: gameOpts.resetArmed
-                      ? qsTr("A fresh Proton prefix starts Windows settings from scratch. The old one is kept beside it (renamed), so saves stored there are not lost.")
-                      : qsTr("Repair checks every file and downloads the broken or missing ones.")
-                Flow {
-                    Layout.fillWidth: true
-                    spacing: 8
-                    KButton { theme: win.theme; visible: ["epic", "gog", "amazon"].includes(gameOpts.game.store)
-                              text: qsTr("Repair files"); iconName: "refresh-cw"
-                              onClicked: { app.verifyGame(gameOpts.key); gameOpts.close() } }
-                    KButton { theme: win.theme; visible: gameOpts.compat && !gameOpts.runsNative; danger: gameOpts.resetArmed
-                              text: gameOpts.resetArmed ? qsTr("Really reset?") : qsTr("Reset Proton prefix"); iconName: "trash-2"
-                              onClicked: { if (!gameOpts.resetArmed) { gameOpts.resetArmed = true; return }
-                                           gameOpts.resetArmed = false; app.resetPrefix(gameOpts.key) } }
-                    KButton { theme: win.theme; text: qsTr("Open log"); iconName: "folder-open"; onClicked: app.openLog(gameOpts.key) }
-                }
-            }
-            Row2 {
-                label: qsTr("Custom cover")
-                hint: qsTr("An image file or a web address. Leave empty to use the automatic cover.")
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-                    KField { id: optCover; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("Automatic")
-                             onEditingFinished: app.setGameOption(gameOpts.key, "cover", text) }
-                    KButton { theme: win.theme; text: qsTr("Choose…"); onClicked: coverPicker.open() }
-                    KButton { theme: win.theme; text: qsTr("Reset"); enabled: optCover.text !== ""
-                              onClicked: { optCover.text = ""; app.setGameOption(gameOpts.key, "cover", "") } }
-                }
-            }
         }
+    }
+    FileDialog {
+        id: optExePicker
+        title: qsTr("Which program?")
+        currentFolder: gameOpts.exe ? "file://" + gameOpts.exe.substring(0, gameOpts.exe.lastIndexOf("/")) : ""
+        onAccepted: { app.setCustomExe(gameOpts.key, selectedFile.toString()); gameOpts.close() }
     }
     FileDialog {
         id: coverPicker

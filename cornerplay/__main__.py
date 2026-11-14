@@ -266,7 +266,12 @@ def main():
     ap.add_argument("--demo", action="store_true", help="open with sample games (nothing is launched)")
     ap.add_argument("--check", action="store_true", help="compile every QML file and report errors, then exit")
     ap.add_argument("--fetch-umu", action="store_true", help=argparse.SUPPRESS)  # install.sh: a portable umu-launcher
+    ap.add_argument("--userns-profile", action="store_true", help=argparse.SUPPRESS)  # install.sh: Ubuntu's AppArmor profile
     args = ap.parse_args()
+    if args.userns_profile:
+        from .userns import PROFILE_TEXT
+        sys.stdout.write(PROFILE_TEXT)
+        return 0
     if args.fetch_backends:
         return fetch_backends()
     if args.fetch_umu:
