@@ -217,7 +217,8 @@ def vulkan_problem() -> str:
         # Name the driver for a GPU whose Vulkan driver is not installed (the one that is on).
         icds = " ".join(os.path.basename(p).lower() for d in ("/usr/share/vulkan/icd.d", "/etc/vulkan/icd.d",
                                                                  os.path.expanduser("~/.local/share/vulkan/icd.d"))
-                        for p in glob.glob(os.path.join(d, "*.json")))
+                        for p in glob.glob(os.path.join(d, "*.json"))
+                        if not any(a in os.path.basename(p) for a in (".i686.", ".i386.")))  # 32-bit alone is not enough
         vendors = set()
         for f in glob.glob("/sys/class/drm/card*/device/vendor"):
             try:

@@ -388,31 +388,6 @@ have gtk-update-icon-cache && gtk-update-icon-cache -q -t "$PREFIX/share/icons/h
 have kbuildsycoca6 && kbuildsycoca6 >/dev/null 2>&1 || { have kbuildsycoca5 && kbuildsycoca5 >/dev/null 2>&1; } || true
 
 # ---------------------------------------------------------------- the rest
-fetch_umu() {  # portable umu-launcher (one Python zipapp) into Cornerplay's own bin folder
-    mkdir -p "$DATA/bin"
-    python3 - "$DATA/bin/umu-run" <<'EOF'
-import io, json, os, sys, tarfile, urllib.request
-dest = sys.argv[1]
-api = "https://api.github.com/repos/Open-Wine-Components/umu-launcher/releases/latest"
-req = urllib.request.Request(api, headers={"User-Agent": "cornerplay-installer"})
-release = json.load(urllib.request.urlopen(req, timeout=30))
-asset = next(a for a in release["assets"] if a["name"].endswith("-zipapp.tar"))
-data = urllib.request.urlopen(asset["browser_download_url"], timeout=120).read()
-digest = asset.get("digest") or ""
-if digest.startswith("sha256:"):  # GitHub's checksum of the published file
-    import hashlib
-    if hashlib.sha256(data).hexdigest() != digest.split(":", 1)[1]:
-        sys.exit("umu-launcher download was damaged or changed (checksum mismatch)")
-with tarfile.open(fileobj=io.BytesIO(data)) as tar:
-    member = next(m for m in tar.getmembers() if m.isfile() and os.path.basename(m.name) == "umu-run")
-    payload = tar.extractfile(member).read()
-with open(dest + ".part", "wb") as f:
-    f.write(payload)
-os.chmod(dest + ".part", 0o755)
-os.replace(dest + ".part", dest)
-print(release["tag_name"])
-EOF
-}
 
 
 if [ "$STEAM_FLATPAK" = 1 ] && want "Install Steam from Flathub for your user?"; then
@@ -422,8 +397,9 @@ if [ "$STEAM_FLATPAK" = 1 ] && want "Install Steam from Flathub for your user?";
 fi
 
 if [ "$UMU_PORTABLE" = 1 ] && ! have umu-run && want "Download a portable umu-launcher into $DATA/bin?"; then
-    if version=$(fetch_umu 2>/dev/null); then
-        note "umu-launcher $version installed to $DATA/bin/umu-run"
+    # The app's own downloader: checksum-checked, and it still works when GitHub's API limit is used up.
+    if "$BIN/cornerplay" --fetch-umu 2>/dev/null | sed 's/^/    /' && [ -x "$DATA/bin/umu-run" ]; then
+        :
     else
         note "umu-launcher did not download; Epic, GOG, Amazon and Battle.net games need it:"
         note "https://github.com/Open-Wine-Components/umu-launcher/releases"

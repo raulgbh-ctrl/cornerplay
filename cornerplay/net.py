@@ -28,14 +28,47 @@ def redact(text) -> str:
 
 
 GITHUB_API = "https://api.github.com/repos/{}/releases/latest"
+_ASSET = _re.compile(r'href="/([^"]+?)/releases/download/([^"/]+)/([^"/]+)"|sha256:([0-9a-f]{64})')
+
+
+def latest_release(repo) -> dict:
+    """The newest release of a GitHub repo, shaped like the API's answer ({"tag_name", "assets":
+    [{"name", "browser_download_url", "digest"}]}). GitHub's API allows 60 requests an hour per
+    internet address, and a shared address (a dorm, an office, mobile data) runs out of them;
+    then the same comes from the public release page, digests included."""
+    try:
+        r = requests.get(GITHUB_API.format(repo), timeout=20, headers={"Accept": "application/vnd.github+json"})
+        if r.status_code not in (403, 429):
+            r.raise_for_status()
+            return r.json()
+    except requests.ConnectionError:
+        raise
+    except Exception:
+        pass
+    page = requests.get(f"https://github.com/{repo}/releases/latest", timeout=20)
+    page.raise_for_status()
+    tag = page.url.rstrip("/").rsplit("/tag/", 1)[-1]
+    if "/tag/" not in page.url:
+        raise RuntimeError(f"{repo} has no release")
+    html = requests.get(f"https://github.com/{repo}/releases/expanded_assets/{tag}", timeout=20)
+    html.raise_for_status()
+    assets, last = [], None
+    for m in _ASSET.finditer(html.text):
+        if m.group(3):
+            name = m.group(3)
+            if not any(a["name"] == name for a in assets):
+                last = {"name": name, "digest": "",
+                        "browser_download_url": f"https://github.com/{m.group(1)}/releases/download/{m.group(2)}/{name}"}
+                assets.append(last)
+        elif last is not None and not last["digest"]:
+            last["digest"] = "sha256:" + m.group(4)  # the page lists each file's digest right after it
+    return {"tag_name": tag, "assets": assets}
 
 
 def github_asset(repo, match):
     """(tag, download url, sha256 or "") of the newest release's asset whose name match(name)
     accepts. GitHub publishes each asset's SHA-256 ("digest"), so downloads can be checked."""
-    r = requests.get(GITHUB_API.format(repo), timeout=20, headers={"Accept": "application/vnd.github+json"})
-    r.raise_for_status()
-    rel = r.json()
+    rel = latest_release(repo)
     for a in rel.get("assets") or []:
         if match(a.get("name", "")):
             digest = a.get("digest") or ""

@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .config import HOME
 
-GE_API = "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
+GE_REPO = "GloriousEggroll/proton-ge-custom"
 # Where GE builds go: Steam and umu-launcher both look here.
 TOOLS_DIR = HOME / ".local/share/Steam/compatibilitytools.d"
 PROTON_EXPERIMENTAL_APPID = "1493710"
@@ -19,9 +19,8 @@ PROTON_EXPERIMENTAL_APPID = "1493710"
 
 def latest_ge():
     """(tag, tarball url, checksum url) of the newest GE-Proton for this CPU."""
-    r = requests.get(GE_API, timeout=20, headers={"Accept": "application/vnd.github+json"})
-    r.raise_for_status()
-    data = r.json()
+    from .net import latest_release
+    data = latest_release(GE_REPO)
     arch = "aarch64" if os.uname().machine in ("aarch64", "arm64") else "x86_64"
     assets = {a["name"]: a["browser_download_url"] for a in data.get("assets", [])}
     tar = next((u for n, u in assets.items() if n.endswith(f"{arch}.tar.gz")), None) \
@@ -46,7 +45,7 @@ def installed_ge():
     return sorted(names, key=version, reverse=True)
 
 
-CACHY_API = "https://api.github.com/repos/CachyOS/proton-cachyos/releases/latest"
+CACHY_REPO = "CachyOS/proton-cachyos"
 
 
 def _cpu_v3():
@@ -61,9 +60,8 @@ def _cpu_v3():
 def latest_cachyos():
     """(tag, tarball url, checksum url) of the newest Proton-CachyOS for this CPU (the Steam
     Linux Runtime build, which runs anywhere, not only on CachyOS)."""
-    r = requests.get(CACHY_API, timeout=20, headers={"Accept": "application/vnd.github+json"})
-    r.raise_for_status()
-    data = r.json()
+    from .net import latest_release
+    data = latest_release(CACHY_REPO)
     assets = {a["name"]: a["browser_download_url"] for a in data.get("assets", [])}
     if os.uname().machine in ("aarch64", "arm64"):
         arches = ["arm64"]

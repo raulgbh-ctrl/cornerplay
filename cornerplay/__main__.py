@@ -265,9 +265,18 @@ def main():
                     help="install a mod from a Nexus Mods \"Mod Manager Download\" link (nxm://...)")
     ap.add_argument("--demo", action="store_true", help="open with sample games (nothing is launched)")
     ap.add_argument("--check", action="store_true", help="compile every QML file and report errors, then exit")
+    ap.add_argument("--fetch-umu", action="store_true", help=argparse.SUPPRESS)  # install.sh: a portable umu-launcher
     args = ap.parse_args()
     if args.fetch_backends:
         return fetch_backends()
+    if args.fetch_umu:
+        from .config import BIN_DIR
+        try:
+            fetch_umu(BIN_DIR)
+            return 0
+        except Exception as e:
+            print(f"umu-launcher: not downloaded: {e}")
+            return 1
     if args.fetch_sdl:
         from . import sdl
         if sdl.system_has_it():
