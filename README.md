@@ -103,7 +103,7 @@ on Debian/Ubuntu).
 ## Requirements
 
 - **Linux**, 64-bit. Developed on **CachyOS (Arch)** with Hyprland and KDE Plasma. The installer
-  is tested from a clean install on **Ubuntu 22.04 and 24.04, Debian 12 and 13, Fedora 43 and
+  is tested from a clean install on **Ubuntu 22.04 and 24.04, Linux Mint 22, Debian 12 and 13, Fedora 43 and
   openSUSE Tumbleweed**: it installs Steam the way each one does it (Ubuntu's package with 32-bit
   support switched on, Valve's `steam.deb` on Debian, RPM Fusion or Flathub on Fedora), a portable
   umu-launcher where the distribution has none, and any system library Qt is missing. The Health
