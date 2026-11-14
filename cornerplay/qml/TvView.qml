@@ -1710,7 +1710,7 @@ FocusScope {
             rows = rowsFn(tabId); sheetList.first(); sheetList.positionViewAtBeginning()
             tabSwap.restart()
         }
-        readonly property real w: Math.round(Math.min(480, Math.max(340, tv.width * 0.31)))
+        readonly property real w: Math.round(Math.min(520, Math.max(360, tv.width * 0.33)))
         // The state is read again now and then while it is open (a controller that connects).
         Timer { interval: 5000; repeat: true; running: sheet.open && sheet.tabs.length > 0; onTriggered: app.refreshSystem() }
 

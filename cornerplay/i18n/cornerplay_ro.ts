@@ -5102,7 +5102,7 @@
         <location filename="../qml/TvControls.qml" line="62"/>
         <location filename="../qml/TvControls.qml" line="107"/>
         <source>Battery saver</source>
-        <translation>Economisire baterie</translation>
+        <translation>Economie baterie</translation>
     </message>
     <message>
         <location filename="../qml/TvControls.qml" line="62"/>
@@ -5118,7 +5118,7 @@
     <message>
         <location filename="../qml/TvControls.qml" line="66"/>
         <source>Power mode</source>
-        <translation>Mod de energie</translation>
+        <translation>Mod energie</translation>
     </message>
     <message>
         <location filename="../qml/TvControls.qml" line="72"/>

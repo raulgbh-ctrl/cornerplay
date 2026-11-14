@@ -145,6 +145,7 @@ ListView {
                 color: cell.lit ? rl.tint.onPrimary : cell.row.danger ? rl.theme.error : rl.theme.onSurfaceVariant
             }
             Text {
+                id: rowLabel
                 anchors { left: parent.left; leftMargin: 54; right: rowEnd.left; rightMargin: 12; verticalCenter: rowIcon.verticalCenter
                           verticalCenterOffset: cell.row.sub && cell.row.kind !== "slider" ? -9 : 0 }
                 text: cell.row.label || ""
@@ -198,6 +199,9 @@ ListView {
                            color: body.soft; opacity: cell.lit ? 1 : 0.35 }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
+                        // A long value gives way before the row's own name does.
+                        width: Math.min(implicitWidth, Math.max(body.width * 0.34, body.width - 54 - rowLabel.implicitWidth - 92))
+                        elide: Text.ElideRight
                         text: ((cell.row.options || [])[choiceRow.at] || { t: "" }).t
                         color: body.ink
                         font.pixelSize: 17; font.weight: Font.DemiBold
