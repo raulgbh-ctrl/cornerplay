@@ -7,6 +7,8 @@ Actions run one after another, 0.6 s apart after a 2.5 s start:
     key:Name      a key (Qt.Key_Name)  ctrl:X        Ctrl+X (ctrl:Comma for Ctrl+,)
     type:text     type text            click:x,y     a click         hover:x,y   move the pointer there
     rclick:x,y    a right click        mods:KEY      a game's mods page
+    call:obj:method:arg   call a QML function with one argument
+    crash:KEY:text the 'closed right away' window, as if KEY's log said text
     open:NAME     call show() on the object with that objectName
     opts:KEY      open a game's Options (opts:custom:abc123)
     panel:NAME    save the in-game panel   quick:NAME    save quick access over a game (cshift:A opens it)
@@ -118,6 +120,13 @@ def run(*_):
                     if obj is not None:
                         QMetaObject.invokeMethod(obj, "show", Q_ARG("QVariant", v))
                         break
+            elif k == "crash":  # crash:KEY:log text  -> the "closed right away" window for that game
+                import cornerplay.app as A
+                import tempfile as _tf
+                key2, txt = v.split(":", 2)[0] + ":" + v.split(":", 2)[1], v.split(":", 2)[2]
+                f = _tf.NamedTemporaryFile("w", suffix=".log", delete=False); f.write("info: starting\n" + txt + "\nwine: exiting\n"); f.close()
+                inst = A._shot_instance
+                inst._after_session({"key": key2, "title": inst.model.find(key2).title, "started": 100, "since": 104, "log": f.name, "exit": 1})
             elif k == "recap":
                 import cornerplay.app as A
                 inst = A._shot_instance
@@ -128,6 +137,14 @@ def run(*_):
                 x, y = map(float, v.split(","))
                 for typ in (QEvent.MouseButtonPress, QEvent.MouseButtonRelease):
                     QGuiApplication.sendEvent(w, QMouseEvent(typ, QPointF(x, y), QPointF(x, y), Qt.RightButton, Qt.RightButton if typ == QEvent.MouseButtonPress else Qt.NoButton, Qt.NoModifier))
+            elif k == "call":  # call:objectName:method:arg  (e.g. call:installBox:ask:gog:1174180)
+                from PySide6.QtCore import QMetaObject, QObject as _QO, Q_ARG
+                name, meth, arg = v.split(":", 2)
+                for x in QGuiApplication.topLevelWindows():
+                    obj = x.findChild(_QO, name) if hasattr(x, "findChild") else None
+                    if obj is not None:
+                        QMetaObject.invokeMethod(obj, meth, Q_ARG("QVariant", arg))
+                        break
             elif k == "mods":  # mods:KEY opens that game's mods page
                 from PySide6.QtCore import QMetaObject, QObject as _QO, Q_ARG
                 for x in QGuiApplication.topLevelWindows():

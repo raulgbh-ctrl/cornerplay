@@ -17,7 +17,7 @@ import shlex
 
 import sys
 
-from . import humbleshop, pkgs, patchnotes, mods, workshop, cleanup, steambundles, syscontrol, achievements, backup, perf, search, couch, host, hostimport, statsdata, steamrun, wishlist, health, savebackup, importer, personal, problems, storage, updates, covers, details, epicfree, shelves, gamecolour, playtime, protondb, steamcompat, proton, runner, saves, session, steamgames, steamshortcut, theme as themes
+from . import installinfo, humbleshop, pkgs, patchnotes, mods, workshop, cleanup, steambundles, syscontrol, achievements, backup, perf, search, couch, host, hostimport, statsdata, steamrun, wishlist, health, savebackup, importer, personal, problems, storage, updates, covers, details, epicfree, shelves, gamecolour, playtime, protondb, steamcompat, proton, runner, saves, session, steamgames, steamshortcut, theme as themes
 from . import __version__
 from .config import CACHE_DIR, DEFAULTS, LANGUAGES, LOG_DIR, game_options, read_json, settings, write_json
 from .net import redact
@@ -1396,12 +1396,29 @@ class AioLaunch(QObject):
         found = problems.explain(text)
         if not found and data.get("exit") in (0, None):
             return  # closed quickly but cleanly: probably a launcher handing over
-        found = found or {"cause": "It closed right away", "fix": "proton",
-                          "detail": "Nothing in its log says why. Another Proton version, or Repair files, often helps."}
+        found = found or dict(problems.FALLBACK, base=problems.FALLBACK["detail"], needs="", line="")
         if not hasattr(self, "_last_problem"):
             self._last_problem = {}
         self._last_problem[key] = found.get("fix", "") or "crash"  # the game's page then suggests tweaks
-        self.launchProblem.emit(key, dict(found, title=data.get("title", "")))
+        # In the interface language (problems.py's words are templates too, see toastsi18n).
+        from . import toastsi18n
+        tr = toastsi18n.translate
+        shown = dict(found, title=data.get("title", ""), cause=tr(found["cause"]),
+                     detail=(tr("It needs %1. ").replace("%1", found["needs"]) if found.get("needs") else "") + tr(found["base"]))
+        if found.get("fixLabel"):
+            shown["fixLabel"] = tr(found["fixLabel"])
+        self.launchProblem.emit(key, shown)
+
+    @Slot()
+    def openSteam(self):
+        """Start Steam (signed-in games such as those that call SteamAPI_Init need it running)."""
+        steam = self.stores.get("steam")
+        client = steam.client() if steam else None
+        if client:
+            self._detach(client + ["steam://open/main"], {}, "", "steam-client")
+            self.toast.emit("Starting Steam: play again once it has signed in")
+        else:
+            self.toast.emit("Steam is not installed")
 
     @Slot(str, str)
     def fixProblem(self, key, fix):
@@ -1410,9 +1427,15 @@ class AioLaunch(QObject):
             return
         if fix == "repair":
             self.verifyGame(key)
-        elif fix in ("vcrun", "dotnet"):
+        elif fix == "userns":
+            self.allowUserns()
+        elif fix == "steam":
+            self.openSteam()
+        elif fix in ("vcrun", "dotnet") or fix.startswith("winetricks:"):
             # winetricks through umu, into this game's own prefix
-            verb = "vcrun2022" if fix == "vcrun" else "dotnet48"
+            verb = {"vcrun": "vcrun2022", "dotnet": "dotnet48"}.get(fix) or fix.split(":", 1)[1]
+            if not re.fullmatch(r"[a-z0-9_]+", verb):
+                return
             try:
                 with runner.using(self._options_for(g)):
                     kind, run = runner.compat()
@@ -5149,6 +5172,103 @@ class AioLaunch(QObject):
                 rows.append((size, g.title))
         return [f"{t} ({storage.nice(b)})" for b, t in sorted(rows, reverse=True)[:4]]
 
+    # --- the Install window (where, which language, DLCs, how big) --------------------
+    installInfoReady = Signal(str, "QVariantMap")
+    _install_opts = {}  # key -> what the Install window picked, until installAnyway uses it
+
+    @Slot(str, result=bool)
+    def installAsks(self, key):
+        """Does Install open the Install window for this game first?"""
+        g = self.model.find(key)
+        if not g or g.installed or key in self.procs or key in self._paused or not settings.get("install_window"):
+            return False
+        store = self.stores.get(g.store)
+        return (g.store in installinfo.STORES and (self.demo or (store is not None and not store.external_installs))
+                and not g.extra.get("owned_only"))
+
+    @Slot(str)
+    def installInfo(self, key):
+        g = self.model.find(key)
+        if not g:
+            return
+        store = self.stores.get(g.store)
+        base = str(store.base_dir()) if g.store == "gog" and store else str(settings.games_dir / g.store)
+        linux = g.store == "gog" and bool(g.extra.get("linux"))
+        platform = store.platform_for(g) if g.store == "gog" and store else "windows"
+        from PySide6.QtCore import QLocale
+        ui = settings.get("language") or QLocale.system().name()
+
+        def work():
+            if self.demo:  # --demo: a believable answer, nothing asked of the stores
+                d = {"download": 7.4e9, "disk": 11.2e9, "dlcs": ["Soundtrack", "Artbook"] if g.store != "amazon" else [],
+                     "languages": ["en-US", "de-DE", "fr-FR", "ro-RO"] if g.store == "gog" else [], "language": "en-US"}
+                if g.store == "gog":
+                    d["sizes"] = {"*": (5.1e9, 8.0e9), "en-US": (2.3e9, 3.2e9), "de-DE": (2.4e9, 3.3e9),
+                                  "fr-FR": (2.4e9, 3.3e9), "ro-RO": (2.2e9, 3.1e9)}
+            else:
+                d = installinfo.info(g.store, store, g, platform, ui)
+            out = {"download": float(d.get("download") or 0), "disk": float(d.get("disk") or 0),
+                   "dlcs": d.get("dlcs") or [], "languages": d.get("languages") or [],
+                   "language": d.get("language") or "",
+                   "sizes": {k: [float(a), float(b)] for k, (a, b) in (d.get("sizes") or {}).items()},
+                   "folder": base, "linux": linux, "platform": platform, "store": g.store, "ready": True}
+            return lambda: self.installInfoReady.emit(key, out)
+        self._bg(work)
+
+    @Slot(str, result="QVariantMap")
+    def folderSpace(self, folder):
+        """Free space where a folder is (or would be): {"free", "total", "label", "ok"}."""
+        probe = folder
+        while probe and not os.path.isdir(probe):
+            probe = os.path.dirname(probe)
+        d = storage.drive(probe or str(Path.home())) or {}
+        return {"free": float(d.get("free") or 0), "total": float(d.get("total") or 0),
+                "label": d.get("label", ""), "ok": bool(d)}
+
+    @Slot(float, result=str)
+    def niceSize(self, n):
+        return storage.nice(int(n)) if n > 0 else ""
+
+    @Slot(str, "QVariantMap")
+    def installWith(self, key, opts):
+        """Install with what the Install window picked: folder, dlcs, language, platform, tonight."""
+        g = self.model.find(key)
+        if not g:
+            return
+        folder = os.path.expanduser(str(opts.get("folder") or "").strip())
+        if folder.startswith("file:"):
+            folder = QUrl(folder).toLocalFile()
+        if g.store == "gog":
+            if opts.get("platform") in ("linux", "windows"):
+                game_options.set(key, "platform", opts["platform"])
+            if opts.get("language"):
+                game_options.set(key, "gog_lang", opts["language"])
+            # A folder of its own: GOG games are found (and may be uninstalled) there from now on.
+            store = self.stores.get("gog")
+            if folder and store and os.path.realpath(folder) != os.path.realpath(store.base_dir()):
+                dirs = [d for d in settings.get("library_dirs") or [] if isinstance(d, str)]
+                if folder not in dirs:
+                    settings.set("library_dirs", dirs + [folder])
+        if not opts.get("ask_again", True):
+            self.setSetting("install_window", False)
+        self._install_opts[key] = {"base": folder or None, "dlcs": opts.get("dlcs"), "lang": opts.get("language") or None}
+        if opts.get("tonight"):
+            self.installTonight(key, True)
+            return
+        self.installAnyway(key)
+
+    def _install_kwargs(self, g, store):
+        """What installWith picked for this game, as the store's install() takes it."""
+        o = self._install_opts.pop(g.key, None)
+        if not o:
+            return {}
+        import inspect
+        try:
+            params = inspect.signature(store.install).parameters
+        except (TypeError, ValueError):
+            return {}
+        return {k: v for k, v in o.items() if k in params and v is not None}
+
     @Slot(str)
     def installAnyway(self, key):
         if key in self._paused:
@@ -5158,7 +5278,7 @@ class AioLaunch(QObject):
             return
         try:
             with runner.using(self._options_for(g)):
-                cmd = store.install(g)
+                cmd = store.install(g, **self._install_kwargs(g, store))
         except StoreError as e:
             self.toast.emit(str(e))
             return

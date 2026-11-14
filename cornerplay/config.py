@@ -96,6 +96,7 @@ DEFAULTS = {
     "steam_api_key": "",
     "steam_id": "",
     "steamgriddb_key": "",
+    "install_window": True,     # Install asks where, which language and DLCs first (Epic, GOG, Amazon)
     "language": "",             # interface language: "" = the system's, "en", "ro" (after a restart)
     "rom_dirs": [],             # folders with ROMs for Retro games (stores/retro.py)
     "screenshot_dirs": [],      # more folders to find your screenshots in (screenshots.py)
@@ -279,7 +280,7 @@ class GameOptions:
     """Per-game overrides, keyed "store:id". A missing key means "use the default"."""
     KEYS = ("proton", "mangohud", "gamemode", "env", "args", "cover", "prefer", "cloud_saves", "hidden", "collections",
             "status", "rating", "note", "perf", "show_fps", "platform", "gamescope", "gamescope_hdr",
-            "before", "after", "pad_layout", "put_away", "pad_keys")
+            "before", "after", "pad_layout", "put_away", "pad_keys", "gog_lang")
 
     def __init__(self):
         self.path = CONFIG_DIR / "games.json"

@@ -3,6 +3,7 @@ import json
 import os
 
 import time
+from pathlib import Path
 
 from ..config import CACHE_DIR, XDG_CONFIG, find_tool, read_json, settings, write_json
 from ..runner import StoreError, wine_env, wrapper_string
@@ -129,10 +130,15 @@ class Epic(Store):
             raise StoreError("Install the game first")
         return Command([self.tool(), "-y", "install", dlc_id])
 
-    def install(self, game):
-        base = settings.games_dir / "epic"
+    def install(self, game, base=None, dlcs=None):
+        """base: the folder the game's own folder goes in (the Install window can pick another);
+        dlcs: True/False to install the owned DLCs or not, None for legendary's own choice."""
+        base = Path(base) if base else settings.games_dir / "epic"
         base.mkdir(parents=True, exist_ok=True)
-        return Command([self.tool(), "-y", "install", game.id, "--base-path", str(base)])
+        argv = [self.tool(), "-y", "install", game.id, "--base-path", str(base)]
+        if dlcs is not None:
+            argv.append("--with-dlcs" if dlcs else "--skip-dlcs")
+        return Command(argv)
 
     def uninstall(self, game):
         return Command([self.tool(), "-y", "uninstall", game.id])

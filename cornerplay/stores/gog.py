@@ -299,18 +299,26 @@ class Gog(Store):
             return choice if (choice == "windows" or game.extra.get("linux")) else "windows"
         return "linux" if game.extra.get("linux") and settings.get("gog_native") else "windows"
 
-    def install(self, game):
+    def lang_of(self, game):
+        """The language the game was installed in (the Install window keeps it), for updates and repairs."""
+        from ..config import game_options
+        return game_options.get(game.key).get("gog_lang") or "en-US"
+
+    def install(self, game, base=None, dlcs=True, lang=None):
+        """base: the folder the game's own folder goes in; dlcs: with the owned DLCs; lang: a GOG
+        language code ("en-US", "de-DE"...) from the Install window."""
         tool = find_tool("gogdl")
         if not tool:
             raise StoreError(self.problem())
         self._token()  # make sure the token file is fresh before gogdl reads it
-        base = self.base_dir()
+        base = Path(base) if base else self.base_dir()
         base.mkdir(parents=True, exist_ok=True)
         platform = self.platform_for(game)
         if platform == "linux":
             _gogdl_exclude(game.id)
         return Command([tool, "--auth-config-path", str(AUTH_FILE), "download", game.id,
-                        "--platform", platform, "--path", str(base), "--with-dlcs", "--lang", "en-US"])
+                        "--platform", platform, "--path", str(base)] + (["--with-dlcs"] if dlcs else [])
+                       + ["--lang", lang or self.lang_of(game)])
 
     def update(self, game):
         tool = find_tool("gogdl")
@@ -324,7 +332,7 @@ class Gog(Store):
         if platform == "linux":
             _gogdl_exclude(game.id)
         return Command([tool, "--auth-config-path", str(AUTH_FILE), "update", game.id,
-                        "--platform", platform, "--path", game.install_path, "--with-dlcs", "--lang", "en-US"])
+                        "--platform", platform, "--path", game.install_path, "--with-dlcs", "--lang", self.lang_of(game)])
 
     def verify(self, game):
         cmd = self.update(game)  # same arguments; "repair" checks every file against GOG's manifest

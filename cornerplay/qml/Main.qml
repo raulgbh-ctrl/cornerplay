@@ -41,6 +41,11 @@ ApplicationWindow {
         if (selected.key) detail.open()
     }
     // Play straight away when it is clear which copy to start; otherwise open the game's panel.
+    // Install from a button: the Install window first when it applies (Epic, GOG, Amazon), else straight away.
+    function install(key) {
+        if (app.installAsks(key)) installBox.ask(key)
+        else app.install(key)
+    }
     function activate(key) {
         const target = app.launchTarget(key)
         if (target) { app.play(target); return }
@@ -1319,7 +1324,7 @@ ApplicationWindow {
                                                 iconName: hero.game.installed ? "play" : "download"
                                                 onClicked: {
                                                     if (hero.game.installed) win.activate(hero.info.key)
-                                                    else { app.preferCopy(hero.info.key); app.install(hero.info.key) }
+                                                    else { app.preferCopy(hero.info.key); win.install(hero.info.key) }
                                                 }
                                             }
                                             KButton {
@@ -1509,6 +1514,7 @@ ApplicationWindow {
                         }
                         onOpened: { grid.currentIndex = index; flyer.from(key, gridCard); win.select(key) }
                         onActivated: { grid.currentIndex = index; win.activate(key) }
+                        onInstallRequested: { grid.currentIndex = index; win.install(key) }
                         onMenuRequested: at => { grid.currentIndex = index; gameMenu.showFor(key, gridCard, at) }
                         picked: !!win.picked[key]
                         picking: win.pickCount > 0
@@ -1731,7 +1737,7 @@ ApplicationWindow {
                                     TapHandler {
                                         gesturePolicy: TapHandler.WithinBounds
                                         grabPermissions: PointerHandler.CanTakeOverFromAnything
-                                        onTapped: win.activate(trow.key)
+                                        onTapped: trow.installed ? win.activate(trow.key) : win.install(trow.key)
                                     }
                                 }
                             }
@@ -2091,7 +2097,7 @@ ApplicationWindow {
                                       onClicked: app.copyInvite(sg.modelData.appid, sg.modelData.title) }
                             KButton { theme: win.theme; implicitHeight: 34; primary: true; iconName: sg.modelData.installed ? "play" : "download"
                                       text: sg.modelData.installed ? qsTr("Play") : qsTr("Install"); enabled: !!sg.modelData.key
-                                      onClicked: { const k = sg.modelData.key; friendsPage.close(); sg.modelData.installed ? win.activate(k) : app.install(k) } }
+                                      onClicked: { const k = sg.modelData.key; friendsPage.close(); sg.modelData.installed ? win.activate(k) : win.install(k) } }
                         }
                     }
                 }
@@ -2666,7 +2672,7 @@ ApplicationWindow {
                         iconName: win.selected.installed ? "play" : "download"
                         onClicked: {
                             app.preferCopy(win.selectedKey)
-                            win.selected.installed ? app.play(win.selectedKey) : app.install(win.selectedKey)
+                            win.selected.installed ? app.play(win.selectedKey) : win.install(win.selectedKey)
                         }
                     }
                     KButton {
@@ -3990,7 +3996,7 @@ ApplicationWindow {
                 visible: !gameMenu.g.job
                 icon: gameMenu.g.installed ? "play" : "download"
                 text: gameMenu.g.installed ? qsTr("Play") : qsTr("Install")
-                onPicked: { const k = gameMenu.key; const inst = gameMenu.g.installed; gameMenu.close(); inst ? win.activate(k) : app.install(k) }
+                onPicked: { const k = gameMenu.key; const inst = gameMenu.g.installed; gameMenu.close(); inst ? win.activate(k) : win.install(k) }
             }
             MenuRow {
                 visible: !gameMenu.g.job && !gameMenu.g.installed && !gameMenu.g.external
@@ -4115,7 +4121,7 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         spacing: 8
                         KButton { theme: win.theme; primary: true; text: picker.g.installed ? qsTr("Play") : qsTr("Install"); iconName: picker.g.installed ? "play" : "download"
-                                  onClicked: { const k = picker.g.key; const inst = picker.g.installed; picker.close(); inst ? win.activate(k) : app.install(k) } }
+                                  onClicked: { const k = picker.g.key; const inst = picker.g.installed; picker.close(); inst ? win.activate(k) : win.install(k) } }
                         KButton { theme: win.theme; text: qsTr("Three more"); iconName: "refresh-cw"; onClicked: picker.roll() }
                         KButton { theme: win.theme; text: qsTr("Details"); onClicked: { const k = picker.g.key; picker.close(); win.select(k) } }
                     }
@@ -4420,11 +4426,43 @@ ApplicationWindow {
             spacing: 12
             Text { Layout.fillWidth: true; text: problemBox.p.cause || ""; color: theme.onSurface; font.pixelSize: 16; font.weight: Font.DemiBold; wrapMode: Text.WordWrap }
             Text { Layout.fillWidth: true; text: problemBox.p.detail || ""; color: theme.onSurfaceVariant; font.pixelSize: 13; wrapMode: Text.WordWrap }
+            // What the log said, word for word (as Lutris shows it), to search for or to share.
+            Rectangle {
+                Layout.fillWidth: true
+                visible: !!problemBox.p.line
+                implicitHeight: lineText.implicitHeight + 20
+                radius: 10
+                color: theme.surfaceContainerHighest
+                Text {
+                    id: lineText
+                    anchors { left: parent.left; right: copyLine.left; verticalCenter: parent.verticalCenter; leftMargin: 12; rightMargin: 8 }
+                    text: problemBox.p.line || ""; textFormat: Text.PlainText
+                    color: theme.onSurfaceVariant; font.family: "monospace"; font.pixelSize: 11
+                    wrapMode: Text.WrapAnywhere; maximumLineCount: 4; elide: Text.ElideRight
+                }
+                Rectangle {
+                    id: copyLine
+                    anchors { right: parent.right; rightMargin: 6; verticalCenter: parent.verticalCenter }
+                    width: 30; height: 30; radius: 15
+                    color: copyHover.hovered ? theme.surfaceContainerHigh : "transparent"
+                    Icon { anchors.centerIn: parent; name: "copy"; size: 15; color: theme.onSurfaceVariant }
+                    HoverHandler { id: copyHover; cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: app.copy(problemBox.p.line) }
+                    ToolTip.visible: copyHover.hovered; ToolTip.text: qsTr("Copy"); ToolTip.delay: 400
+                }
+            }
             Flow {
                 Layout.fillWidth: true
                 spacing: 8
                 KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "repair"; text: qsTr("Repair files"); iconName: "refresh-cw"
                           onClicked: { app.fixProblem(problemBox.key, "repair"); problemBox.close() } }
+                KButton { theme: win.theme; primary: true; visible: String(problemBox.p.fix || "").startsWith("winetricks:")
+                          text: problemBox.p.fixLabel || qsTr("Install it"); iconName: "download"
+                          onClicked: { app.fixProblem(problemBox.key, problemBox.p.fix); problemBox.close() } }
+                KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "userns"; text: qsTr("Allow it"); iconName: "check"
+                          onClicked: { app.fixProblem(problemBox.key, "userns"); problemBox.close() } }
+                KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "steam"; text: qsTr("Start Steam"); iconName: "play"
+                          onClicked: { app.fixProblem(problemBox.key, "steam"); problemBox.close() } }
                 KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "vcrun"; text: qsTr("Install Visual C++"); iconName: "download"
                           onClicked: { app.fixProblem(problemBox.key, "vcrun"); problemBox.close() } }
                 KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "dotnet"; text: qsTr("Install .NET"); iconName: "download"
@@ -4443,6 +4481,8 @@ ApplicationWindow {
             }
         }
     }
+
+    InstallBox { id: installBox; theme: win.theme }
 
     // -------------------------------------------------------------------- stats
     KDialog {
@@ -4954,7 +4994,7 @@ ApplicationWindow {
                                   enabled: index + 1 < app.downloads.length && app.downloads[index + 1].state === "queued"
                                   ToolTip.visible: hovered; ToolTip.text: qsTr("Later"); onClicked: app.moveDownload(modelData.key, 1) }
                         KButton { theme: win.theme; visible: modelData.state === "tonight"; text: qsTr("Install now"); iconName: "download"
-                                  onClicked: { app.installTonight(modelData.key, false); app.install(modelData.key) } }
+                                  onClicked: { app.installTonight(modelData.key, false); win.install(modelData.key) } }
                         KButton { theme: win.theme; visible: modelData.pausable && modelData.state !== "paused" && modelData.state !== "tonight"; text: qsTr("Pause")
                                   onClicked: app.pauseDownload(modelData.key) }
                         KButton { theme: win.theme; primary: true; visible: modelData.state === "paused"; text: qsTr("Resume"); iconName: "download"
@@ -6596,6 +6636,7 @@ ApplicationWindow {
                                 }
                                 Component.onCompleted: app.checkSteamShortcut()
                             }
+                            Toggle { label: qsTr("Before installing from Epic, GOG or Amazon, ask where, which language and which DLCs"); settingKey: "install_window" }
                             Toggle { label: qsTr("Show a game owned on several stores only once"); settingKey: "merge_duplicates" }
                             Toggle { label: qsTr("Back up a game's saves before it starts (keeps the last 5; a game's More > Save backups to restore)"); settingKey: "save_backups" }
                             Toggle { label: qsTr("Update Epic, GOG and Amazon games overnight (plugged in, not on a metered connection, while Cornerplay is open)"); settingKey: "auto_update" }

@@ -1,5 +1,6 @@
 """Amazon Games (Prime Gaming) through the nile CLI."""
 import json
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from ..config import XDG_CONFIG, find_tool, read_json, settings
@@ -95,8 +96,8 @@ class Amazon(Store):
             raise PartialResult(games, f"Amazon: {error}")
         return games
 
-    def install(self, game):
-        base = settings.games_dir / "amazon"
+    def install(self, game, base=None):
+        base = Path(base) if base else settings.games_dir / "amazon"
         base.mkdir(parents=True, exist_ok=True)
         return Command([self.tool(), "install", game.id, "--base-path", str(base)])
 

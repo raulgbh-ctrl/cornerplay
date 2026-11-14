@@ -40,6 +40,7 @@ Item {
     property string trailer: ""   // a trailer to play inside the cover (the main window sets it while pointed at)
     signal opened()
     signal activated()
+    signal installRequested()   // the Install button on the cover
     signal menuRequested(point at)
     signal pickRequested(bool range)  // Ctrl+click (one) or Shift+click (a range): several games at once
     property bool picked: false       // one of the games picked for an action
@@ -439,7 +440,7 @@ Item {
             TapHandler {
                 gesturePolicy: TapHandler.WithinBounds
                 grabPermissions: PointerHandler.CanTakeOverFromAnything
-                onTapped: card.activated()
+                onTapped: card.installed ? card.activated() : card.installRequested()
             }
             ToolTip.visible: quickHover.hovered
             ToolTip.delay: 600
