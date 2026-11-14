@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 
-// On the Steam page: bundles with games from your wishlist, and bundles that only add DLC or
+// On the Store page: bundles with games from your wishlist, and bundles that only add DLC or
 // soundtracks to games you own, each priced for you (Steam leaves out what you already own).
 Column {
     id: sb

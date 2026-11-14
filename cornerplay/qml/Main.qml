@@ -1468,15 +1468,6 @@ ApplicationWindow {
                                 font.pixelSize: 15; font.weight: Font.DemiBold
                             }
                         }
-                        SteamBundles {
-                            width: grid.width
-                            shown: library.storeFilter === "steam" && !library.search && !library.showHidden && !library.shelf
-                            theme: win.theme
-                            onHeightChanged: if (grid.currentIndex <= 0) Qt.callLater(() => {
-                                if (grid.count === 0) grid.contentY = grid.originY - grid.topMargin
-                                else grid.positionViewAtBeginning()
-                            })
-                        }
                         HumbleShop {
                             width: grid.width
                             shown: library.storeFilter === "humble" && !library.search && !library.showHidden && !library.shelf
