@@ -250,6 +250,13 @@ class Gamepad(QObject):
         """Settings > Controllers > Test rumble: a firm half-second buzz."""
         self.rumble(strength / 100, strength / 100, 500)
 
+    def _used(self, iid):
+        """A button on this pad: the prompts follow the controller in your hands, like Steam's."""
+        info = self._info.get(iid)
+        if info and info["style"] != self._pad_style:
+            self._pad_style = info["style"]
+            self.reload()
+
     def _style_of(self, handle, name):
         """Which prompts this controller has: Valve's own pads by their ids, the rest by SDL's type."""
         sdl = self._sdl
@@ -314,6 +321,8 @@ class Gamepad(QObject):
                 self._guide = None
                 self._swallow.clear()
             elif kind in (BUTTON_DOWN, BUTTON_UP):
+                if kind == BUTTON_DOWN:
+                    self._used(which)
                 self.rawButton.emit(ev.raw[12], kind == BUTTON_DOWN)
                 if self._capture:
                     self.activity.emit()
