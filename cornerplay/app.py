@@ -4446,6 +4446,21 @@ class AioLaunch(QObject):
 
     # --- the in-game panel (Guide + Y on a controller, or `cornerplay --overlay`) ------------
     overlayRequested = Signal()
+    quickAccessRequested = Signal()  # Guide + A (or Share) while a game is in front, or `cornerplay --quick`
+
+    @Slot(QObject)
+    def markOverlay(self, window):
+        """In gamescope only one app is shown at a time; a window marked as its external overlay
+        is drawn over the game instead (how MangoHud's mangoapp and Steam's overlay do it)."""
+        if not syscontrol.in_gamescope() or not window or self.demo:
+            return
+        try:
+            wid = int(window.winId())
+        except (AttributeError, TypeError, ValueError):
+            return
+        cmd = host.argv(["xprop", "-id", str(wid), "-f", "GAMESCOPE_EXTERNAL_OVERLAY", "32c",
+                         "-set", "GAMESCOPE_EXTERNAL_OVERLAY", "1"])
+        QProcess.startDetached(cmd[0], cmd[1:])
 
     @Slot(result="QVariantMap")
     def overlayInfo(self):

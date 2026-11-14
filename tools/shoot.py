@@ -6,6 +6,7 @@ Actions run one after another, 0.6 s apart after a 2.5 s start:
     wait:MS       wait longer          shot:NAME     save OUTDIR/NAME.png
     key:Name      a key (Qt.Key_Name)  ctrl:X        Ctrl+X (ctrl:Comma for Ctrl+,)
     type:text     type text            click:x,y     a click
+    panel:NAME    save the in-game panel   quick:NAME    save quick access over a game (cshift:A opens it)
     size:WxH      resize the window    recap:KEY     show the after-session card for a demo game
     tv            start in TV mode
 Environment: SHOT_CFG='{"view": "list"}' runs with these settings in a throwaway copy of your
@@ -78,8 +79,8 @@ def run(*_):
                 w = QGuiApplication.focusWindow() or w
             if k == "shot":
                 w.grabWindow().save(f"{out}/{v}.png"); print("saved", v, flush=True)
-            elif k == "panel":  # the in-game panel, a window of its own
-                p = [x for x in QGuiApplication.topLevelWindows() if x.isVisible() and "panel" in x.title()]
+            elif k in ("panel", "quick"):  # the in-game panel or quick access, windows of their own
+                p = [x for x in QGuiApplication.topLevelWindows() if x.isVisible() and ("panel" if k == "panel" else "quick access") in x.title()]
                 if p:
                     p[0].grabWindow().save(f"{out}/{v}.png"); print("saved", v, flush=True)
             elif k == "key":

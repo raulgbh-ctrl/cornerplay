@@ -26,7 +26,7 @@ BUTTONS = {
     11: Qt.Key_Up, 12: Qt.Key_Down, 13: Qt.Key_Left, 14: Qt.Key_Right,
     15: Qt.Key_F9,                                                                # 15: Share / Capture: quick access
 }
-GUIDE, BUTTON_A, BUTTON_Y = 5, 0, 3
+GUIDE, BUTTON_A, BUTTON_Y, SHARE = 5, 0, 3, 15
 MAIN_MENU, QUICK_ACCESS = Qt.Key_F10, Qt.Key_F9
 REPEATING = {Qt.Key_Up, Qt.Key_Down, Qt.Key_Left, Qt.Key_Right}
 # SDL_GameControllerType -> which button prompts to show (qml/glyphs.js draws them).
@@ -69,6 +69,7 @@ class Gamepad(QObject):
     _sdlFetched = Signal()  # from the download thread; queued to the main thread
     styleChanged = Signal()
     overlay = Signal()   # Guide + Y: open or close the in-game panel
+    quickAccess = Signal()  # Guide + A or Share while a game is in front: quick access over it
     activity = Signal()  # any button or stick, while Cornerplay has the focus
     # The controller tester (TV mode's Settings): every button and stick as it is, and while
     # capture is on, nothing is turned into keys (so B can be tested without leaving).
@@ -90,6 +91,7 @@ class Gamepad(QObject):
         self._pad_style = "xbox"  # what the controller is; _style may be the user's choice instead
         self._info = {}            # instance id -> {"name", "style", "mapping"}
         self._capture = False
+        self._target = None  # a window the pad steers even without the focus (quick access over a game)
         self._buttons = dict(BUTTONS)
         self._deck = self._is_deck()
         self.reload()
@@ -245,6 +247,12 @@ class Gamepad(QObject):
 
     capture = Property(bool, lambda s: s._capture, _set_capture, notify=captureChanged)
 
+    @Slot(QObject)
+    def steer(self, window):
+        """Send the pad's keys to this window even when the game has the focus; None stops it."""
+        self._target = window
+        self._held.clear()
+
     @Slot(int)
     def buzz(self, strength):
         """Settings > Controllers > Test rumble: a firm half-second buzz."""
@@ -376,7 +384,11 @@ class Gamepad(QObject):
         if button == BUTTON_A and down and self._guide:
             self._guide = "chord"
             self._swallow.add(button)
-            self._send(QUICK_ACCESS)
+            self._quick()
+            return
+        if button == SHARE:
+            if down:
+                self._quick()
             return
         if not down and button in self._swallow:
             self._swallow.discard(button)
@@ -384,6 +396,13 @@ class Gamepad(QObject):
         key = self._buttons.get(button)
         if key is not None:
             self._set(key, down)
+
+    def _quick(self):
+        """Quick access: TV mode's own menu when Cornerplay is in front, else over the game."""
+        if QGuiApplication.focusWindow() is not None and self._target is None:
+            self._send(QUICK_ACCESS)
+        else:
+            self.quickAccess.emit()
 
     def _axis(self, pad, axis, value):
         low, high = (Qt.Key_Left, Qt.Key_Right) if axis == 0 else (Qt.Key_Up, Qt.Key_Down)
@@ -422,7 +441,8 @@ class Gamepad(QObject):
         self._send(key, mods)
 
     def _send(self, key, mods=Qt.NoModifier, repeat=False):
-        window = QGuiApplication.focusWindow()
+        target = self._target
+        window = target if target is not None and target.isVisible() else QGuiApplication.focusWindow()
         if window is None:  # a game (or anything else) has focus: stay out of the way
             self._held.clear()
             return

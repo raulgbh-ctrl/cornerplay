@@ -151,6 +151,14 @@ ApplicationWindow {
     }
     Connections { target: app; function onOverlayRequested() { gamePanel.toggle() } }
     Shortcut { sequence: "Ctrl+Shift+G"; onActivated: gamePanel.toggle() }
+    // Quick access over a running game: Guide + A or Share on a controller, `cornerplay --quick`, Ctrl+Shift+A.
+    GameQuickAccess {
+        id: gameQuick
+        theme: win.theme
+        onOpenCornerplay: { win.show(); win.raise(); win.requestActivate() }
+    }
+    Connections { target: app; function onQuickAccessRequested() { gameQuick.toggle() } }
+    Shortcut { sequence: "Ctrl+Shift+A"; onActivated: gameQuick.toggle() }
     Shortcut { sequence: "?"; enabled: !win.tv && !search.activeFocus && !win.popupOpen; onActivated: keysBox.open() }
 
     // The smart list whose filters the library shows right now, if any.

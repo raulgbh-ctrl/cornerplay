@@ -230,6 +230,8 @@ def main():
                     help="start in the tray, without the window (used when starting with the PC)")
     ap.add_argument("--overlay", action="store_true",
                     help="open or close the in-game panel of the Cornerplay that is running (bind it to a key)")
+    ap.add_argument("--quick", action="store_true",
+                    help="open or close quick access (volume, frame limit, quit...) over the game being played")
     ap.add_argument("--nxm", metavar="URL",
                     help="install a mod from a Nexus Mods \"Mod Manager Download\" link (nxm://...)")
     ap.add_argument("--demo", action="store_true", help="open with sample games (nothing is launched)")
@@ -317,8 +319,8 @@ def main():
     from PySide6.QtWidgets import QApplication  # QApplication, not QGuiApplication: the tray menu is a widget
     app = QApplication(["cornerplay"])
     from . import tray
-    if args.overlay and not args.demo:
-        if tray.hand_over("overlay"):
+    if (args.overlay or args.quick) and not args.demo:
+        if tray.hand_over("quick" if args.quick else "overlay"):
             return 0
         print("Cornerplay is not running", file=sys.stderr)
         return 1
@@ -354,6 +356,7 @@ def main():
     gamepad = Gamepad(app)
     ctx.setContextProperty("pad", gamepad)
     gamepad.overlay.connect(cornerplay.overlayRequested)
+    gamepad.quickAccess.connect(cornerplay.quickAccessRequested)
     cornerplay.gamepad = gamepad  # asked at check time: SDL only loads a moment after start-up
     ctx.setContextProperty("startTv", args.tv)
     ctx.setContextProperty("startHidden", bool(args.background))
@@ -372,6 +375,8 @@ def main():
         def on_message(msg):
             if msg == "overlay":
                 cornerplay.overlayRequested.emit()
+            elif msg == "quick":
+                cornerplay.quickAccessRequested.emit()
             elif msg.startswith("nxm:"):
                 the_tray.show_window(tv=False)
                 cornerplay.openNxm(msg[4:])
