@@ -82,6 +82,13 @@ def _t(text):
 def _translatable_names():
     """Never called: lists names that reach _t() through variables, so lupdate finds them."""
     return (QCoreApplication.translate("app", "Playing"),
+            QCoreApplication.translate("app", "Put away"),
+            QCoreApplication.translate("app", "Out now"),
+            QCoreApplication.translate("app", "Out today"),
+            QCoreApplication.translate("app", "Tomorrow"),
+            QCoreApplication.translate("app", "%1 days"),
+            QCoreApplication.translate("app", "Coming soon"),
+            QCoreApplication.translate("app", "Later"),
             QCoreApplication.translate("app", "Your package manager keeps Cornerplay up to date"),
             QCoreApplication.translate("app", "You have the newest Cornerplay"),
             QCoreApplication.translate("app", "under a minute left"),
@@ -2529,7 +2536,7 @@ class AioLaunch(QObject):
             elif exact and days == 1:
                 label = _t("Tomorrow")
             elif exact and days is not None and days < 60:
-                label = f"{days} days"
+                label = _t("%1 days").replace("%1", str(days))
             else:
                 label = ""
             month = time.strftime("%B %Y", time.localtime(rel)) if exact else _t("Later")
