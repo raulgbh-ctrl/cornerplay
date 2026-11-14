@@ -3976,7 +3976,29 @@ class AioLaunch(QObject):
 
     @Slot(str, bool, str, str, result="QVariantList")
     def pickGames(self, length, installed_only, avoid, company):
-        """Three games to play now, each with why: the backlog first, never Finished or Dropped.
+        return self._pick(length, installed_only, avoid, company)
+
+    # Mood, from a game's genres (details.py); a game with no genres known yet is in both.
+    MOODS = {"relaxing": {"Casual", "Simulation", "Puzzle", "Adventure", "Farming Sim", "Strategy", "Indie", "Family",
+                          "Point & Click", "Visual Novel", "Building", "Board Game", "Life Sim", "Exploration"},
+             "intense": {"Action", "Shooter", "Fighting", "Racing", "Sports", "Survival", "Horror", "Hack and Slash",
+                         "Roguelike", "Roguelite", "Battle Royale", "Platformer", "Bullet Hell", "Souls-like"}}
+
+    @Slot(str, str, str, bool, result="QVariantMap")
+    def roulette(self, length, mood, company, pad_only):
+        """TV mode's "Can't decide?" wheel: up to 14 installed games for the reel and the one it
+        lands on (weighted the same way as What should I play), with why."""
+        import random
+        picks = self._pick(length, True, "", company, mood, pad_only, count=14)
+        if not picks:
+            return {"games": [], "winner": -1}
+        winner = 0  # _pick draws by weight: the first one drawn is the real pick
+        random.shuffle(order := list(range(len(picks))))
+        games = [picks[i] for i in order]
+        return {"games": games, "winner": order.index(winner)}
+
+    def _pick(self, length, installed_only, avoid, company, mood="", pad_only=False, count=3):
+        """Games to play now, each with why: the backlog first, never Finished or Dropped.
         length: "" any, "quick" (half an hour), "short" (about an hour), "long" (an evening).
         company: "" alone or anyone, "together" (local / split-screen multiplayer).
         Weighs your lists, games started and left a while ago, what you usually play at this
@@ -4006,6 +4028,16 @@ class AioLaunch(QObject):
                 continue
             if company == "together" and not any(couch.local(_appid(x)) for x in grp):
                 continue
+            if mood in self.MOODS or pad_only:
+                info = details.cached(g.key) or {}
+                genres = set(info.get("genres") or [])
+                if mood in self.MOODS and genres and not genres & self.MOODS[mood]:
+                    continue
+                other = self.MOODS["intense" if mood == "relaxing" else "relaxing"] if mood in self.MOODS else set()
+                if mood in self.MOODS and genres and len(genres & other) > len(genres & self.MOODS[mood]):
+                    continue
+                if pad_only and info.get("controller") == "" and g.store == "steam":
+                    continue  # Steam says keyboard and mouse only
             runs = [t for x in grp for t in per_game.get(x.key, [])]
             avg = sum(runs) / len(runs) / 60 if runs else None
             if cap and avg is not None and avg > cap:
@@ -4046,7 +4078,7 @@ class AioLaunch(QObject):
                 weight += 1
             pool.append((weight, g.key, " · ".join(reasons)))
         picks = []
-        while pool and len(picks) < 3:
+        while pool and len(picks) < count:
             choice = random.choices(pool, weights=[p[0] for p in pool])[0]
             pool.remove(choice)
             picks.append(dict(self.model.as_dict(choice[1]), why=choice[2], poolSize=len(pool) + len(picks)))

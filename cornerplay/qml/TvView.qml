@@ -1267,6 +1267,13 @@ FocusScope {
     function openPage() { if (!cur.key) return; app.uiSound("select"); gamePage.show(cur, app.gameDetails(cur.key), app.achievements(cur.key)) }
     TvDownloads { id: tvDownloads; anchors.fill: parent; z: 42; theme: tv.theme; tint: tv.tint; onClosed: grid.forceActiveFocus() }
     TvStats { id: tvStats; anchors.fill: parent; z: 42; theme: tv.theme; tint: tv.tint; onClosed: grid.forceActiveFocus() }
+    TvRoulette {
+        id: roulette
+        anchors.fill: parent; z: 42
+        theme: tv.theme; tint: tv.tint
+        onClosed: grid.forceActiveFocus()
+        onPlay: key => { const t = app.launchTarget(key); if (t) app.play(t); else { tv.cur = app.game(key); panel.show() } }
+    }
     TvPage {
         id: gamePage
         anchors.fill: parent
@@ -1523,6 +1530,7 @@ FocusScope {
             { label: qsTr("Next store"), icon: "layout-grid", act: "store",
               value: (app.storesInfo.find(x => x.id === tvLibrary.storeFilter) || { name: qsTr("All games") }).name },
             { label: qsTr("Downloads"), icon: "download", act: "downloads", value: app.downloads.length ? String(app.downloads.length) : "" },
+            { label: qsTr("Can't decide?"), icon: "sparkles", act: "roulette" },
             { label: qsTr("Your stats"), icon: "trophy", act: "stats" },
             ...(app.settingsMap.stream_pc ? [{ label: qsTr("Play on ") + app.settingsMap.stream_pc, icon: "tv", act: "stream" }] : []),
             { label: qsTr("Quick access"), icon: "sliders-horizontal", act: "quick" },
@@ -1568,6 +1576,7 @@ FocusScope {
             else if (row.act === "settings") { hide(); tvSettings.show("") }
             else if (row.act === "downloads") { hide(); tvDownloads.show() }
             else if (row.act === "stats") { hide(); tvStats.show() }
+            else if (row.act === "roulette") { hide(); roulette.show() }
             else if (row.act === "stream") { hide(); app.streamFromPc() }
             else controls.run(row)
         }
