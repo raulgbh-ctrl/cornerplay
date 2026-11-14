@@ -4879,9 +4879,19 @@ class AioLaunch(QObject):
             wid = int(window.winId())
         except (AttributeError, TypeError, ValueError):
             return
+        if getattr(window, "_cp_overlay", None) == wid:
+            return
         cmd = host.argv(["xprop", "-id", str(wid), "-f", "GAMESCOPE_EXTERNAL_OVERLAY", "32c",
                          "-set", "GAMESCOPE_EXTERNAL_OVERLAY", "1"])
-        QProcess.startDetached(cmd[0], cmd[1:])
+        # Before the window is shown: gamescope decides what a window is when it is mapped.
+        try:
+            r = subprocess.run(cmd, capture_output=True, timeout=3)
+            ok = r.returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            ok = False
+        window._cp_overlay = wid
+        if os.environ.get("CORNERPLAY_DEBUG"):
+            print(f"markOverlay window={wid:#x} platform={QGuiApplication.platformName()} ok={ok}", file=sys.stderr)
 
     @Slot(result="QVariantMap")
     def overlayInfo(self):

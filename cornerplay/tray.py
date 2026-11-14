@@ -35,7 +35,7 @@ def _socket_path():
 
 
 def hand_over(message: str) -> bool:
-    """True when another Cornerplay is running and took the message ("show", "tv", "overlay")."""
+    """True when another Cornerplay is running and took the message ("show", "tv", "overlay", "quick")."""
     s = QLocalSocket()
     s.connectToServer(_socket_path())
     if not s.waitForConnected(500):
@@ -69,7 +69,7 @@ class Instance(QObject):
     def _read(self, conn):
         for line in bytes(conn.readAll()).decode("utf-8", "replace").splitlines():
             msg = line.strip()
-            if msg in ("show", "tv", "overlay") or msg.startswith("nxm:nxm://"):  # nxm: a Nexus Mods download link
+            if msg in ("show", "tv", "overlay", "quick") or msg.startswith("nxm:nxm://"):  # nxm: a Nexus Mods download link
                 self._on_message(msg)
         conn.disconnectFromServer()
 

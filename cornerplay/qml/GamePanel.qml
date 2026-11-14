@@ -16,9 +16,15 @@ Window {
     signal openCornerplay()
 
     flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
+    // Its own window, not tied to Cornerplay's: shown over a game while the main window is hidden.
+    transientParent: null
     color: "transparent"
-    width: 460
-    height: panel.implicitHeight
+    // The whole screen (gamescope stretches an overlay window to it): the game dimmed, the
+    // panel in the middle; a click beside it closes it.
+    width: screen ? screen.width : 1920
+    height: screen ? screen.height : 1080
+    x: screen ? screen.virtualX : 0
+    y: screen ? screen.virtualY : 0
     title: qsTr("Cornerplay in-game panel")
 
     function toggle() {
@@ -28,13 +34,17 @@ Window {
         choice = 0
         confirmQuit = false
         noteField.text = info.note || ""
+        app.markOverlay(ov)  // gamescope: drawn over the game (set before it appears)
         show(); raise(); requestActivate()
         panel.forceActiveFocus()
     }
     function minutesText(m) {
         return m < 60 ? qsTr("%1 min").arg(m) : qsTr("%1 h %2 min").arg(Math.floor(m / 60)).arg(m % 60)
     }
-    onVisibleChanged: if (!visible && info.key && noteField.text !== (info.note || "")) app.setNote(info.key, noteField.text)
+    onVisibleChanged: {
+        pad.steer(visible ? ov : null)  // the controller reaches it while the game keeps the focus
+        if (!visible && info.key && noteField.text !== (info.note || "")) app.setNote(info.key, noteField.text)
+    }
 
     readonly property var actions: info.key
         ? [{ i: "play", t: qsTr("Back to the game"), run: () => ov.close() },
@@ -47,8 +57,14 @@ Window {
     Timer { interval: 15000; repeat: true; running: ov.visible; onTriggered: { ov.now = new Date(); if (ov.info.since) ov.info = Object.assign({}, ov.info, { minutes: Math.floor((Date.now() / 1000 - ov.info.since) / 60) }) } }
 
     Rectangle {
+        anchors.fill: parent
+        color: Qt.alpha("black", 0.4)
+        MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onClicked: ov.close() }
+    }
+    Rectangle {
         id: panel
-        width: parent.width
+        anchors.centerIn: parent
+        width: 460
         implicitHeight: col.implicitHeight + 36
         radius: 22
         color: ov.theme.surfaceContainer

@@ -13,12 +13,17 @@ Window {
     signal openCornerplay()
 
     flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
+    // Its own window, not tied to Cornerplay's: shown over a game while the main window is hidden.
+    transientParent: null
     color: "transparent"
     title: qsTr("Cornerplay quick access")
-    width: Math.round(Math.min(500, Math.max(380, (screen ? screen.width : 1920) * 0.28)))
+    // The whole screen (gamescope stretches an overlay window to it anyway): the game dimmed a
+    // little on the left, where a click closes it, and the panel down the right edge.
+    width: screen ? screen.width : 1920
     height: screen ? screen.height : 1080
-    x: screen ? screen.virtualX + screen.width - width : 0
+    x: screen ? screen.virtualX : 0
     y: screen ? screen.virtualY : 0
+    readonly property int paneWidth: Math.round(Math.min(520, Math.max(380, width * 0.3)))
 
     readonly property var tint: {
         const c = theme.primary
@@ -43,10 +48,10 @@ Window {
         batt = info.battery || {}
         tab = info.key ? 0 : 1
         rebuild(); list.first()
+        app.markOverlay(qa)  // first: gamescope reads it when the window appears
         open = true
         visible = true
         raise(); requestActivate()
-        app.markOverlay(qa)
         pad.steer(qa)
         app.refreshSystem()
         list.forceActiveFocus()
@@ -109,10 +114,17 @@ Window {
     Timer { interval: 10000; repeat: true; triggeredOnStart: true; running: qa.open; onTriggered: qa.now = new Date() }
 
     Rectangle {
+        anchors.fill: parent
+        color: "black"
+        opacity: qa.open ? 0.35 : 0
+        Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 200 } }
+        MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onClicked: qa.hide() }
+    }
+    Rectangle {
         id: pane
-        width: qa.width
+        width: qa.paneWidth
         height: qa.height
-        x: qa.open ? 0 : qa.width
+        x: qa.open ? qa.width - width : qa.width
         Behavior on x { enabled: !app.still; NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
         color: Qt.alpha(qa.theme.surfaceContainerLow, 0.96)
         Rectangle { width: 1; height: parent.height; color: Qt.alpha("white", 0.08) }
