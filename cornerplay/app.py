@@ -646,6 +646,9 @@ class AioLaunch(QObject):
         QTimer.singleShot(3 * 60 * 1000, self._shader_tick)
         QTimer.singleShot(90 * 1000, self._reports_tick)
         QTimer.singleShot(4 * 60 * 1000, self._space_nudge)
+        self._ab_timer = QTimer(self, interval=30000)
+        self._ab_timer.timeout.connect(self._ab_timer_tick)
+        self._ab_timer.start()
         self._worker_toast.connect(self.toast)
         self._after.connect(lambda fn: fn())
         # A Cornerplay (TV) session: gamescope starts with its defaults; put back the frame
@@ -3724,6 +3727,75 @@ class AioLaunch(QObject):
             return lambda: self.screenshotsReady.emit(key, out)
         self._bg(work)
 
+    # --- Proton A/B test (abtest.py) --------------------------------------------------
+    abChanged = Signal(str)
+
+    @Slot(str, result="QVariantMap")
+    def abTest(self, key):
+        from . import abtest
+        return abtest.get(key)
+
+    @Slot(str, str, int)
+    def abStart(self, key, other, minutes):
+        """Compare the game's Proton version with another: a few minutes on each."""
+        g = self.model.find(key)
+        if not g:
+            return
+        if g.store == "steam":
+            self.toast.emit("Steam picks the Proton version of its games: compare them in Steam's Properties > Compatibility")
+            return
+        if not shutil.which("mangohud"):
+            self.toast.emit("The Proton test measures with MangoHud: install it first (on Arch: sudo pacman -S mangohud lib32-mangohud)")
+            return
+        from . import abtest
+        mine = game_options.get(key).get("proton") or settings.get("proton") or ""
+        if other == mine:
+            self.toast.emit("Pick a different Proton version to compare with")
+            return
+        abtest.start(key, mine, other, minutes)
+        self.abChanged.emit(key)
+        self.toast.emit(f"Proton test: play {g.title} for {minutes} minutes, then quit. Then once more, on the other version.")
+
+    @Slot(str)
+    def abStop(self, key):
+        from . import abtest
+        abtest.stop(key)
+        self.abChanged.emit(key)
+
+    @Slot(str, str)
+    def abKeep(self, key, proton):
+        from . import abtest
+        self.setGameOption(key, "proton", proton or "default")
+        abtest.stop(key)
+        self.abChanged.emit(key)
+        self.toast.emit("Kept " + (os.path.basename(proton.rstrip("/")) if proton else "the default Proton") + " for this game")
+
+    def _ab_next(self, g, t):
+        self.abChanged.emit(g.key)
+        if not t:
+            return
+        name = lambda p: os.path.basename((p or "").rstrip("/")) or "UMU-Proton"  # noqa: E731
+        if t.get("step") == "b" and not t.get("short"):
+            self.toast.emit(f"Proton test, half-way: now play {g.title} again for {t['minutes']} minutes; it starts on {name(t['b'])}")
+        elif t.get("step") == "done":
+            v = t.get("verdict") or {}
+            self.toast.emit(f"Proton test done: {'keep ' + name(v.get('keep')) if not v.get('same') else 'both ran about the same'}. Details on the game's page.")
+        elif t.get("short"):
+            self.toast.emit(f"Proton test: that was too short to compare. Play {g.title} for {t['minutes']} minutes, then quit.")
+
+    def _ab_timer_tick(self):
+        """Time's up for the step being played: say so (the game is never closed for you)."""
+        from . import abtest
+        for key, info in list(self._playing.items()):
+            t = abtest.get(key)
+            if t.get("step") in ("a", "b") and info.get("since") and time.time() - info["since"] >= t["minutes"] * 60 \
+                    and not info.get("ab_told"):
+                info["ab_told"] = True
+                msg = "Proton test: that's enough for this version. Quit the game when you can."
+                self.toast.emit(msg)
+                if shutil.which("notify-send"):
+                    QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", "Cornerplay", msg])
+
     @Slot(str, result="QVariantMap")
     def perfHistory(self, key):
         """A game's page: how its recorded sessions ran (perf.py)."""
@@ -4165,7 +4237,12 @@ class AioLaunch(QObject):
 
     def _options_for(self, g):
         # Battle.net games all run through the one launcher prefix, so they share its options.
-        return game_options.get("battlenet:battlenet-app" if g.store == "battlenet" else g.key)
+        opts = game_options.get("battlenet:battlenet-app" if g.store == "battlenet" else g.key)
+        from . import abtest
+        proton = abtest.proton_now(g.key)
+        if proton is not None:  # a Proton A/B test runs: this step's version, and record how it ran
+            opts = dict(opts, proton=proton, perf_log=True)
+        return opts
 
     @Slot(str, result="QVariantMap")
     def gameOptions(self, key):
@@ -4822,11 +4899,20 @@ class AioLaunch(QObject):
                 self._reload_playtime()
                 self._after_session(data)
                 done_game = self.model.find(data.get("key", ""))
-                if done_game and (game_options.get(done_game.key).get("perf_log", settings.get("perf_log"))):
+                if done_game and (self._options_for(done_game).get("perf_log", settings.get("perf_log"))):
                     started, ended = data.get("started") or 0, data.get("since") or time.time()
-                    proton_used = game_options.get(done_game.key).get("proton") or settings.get("proton") or ""
-                    self._bg(lambda gg=done_game, s0=started, s1=ended, pr=proton_used:
-                             (perf.record(gg.key, gg.store, gg.id, s0, s1, os.path.basename(pr.rstrip("/"))), None)[1])
+                    proton_used = self._options_for(done_game).get("proton") or settings.get("proton") or ""
+                    from . import abtest as _ab
+                    testing = _ab.proton_now(done_game.key) is not None
+
+                    def rec(gg=done_game, s0=started, s1=ended, pr=proton_used, testing=testing):
+                        entry = perf.record(gg.key, gg.store, gg.id, s0, s1, os.path.basename(pr.rstrip("/")) or "UMU-Proton")
+                        if not testing:
+                            return None
+                        from . import abtest
+                        t = abtest.record(gg.key, entry)
+                        return lambda: self._ab_next(gg, t)
+                    self._bg(rec)
                 if done_game and self._shares_saves(done_game):
                     self._bg(lambda gg=done_game: (savebackup.share(gg, _appid(gg)), None)[1])
                 if done_game:

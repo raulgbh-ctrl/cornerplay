@@ -78,7 +78,11 @@ def record(key, store, game_id, started, ended, proton=""):
     logs = [p for p in logs if os.path.getmtime(p) >= started - 5]
     if not logs:
         return None
-    entry = summarize(max(logs, key=os.path.getmtime))
+    newest = max(logs, key=os.path.getmtime)
+    entry = summarize(newest)
+    if entry:
+        from .abtest import load_seconds
+        entry["load"] = load_seconds(newest, started)
     for p in logs:  # the numbers are kept; the raw logs would only fill the disk
         try:
             os.remove(p)

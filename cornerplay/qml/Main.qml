@@ -2357,6 +2357,7 @@ ApplicationWindow {
             plays = app.gameSessions(win.selectedKey)
             fit = ({}); app.loadCompat(win.selectedKey)
             ran = app.perfHistory(win.selectedKey)
+            ab = app.abTest(win.selectedKey)
             notes = []; noteOpen = -1; app.loadPatchNotes(win.selectedKey)
             modInfo = app.modSupport(win.selectedKey)
             bundles = ({}); app.loadGameBundles(win.selectedKey)
@@ -2378,6 +2379,8 @@ ApplicationWindow {
         property var plays: ({})
         property var fit: ({})
         property var ran: ({})
+        property var ab: ({})
+        Connections { target: app; function onAbChanged(key) { if (key === win.selectedKey) { detail.ab = app.abTest(key); detail.ran = app.perfHistory(key) } } }
         Connections { target: app; function onCompatReady(key, v) { if (key === win.selectedKey) detail.fit = v } }
         Connections { target: app; function onDetailsGrew() { if (detail.opened) detail.similar = app.similarGames(win.selectedKey) } }
         // Opening grows out of the middle, like the cover it came from.
@@ -3113,6 +3116,91 @@ ApplicationWindow {
                             color: theme.primary
                         }
                     }
+                }
+            }
+        }
+        // Proton A/B test (abtest.py): a few minutes on each of two versions, then which to keep.
+        Rectangle {
+            id: abBox
+            readonly property var t: detail.ab || ({})
+            readonly property bool proton: win.selected.installed && ["epic", "gog", "amazon", "humble", "custom"].indexOf(win.selected.store) !== -1
+                                           && win.selected.platform !== "linux"
+            function nm(p) { return p ? p.split("/").filter(x => x).pop() : qsTr("UMU-Proton") }
+            visible: proton
+            Layout.fillWidth: true
+            implicitHeight: abCol.implicitHeight + 28
+            radius: 14
+            color: theme.surfaceContainerHigh
+            ColumnLayout {
+                id: abCol
+                anchors { left: parent.left; right: parent.right; top: parent.top; margins: 14 }
+                spacing: 10
+                RowLayout {
+                    spacing: 8
+                    Icon { name: "gauge"; size: 16; color: theme.primary }
+                    Text { text: qsTr("Which Proton runs it best?"); color: theme.onSurface; font.pixelSize: 14; font.weight: Font.DemiBold; Layout.fillWidth: true }
+                }
+                // Not testing: pick the other version and how long.
+                RowLayout {
+                    visible: !abBox.t.step
+                    spacing: 10
+                    Text { text: qsTr("Compare yours with"); color: theme.onSurfaceVariant; font.pixelSize: 13 }
+                    KCombo { id: abOther; theme: win.theme; Layout.fillWidth: true; Layout.minimumWidth: 220
+                             model: (app.protonVersions || []).filter(v => v.value !== (app.gameOptions(win.selectedKey).proton || app.settingsMap.proton || "")) }
+                    Text { text: qsTr("for"); color: theme.onSurfaceVariant; font.pixelSize: 13 }
+                    KCombo { id: abMin; theme: win.theme; Layout.preferredWidth: 110
+                             model: [{ label: qsTr("5 min"), value: 5 }, { label: qsTr("10 min"), value: 10 }, { label: qsTr("15 min"), value: 15 }]
+                             Component.onCompleted: select(10) }
+                    KButton { theme: win.theme; primary: true; text: qsTr("Start test"); iconName: "play"
+                              onClicked: app.abStart(win.selectedKey, abOther.currentValue, abMin.currentValue) }
+                }
+                Text {
+                    visible: !abBox.t.step
+                    Layout.fillWidth: true; wrapMode: Text.WordWrap
+                    text: qsTr("Play the game for a few minutes and quit, then once more: it starts on the other version. Cornerplay measures both with MangoHud (frames, 1% lows, stutters, start-up time) and says which to keep.")
+                    color: theme.outline; font.pixelSize: 12
+                }
+                // Testing: which step, on which version.
+                RowLayout {
+                    visible: abBox.t.step === "a" || abBox.t.step === "b"
+                    spacing: 10
+                    Text {
+                        Layout.fillWidth: true; wrapMode: Text.WordWrap
+                        text: (abBox.t.step === "a" ? qsTr("Step 1 of 2") : qsTr("Step 2 of 2")) + ":  " + qsTr("play for %1 minutes on %2, then quit.").arg(abBox.t.minutes)
+                              .arg(abBox.nm(abBox.t[abBox.t.step])) + (abBox.t.short ? "  " + qsTr("(The last go was too short.)") : "")
+                        color: theme.onSurface; font.pixelSize: 13
+                    }
+                    KButton { theme: win.theme; primary: true; text: qsTr("Play"); iconName: "play"; onClicked: app.play(win.selectedKey) }
+                    KButton { theme: win.theme; text: qsTr("Stop the test"); iconName: "x"; onClicked: app.abStop(win.selectedKey) }
+                }
+                // Done: the two side by side, and the verdict.
+                GridLayout {
+                    visible: abBox.t.step === "done"
+                    columns: 5; columnSpacing: 22; rowSpacing: 4
+                    Repeater {
+                        model: abBox.t.step === "done" ? ["", qsTr("FPS"), qsTr("1% low"), qsTr("Stutters"), qsTr("Start-up")]
+                               .concat(["a", "b"].flatMap(k => { const r = abBox.t.results[k] || {}
+                                   return [(abBox.t.verdict.winner === k ? "★ " : "") + abBox.nm(abBox.t[k]), String(Math.round(r.avgFps || 0)),
+                                           String(Math.round(r.low1 || 0)), String(r.stutters || 0), r.load ? r.load + " s" : "–"] })) : []
+                        Text { required property string modelData; required property int index
+                               text: modelData; font.pixelSize: 13; font.weight: index < 5 || index % 5 === 0 ? Font.DemiBold : Font.Normal
+                               color: index < 5 ? theme.outline : modelData.indexOf("★") === 0 ? theme.primary : theme.onSurface }
+                    }
+                }
+                Text {
+                    visible: abBox.t.step === "done"
+                    Layout.fillWidth: true; wrapMode: Text.WordWrap
+                    text: abBox.t.verdict ? (abBox.t.verdict.same ? qsTr("They ran about the same: keeping yours is fine.")
+                                                                  : qsTr("Keep %1: ").arg(abBox.nm(abBox.t.verdict.keep)) + (abBox.t.verdict.reasons || []).join("; ") + ".") : ""
+                    color: theme.onSurfaceVariant; font.pixelSize: 13
+                }
+                RowLayout {
+                    visible: abBox.t.step === "done"
+                    spacing: 10
+                    KButton { theme: win.theme; primary: true; visible: !!abBox.t.verdict && !abBox.t.verdict.same
+                              text: qsTr("Keep %1").arg(abBox.nm((abBox.t.verdict || {}).keep)); iconName: "check"
+                              onClicked: app.abKeep(win.selectedKey, abBox.t.verdict.keep) }
+                    KButton { theme: win.theme; text: qsTr("Done"); onClicked: app.abStop(win.selectedKey) }
                 }
             }
         }
