@@ -24,6 +24,9 @@ NAMES = {
     "gamescope": {"pacman": "gamescope", "apt-get": "gamescope", "dnf": "gamescope", "zypper": "gamescope"},
     "retroarch": {"pacman": "retroarch", "apt-get": "retroarch", "dnf": "retroarch", "zypper": "retroarch"},
     "prismlauncher": {"pacman": "prismlauncher", "zypper": "prismlauncher"},
+    # Play on another screen: Sunshine on the gaming PC, Moonlight on the screen
+    "sunshine": {"pacman": "sunshine"},
+    "moonlight": {"pacman": "moonlight-qt", "apt-get": "moonlight-qt", "zypper": "moonlight-qt"},
     # Vulkan drivers, 64- and 32-bit (Proton runs 32-bit games too)
     "vulkan-intel": {"pacman": "vulkan-intel lib32-vulkan-intel", "apt-get": "mesa-vulkan-drivers mesa-vulkan-drivers:i386",
                      "dnf": "mesa-vulkan-drivers mesa-vulkan-drivers.i686", "zypper": "libvulkan_intel libvulkan_intel-32bit"},
@@ -34,9 +37,10 @@ NAMES = {
 }
 # thing -> Flathub app, for when the distribution has no package
 FLATHUB = {"steam": "com.valvesoftware.Steam", "retroarch": "org.libretro.RetroArch",
-           "prismlauncher": "org.prismlauncher.PrismLauncher"}
+           "prismlauncher": "org.prismlauncher.PrismLauncher", "sunshine": "dev.lizardbyte.app.Sunshine",
+           "moonlight": "com.moonlight_stream.Moonlight"}
 # Where a distribution keeps a package outside its default repositories, said in a few words
-NOTES = {("steam", "dnf"): "from RPM Fusion", ("vulkan-nvidia", "dnf"): "from RPM Fusion",
+NOTES = {("steam", "dnf"): "from RPM Fusion", ("sunshine", "pacman"): "from the CachyOS repositories or the AUR", ("vulkan-nvidia", "dnf"): "from RPM Fusion",
          ("steam", "apt-get"): "after switching on 32-bit packages: sudo dpkg --add-architecture i386 && sudo apt-get update"}
 
 

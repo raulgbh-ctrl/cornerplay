@@ -19,7 +19,7 @@ import sys
 
 from . import installinfo, humbleshop, pkgs, patchnotes, mods, workshop, cleanup, steambundles, syscontrol, achievements, backup, perf, search, couch, host, hostimport, statsdata, steamrun, wishlist, health, savebackup, importer, personal, problems, storage, updates, covers, details, epicfree, shelves, gamecolour, playtime, protondb, steamcompat, proton, runner, saves, session, steamgames, steamshortcut, theme as themes
 from . import __version__
-from .config import CACHE_DIR, DEFAULTS, LANGUAGES, LOG_DIR, game_options, read_json, settings, write_json
+from .config import CACHE_DIR, CONFIG_DIR as CONFIG_DIR_STREAM, DATA_DIR as DATA_DIR_STREAM, DEFAULTS, LANGUAGES, LOG_DIR, game_options, read_json, settings, write_json
 from .net import redact
 from .runner import StoreError
 from .stores.base import Command, Game, PartialResult, run as store_run
@@ -3205,25 +3205,168 @@ class AioLaunch(QObject):
         self.toast.emit(f"Hi {name}: your favourites, collections and stats")
 
     # --- play on another screen (stream.py) ----------------------------------------------
-    @Slot()
-    def addToSunshine(self):
-        """This PC hosts: TV mode and your favourites (else your recently played, installed games)
-        in Sunshine's app list, for Moonlight on the TV, the laptop or the Deck."""
-        m = self.model
-        groups = [g for g in m.groups if not m.is_hidden(g) and any(x.installed for x in g)]
-        favs = [g for g in groups if shelves.in_group(g, shelves.FAV)]
-        pick = favs or sorted(groups, key=lambda g: -m.group_value(g, "lastPlayed"))[:12]
-        games = [{"key": self.launchTarget(m.rep(g).key) or m.rep(g).key, "title": m.rep(g).title} for g in pick]
-        icon = str(Path(__file__).parent / "icons" / "app" / "cornerplay-256.png")
+    def _sun_login(self):
+        d = read_json(CONFIG_DIR_STREAM / "sunshine-login.json") or {}
+        return d if d.get("username") else None
 
+    def _sun_save_login(self, username, password):
+        from .config import write_private
+        write_private(CONFIG_DIR_STREAM / "sunshine-login.json", json.dumps({"username": username, "password": password}))
+
+    sunshineChanged = Signal()
+    sunshine = Property("QVariantMap", lambda s: s._sunshine, notify=sunshineChanged)
+    _sunshine = {}
+
+    @Slot()
+    def refreshSunshine(self):
+        """This PC hosts: is Sunshine installed and running, can Cornerplay sign in to it, which
+        devices are paired; and this PC plays: is Moonlight there."""
+        def work():
+            from . import stream
+            st = {"kind": stream.sunshine_kind(), "running": False, "login": False, "needLogin": False,
+                  "devices": [], "username": "", "installCmd": "", "installNote": "",
+                  "moonlight": bool(stream.moonlight()), "moonlightCmd": pkgs.install_command("moonlight"),
+                  "backend": stream.display_backend()}
+            if not st["kind"]:
+                st["installCmd"] = pkgs.install_command("sunshine")
+                st["installNote"] = pkgs.note("sunshine")
+            else:
+                st["running"] = stream.sunshine_running()
+            login = self._sun_login()
+            if st["running"] and not login and not stream.has_login():
+                # Sunshine's first run: give its web page a login Cornerplay keeps (shown in Settings).
+                import secrets
+                user, pw = "cornerplay", secrets.token_urlsafe(12)
+                try:
+                    stream.create_login(user, pw)
+                    self._sun_save_login(user, pw)
+                    login = {"username": user, "password": pw}
+                except RuntimeError:
+                    pass
+            if st["running"] and login:
+                try:
+                    st["devices"] = stream.paired_devices(login)
+                    st["login"], st["username"] = True, login["username"]
+                except RuntimeError:
+                    st["needLogin"] = True
+            elif st["running"]:
+                st["needLogin"] = True
+
+            def done():
+                self._sunshine = st
+                self.sunshineChanged.emit()
+            return done
+        self._bg(work)
+
+    @Slot()
+    def startSunshine(self):
         def work():
             from . import stream
             try:
-                n = stream.add_to_sunshine(games, icon if os.path.exists(icon) else "")
+                unit = stream.start_sunshine()
+            except RuntimeError as e:
+                return lambda msg=str(e): (self.toast.emit(f"Sunshine: {msg}"), self.refreshSunshine())
+            msg = "Sunshine is running" + (" and starts with the desktop" if unit else "")
+            return lambda: (self.toast.emit(msg), self.refreshSunshine())
+        self._bg(work)
+
+    @Slot(str, str)
+    def setSunshineLogin(self, username, password):
+        """The login of Sunshine's web page, when it had one before Cornerplay (checked first)."""
+        def work():
+            from . import stream
+            login = {"username": username.strip(), "password": password}
+            try:
+                stream.paired_devices(login)
+            except RuntimeError as e:
+                return lambda msg=str(e): self.toast.emit(msg)
+            self._sun_save_login(login["username"], password)
+            return lambda: (self.toast.emit("Signed in to Sunshine"), self.refreshSunshine())
+        self._bg(work)
+
+    @Slot(result=str)
+    def sunshinePassword(self):
+        return (self._sun_login() or {}).get("password", "")
+
+    @Slot(str, str)
+    def pairDevice(self, pin, name):
+        """Accept the Moonlight that shows this PIN (this PC hosts)."""
+        def work():
+            from . import stream
+            try:
+                stream.pair_device(pin, name, self._sun_login() or {})
+            except RuntimeError as e:
+                return lambda msg=str(e): self.toast.emit(f"Not paired: {msg}")
+            return lambda: (self.toast.emit(f"Paired with {name.strip() or 'Moonlight'}"), self.refreshSunshine())
+        self._bg(work)
+
+    @Slot(str, str)
+    def unpairDevice(self, uuid, name):
+        def work():
+            from . import stream
+            stream.unpair_device(uuid, self._sun_login() or {})
+            return lambda: (self.toast.emit(f"{name} can no longer stream from this PC"), self.refreshSunshine())
+        self._bg(work)
+
+    @Slot()
+    def openSunshinePage(self):
+        from . import stream
+        QDesktopServices.openUrl(QUrl(f"https://localhost:{stream.API_PORT}"))
+
+    def _sunshine_art(self, key, urls):
+        """A PNG of the game's cover for Sunshine (Moonlight shows it), or ""."""
+        from PySide6.QtGui import QImage
+        out = DATA_DIR_STREAM / "sunshine-art" / (re.sub(r"[^A-Za-z0-9_.-]", "_", key) + ".png")
+        if out.exists():
+            return str(out)
+        for url in urls or []:
+            try:
+                if url.startswith(("http://", "https://")):
+                    import urllib.request
+                    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Cornerplay"}), timeout=15) as r:
+                        data = r.read(8 << 20)
+                else:
+                    data = Path(url.removeprefix("file://")).read_bytes()
+            except (OSError, ValueError):
+                continue
+            img = QImage.fromData(data)
+            if img.isNull():
+                continue
+            out.parent.mkdir(parents=True, exist_ok=True)
+            if img.width() > 600:
+                img = img.scaledToWidth(600, Qt.SmoothTransformation)
+            if img.save(str(out), "PNG"):
+                return str(out)
+        return ""
+
+    @Slot()
+    def addToSunshine(self):
+        """This PC hosts: TV mode, your favourites and your recently played installed games (with
+        their covers) in Sunshine's app list, for Moonlight on the TV, the laptop or the Deck."""
+        m = self.model
+        groups = [g for g in m.groups if not m.is_hidden(g) and any(x.installed for x in g)]
+        favs = [g for g in groups if shelves.in_group(g, shelves.FAV)]
+        recent = sorted((g for g in groups if g not in favs and m.group_value(g, "lastPlayed")),
+                        key=lambda g: -m.group_value(g, "lastPlayed"))
+        pick = (favs + recent)[:30]
+        games = [{"key": self.launchTarget(m.rep(g).key) or m.rep(g).key, "title": m.rep(g).title,
+                  "covers": _covers(m.rep(g))} for g in pick]
+        icon = str(Path(__file__).parent / "icons" / "app" / "cornerplay-256.png")
+        fit = settings.get("stream_fit", True) is not False
+
+        def work():
+            from . import stream
+            for g in games:
+                g["image"] = self._sunshine_art(g["key"], g.pop("covers"))
+            try:
+                n = stream.add_to_sunshine(games, icon if os.path.exists(icon) else "", fit)
             except Exception as e:  # unreadable JSON, no permission, the host's shell failing
                 return lambda msg=str(e): self.toast.emit(f"Not added to Sunshine: {msg}")
             what = "Cornerplay's TV mode" + (f" and {n - 1} game{'s' if n > 2 else ''}" if n > 1 else "")
-            return lambda: self.toast.emit(f"Added {what} to Sunshine. Restart Sunshine to see them in Moonlight.")
+            if stream.sunshine_running():
+                stream.restart_sunshine(self._sun_login())
+                return lambda: self.toast.emit(f"Added {what} to Sunshine")
+            return lambda: self.toast.emit(f"Added {what} to Sunshine. Start Sunshine to see them in Moonlight.")
         self._bg(work)
 
     @Slot()
@@ -3236,11 +3379,99 @@ class AioLaunch(QObject):
         except (ValueError, OSError) as e:
             self.toast.emit(f"Could not wake it: {e}")
 
+    def _stream_size(self):
+        """The stream's size for this PC's screen (Settings > Stream at), or () for Moonlight's own."""
+        from . import stream
+        want = str(settings.get("stream_size", "screen") or "")
+        scr = QGuiApplication.primaryScreen()
+        if not want or scr is None:
+            return ()
+        dpr = scr.devicePixelRatio()
+        w, h = round(scr.size().width() * dpr), round(scr.size().height() * dpr)
+        fps = scr.refreshRate() or 60
+        if want in ("1080", "1440", "2160"):
+            target = int(want)
+            if h > target:
+                w, h = round(w * target / h), target
+        return stream.stream_size(w, h, fps)
+
+    pairPinChanged = Signal()
+    pairPin = Property(str, lambda s: s._pair_pin, notify=pairPinChanged)
+    _pair_pin = ""
+
+    @Slot()
+    def pairWithPc(self):
+        """This PC plays: Moonlight pairs with the gaming PC using a PIN shown here, to type on the
+        gaming PC (Cornerplay > Settings > Pair a device, or Sunshine's page)."""
+        from . import stream
+        pc = str(settings.get("stream_pc") or "").strip()
+        pin = stream.new_pin()
+        try:
+            cmd = stream.pair_argv(pc, pin)
+        except RuntimeError as e:
+            self.toast.emit(str(e))
+            return
+        self._pair_pin = pin
+        self.pairPinChanged.emit()
+
+        def work():
+            mac = str(settings.get("stream_mac") or "").strip()
+            if mac:
+                try:
+                    stream.wake(mac)
+                except (ValueError, OSError):
+                    pass
+            try:
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+                ok = r.returncode == 0
+                err = (r.stderr or r.stdout).strip().splitlines()
+            except subprocess.TimeoutExpired:
+                ok, err = False, ["the PIN was not typed in time"]
+
+            def done():
+                self._pair_pin = ""
+                self.pairPinChanged.emit()
+                self.toast.emit(f"Paired with {pc}" if ok else f"Not paired: {err[-1] if err else 'Moonlight gave up'}")
+                if ok:
+                    self.loadHostApps()
+            return done
+        self._bg(work)
+
+    hostAppsChanged = Signal()
+    hostApps = Property("QVariantMap", lambda s: s._host_apps, notify=hostAppsChanged)
+    _host_apps = {}
+
+    @Slot()
+    def loadHostApps(self):
+        """This PC plays: what the gaming PC offers through Sunshine (TV mode, games)."""
+        pc = str(settings.get("stream_pc") or "").strip()
+        self._host_apps = {"pc": pc, "busy": True, "apps": [], "error": ""}
+        self.hostAppsChanged.emit()
+
+        def work():
+            from . import stream
+            try:
+                apps, err = stream.list_apps(pc), ""
+            except (RuntimeError, OSError, subprocess.TimeoutExpired) as e:
+                apps, err = [], str(e) or "the gaming PC did not answer"
+
+            def done():
+                self._host_apps = {"pc": pc, "busy": False, "apps": apps, "error": err}
+                self.hostAppsChanged.emit()
+            return done
+        self._bg(work)
+
     @Slot()
     def streamFromPc(self):
         """Wake the gaming PC (when its MAC address is set) and stream its Cornerplay TV mode."""
+        self.streamApp("")
+
+    @Slot(str)
+    def streamApp(self, app_name):
+        """Stream one of the gaming PC's apps ("" = Cornerplay's TV mode) at this screen's size."""
         pc = str(settings.get("stream_pc") or "").strip()
         mac = str(settings.get("stream_mac") or "").strip()
+        size = self._stream_size()
 
         def work():
             from . import stream
@@ -3250,13 +3481,14 @@ class AioLaunch(QObject):
                 except (ValueError, OSError):
                     pass
             try:
-                cmd = stream.stream_argv(pc)
+                cmd = stream.stream_argv(pc, app_name or stream.TV_APP, size)
             except RuntimeError as e:
                 return lambda msg=str(e): self.toast.emit(msg)
 
             def start():
                 if QProcess.startDetached(cmd[0], cmd[1:])[0]:
-                    self.toast.emit(f"Streaming from {pc}…")
+                    what = f"{app_name} from {pc}" if app_name else f"from {pc}"
+                    self.toast.emit(f"Streaming {what}…")
                 else:
                     self.toast.emit("Moonlight did not start")
             return start

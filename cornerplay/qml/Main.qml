@@ -426,6 +426,7 @@ ApplicationWindow {
                                         { i: "images", t: qsTr("Screenshots"), k: "Ctrl+Shift+S", run: () => shotsPage.show() },
                                         { i: "user-round", t: qsTr("Play with friends"), k: "", run: () => friendsPage.show() },
                                         { i: "folder-open", t: qsTr("Storage"), k: "", run: () => storage.show() },
+                                        { i: "tv", t: qsTr("Play on another screen"), k: "", run: () => streamBox.show() },
                                         { i: "check", t: qsTr("Health check"), k: "", alert: true, run: () => healthBox.show() },
                                         { i: "eye-off", t: qsTr("Hidden games"), k: "", hidden: true,
                                           run: () => { library.storeFilter = ""; library.shelf = ""; library.showHidden = !library.showHidden } },
@@ -4501,6 +4502,158 @@ ApplicationWindow {
 
     InstallBox { id: installBox; theme: win.theme }
 
+    // This PC hosts: accept a Moonlight by the PIN it shows.
+    KDialog {
+        id: pairBox
+        objectName: "pairBox"
+        theme: win.theme
+        heading: qsTr("Pair a device")
+        headingIcon: "link"
+        width: Math.min(win.width - 60, 440)
+        onOpened: { pinField.text = ""; deviceField.text = ""; pinField.forceActiveFocus() }
+        function send() {
+            if (pinField.text.trim().length !== 4) return
+            app.pairDevice(pinField.text, deviceField.text)
+            close()
+        }
+        ColumnLayout {
+            width: parent.width
+            spacing: 12
+            Text {
+                Layout.fillWidth: true; wrapMode: Text.WordWrap
+                color: theme.onSurfaceVariant; font.pixelSize: 13
+                text: qsTr("In Moonlight on the other device, pick this PC (or add it by its address). Moonlight shows a 4-digit PIN: type it here.")
+            }
+            KField {
+                id: pinField
+                theme: win.theme; Layout.fillWidth: true
+                placeholderText: qsTr("PIN")
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: RegularExpressionValidator { regularExpression: /\d{0,4}/ }
+                font.pixelSize: 22; font.letterSpacing: 6
+                onAccepted: pairBox.send()
+            }
+            KField {
+                id: deviceField
+                theme: win.theme; Layout.fillWidth: true
+                placeholderText: qsTr("Its name (Living room TV, Steam Deck...)")
+                onAccepted: pairBox.send()
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Item { Layout.fillWidth: true }
+                KButton { theme: win.theme; text: qsTr("Cancel"); onClicked: pairBox.close() }
+                KButton { theme: win.theme; primary: true; enabled: pinField.text.length === 4; text: qsTr("Pair"); iconName: "link"; onClicked: pairBox.send() }
+            }
+        }
+    }
+
+    // This PC is the screen: the gaming PC's games (Sunshine's list, through Moonlight).
+    KDialog {
+        id: streamBox
+        objectName: "streamBox"
+        theme: win.theme
+        readonly property var h: app.hostApps
+        readonly property string pc: app.settingsMap.stream_pc || ""
+        heading: pc ? qsTr("Play on %1").arg(pc) : qsTr("Play on another screen")
+        headingIcon: "tv"
+        width: Math.min(win.width - 60, 560)
+        function show() { open(); app.refreshSunshine(); if (pc) app.loadHostApps() }
+        readonly property bool noMoonlight: app.sunshine.moonlight === false
+        ColumnLayout {
+            width: parent.width
+            spacing: 12
+            Text {
+                visible: !streamBox.pc
+                Layout.fillWidth: true; wrapMode: Text.WordWrap
+                color: theme.onSurfaceVariant; font.pixelSize: 13
+                text: qsTr("Set the gaming PC first: Settings > Advanced > This PC is the screen.")
+            }
+            KButton {
+                visible: !streamBox.pc
+                theme: win.theme; primary: true; text: qsTr("Open Settings")
+                onClicked: { streamBox.close(); prefs.tab = 4; prefs.open() }
+            }
+            Text {
+                visible: !!streamBox.pc && !!streamBox.h.busy
+                color: theme.onSurfaceVariant; font.pixelSize: 13
+                text: qsTr("Asking %1 for its games…").arg(streamBox.pc)
+            }
+            ColumnLayout {
+                visible: !!streamBox.pc && !streamBox.h.busy && !!streamBox.h.error
+                Layout.fillWidth: true; spacing: 10
+                Text {
+                    Layout.fillWidth: true; wrapMode: Text.WordWrap
+                    color: theme.onSurface; font.pixelSize: 13
+                    text: qsTr("Could not get its games: %1").arg(streamBox.h.error || "")
+                }
+                RowLayout {
+                    visible: streamBox.noMoonlight && !!app.sunshine.moonlightCmd
+                    Layout.fillWidth: true; spacing: 8
+                    KField { theme: win.theme; Layout.fillWidth: true; readOnly: true; text: app.sunshine.moonlightCmd || "" }
+                    KButton { theme: win.theme; primary: true; text: qsTr("Copy"); iconName: "copy"
+                              onClicked: { app.copyText(app.sunshine.moonlightCmd || ""); toasts.append({ message: qsTr("Copied: paste it in a terminal") }) } }
+                }
+                Flow {
+                    Layout.fillWidth: true; spacing: 8
+                    KButton { visible: !streamBox.noMoonlight; theme: win.theme; primary: true; text: qsTr("Pair with it"); iconName: "link"; onClicked: app.pairWithPc() }
+                    KButton { visible: !!app.settingsMap.stream_mac; theme: win.theme; text: qsTr("Wake it"); onClicked: app.wakePc() }
+                    KButton { theme: win.theme; text: qsTr("Try again"); iconName: "refresh-cw"; onClicked: app.loadHostApps() }
+                }
+                Rectangle {
+                    visible: app.pairPin !== ""
+                    Layout.fillWidth: true
+                    implicitHeight: boxPin.implicitHeight + 24
+                    radius: 10; color: Qt.alpha(theme.primary, 0.12)
+                    ColumnLayout {
+                        id: boxPin
+                        anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 12 }
+                        Text { text: app.pairPin; color: theme.primary; font.pixelSize: 30; font.weight: Font.Bold; font.letterSpacing: 6 }
+                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 12
+                               text: qsTr("Type this PIN on %1: Cornerplay > Settings > Advanced > Pair a device, or Sunshine's page > PIN.").arg(streamBox.pc) }
+                    }
+                }
+            }
+            ListView {
+                id: hostList
+                visible: !!streamBox.pc && !streamBox.h.busy && !streamBox.h.error
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(contentHeight, win.height * 0.55)
+                clip: true; spacing: 6
+                boundsBehavior: Flickable.StopAtBounds
+                ScrollBar.vertical: KScrollBar { }
+                model: streamBox.h.apps || []
+                delegate: Rectangle {
+                    id: hostRow
+                    required property var modelData
+                    width: hostList.width - 12; height: 52; radius: 10
+                    color: hostHover.hovered ? theme.surfaceContainerHigh : theme.surfaceContainer
+                    readonly property bool tvMode: modelData.name === "Cornerplay (TV mode)"
+                    Icon { x: 14; anchors.verticalCenter: parent.verticalCenter; name: hostRow.tvMode ? "tv" : "gamepad-2"; size: 18; color: theme.onSurfaceVariant }
+                    Text {
+                        x: 44; anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - 44 - streamBtn.width - 24
+                        text: hostRow.tvMode ? qsTr("Cornerplay's TV mode (the whole library)") : hostRow.modelData.name
+                        color: theme.onSurface; font.pixelSize: 14; elide: Text.ElideRight
+                    }
+                    KButton {
+                        id: streamBtn
+                        anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+                        theme: win.theme; primary: hostRow.tvMode || hostHover.hovered; text: qsTr("Play"); iconName: "play"
+                        onClicked: { app.streamApp(hostRow.tvMode ? "" : hostRow.modelData.name); streamBox.close() }
+                    }
+                    HoverHandler { id: hostHover }
+                }
+            }
+            Text {
+                visible: hostList.visible && hostList.count === 0
+                Layout.fillWidth: true; wrapMode: Text.WordWrap
+                color: theme.onSurfaceVariant; font.pixelSize: 13
+                text: qsTr("It offers nothing yet. On %1: Settings > Advanced > Add Cornerplay to Sunshine.").arg(streamBox.pc)
+            }
+        }
+    }
+
     // -------------------------------------------------------------------- stats
     KDialog {
         id: statsBox
@@ -5956,7 +6109,7 @@ ApplicationWindow {
         })
         onClosed: { query = ""; prefsFind.text = "" }
         property bool wasOpened: false
-        onAboutToShow: wasOpened = true
+        onAboutToShow: { wasOpened = true; app.refreshSunshine() }
 
         contentItem: ColumnLayout {
             spacing: 18
@@ -6796,12 +6949,82 @@ ApplicationWindow {
                                     onEditingFinished: app.setSetting("env", text.trim())
                                 }
                             }
+                            // Play on another screen: Sunshine here (this PC hosts) or Moonlight here (this PC is the screen).
                             Row2 {
-                                label: qsTr("Play on another screen")
-                                hint: qsTr("This PC is the gaming PC: add Cornerplay to Sunshine, then Moonlight on the TV, laptop or Steam Deck starts TV mode or a favourite. This PC is the screen: set the gaming PC below, and TV mode's menu gets Play on it (it is woken first when its MAC address is set).")
+                                id: sunRow
+                                readonly property var st: app.sunshine
+                                label: qsTr("This PC is the gaming PC (Sunshine)")
+                                hint: qsTr("Moonlight on the TV, a laptop or a Steam Deck then plays this PC's games: Cornerplay's TV mode, your favourites and your recently played games, with their covers.")
+                                Text {
+                                    Layout.fillWidth: true; wrapMode: Text.WordWrap
+                                    color: theme.onSurface; font.pixelSize: 13
+                                    text: !sunRow.st.kind ? qsTr("Sunshine is not installed.")
+                                          : !sunRow.st.running ? qsTr("Sunshine is installed but not running.")
+                                          : sunRow.st.devices && sunRow.st.devices.length
+                                            ? qsTr("Sunshine is running. These can stream from this PC:")
+                                            : qsTr("Sunshine is running. No device is paired yet: open Moonlight on it, add this PC, then Pair a device here with the PIN it shows.")
+                                }
                                 RowLayout {
-                                    spacing: 8
-                                    KButton { theme: win.theme; text: qsTr("Add Cornerplay to Sunshine"); iconName: "tv"; onClicked: app.addToSunshine() }
+                                    visible: !sunRow.st.kind && !!sunRow.st.installCmd
+                                    Layout.fillWidth: true; spacing: 8
+                                    KField { theme: win.theme; Layout.fillWidth: true; readOnly: true; text: sunRow.st.installCmd || "" }
+                                    KButton { theme: win.theme; text: qsTr("Copy"); iconName: "copy"; onClicked: { app.copyText(sunRow.st.installCmd); toasts.append({ message: qsTr("Copied: paste it in a terminal") }) } }
+                                    KButton { theme: win.theme; text: qsTr("Check again"); onClicked: app.refreshSunshine() }
+                                }
+                                Flow {
+                                    visible: !!sunRow.st.kind
+                                    Layout.fillWidth: true; spacing: 8
+                                    KButton { visible: !sunRow.st.running; theme: win.theme; primary: true; text: qsTr("Start Sunshine"); iconName: "play"; onClicked: app.startSunshine() }
+                                    KButton { theme: win.theme; primary: !!sunRow.st.running; text: qsTr("Add Cornerplay to Sunshine"); iconName: "tv"; onClicked: app.addToSunshine() }
+                                    KButton { visible: !!sunRow.st.login; theme: win.theme; text: qsTr("Pair a device"); iconName: "link"; onClicked: pairBox.open() }
+                                    KButton { visible: !!sunRow.st.running; theme: win.theme; text: qsTr("Sunshine's page"); iconName: "external-link"; onClicked: app.openSunshinePage() }
+                                }
+                                // Paired devices, each with a way to send it away.
+                                Repeater {
+                                    model: sunRow.st.devices || []
+                                    RowLayout {
+                                        required property var modelData
+                                        Layout.fillWidth: true; spacing: 8
+                                        Icon { name: "tv"; size: 16; color: theme.onSurfaceVariant }
+                                        Text { Layout.fillWidth: true; text: modelData.name; color: theme.onSurface; font.pixelSize: 13; elide: Text.ElideRight }
+                                        KButton { theme: win.theme; danger: true; text: qsTr("Remove"); onClicked: app.unpairDevice(modelData.uuid, modelData.name) }
+                                    }
+                                }
+                                // Sunshine had a login before Cornerplay: ask for it once.
+                                RowLayout {
+                                    visible: !!sunRow.st.needLogin
+                                    Layout.fillWidth: true; spacing: 8
+                                    KField { id: sunUser; theme: win.theme; Layout.preferredWidth: 160; placeholderText: qsTr("Sunshine username") }
+                                    KField { id: sunPass; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("Sunshine password"); echoMode: TextInput.Password
+                                             onAccepted: app.setSunshineLogin(sunUser.text, sunPass.text) }
+                                    KButton { theme: win.theme; text: qsTr("Sign in"); onClicked: app.setSunshineLogin(sunUser.text, sunPass.text) }
+                                }
+                                Text {
+                                    visible: !!sunRow.st.login
+                                    Layout.fillWidth: true; wrapMode: Text.WordWrap
+                                    color: theme.outline; font.pixelSize: 12
+                                    textFormat: Text.StyledText
+                                    linkColor: theme.primary
+                                    text: qsTr("Sunshine's page signs in as <b>%1</b>.").arg(sunRow.st.username || "") + " <a href=\"copy\">" + qsTr("Copy the password") + "</a>"
+                                    onLinkActivated: { app.copyText(app.sunshinePassword()); toasts.append({ message: qsTr("Password copied") }) }
+                                }
+                            }
+                            Toggle {
+                                visible: !!app.sunshine.kind
+                                label: qsTr("While streaming, switch this PC's display to the stream's size (a laptop gets its 16:10, a TV its 4K); put back after")
+                                       + (app.sunshine.backend ? "" : qsTr(" (works on Hyprland, Sway and KDE)"))
+                                settingKey: "stream_fit"
+                            }
+                            Row2 {
+                                id: moonRow
+                                label: qsTr("This PC is the screen (Moonlight)")
+                                hint: qsTr("Plays the gaming PC's games here. It is woken first when its MAC address is set; TV mode's menu gets Play on it too.")
+                                RowLayout {
+                                    visible: app.sunshine.moonlight === false
+                                    Layout.fillWidth: true; spacing: 8
+                                    Text { text: qsTr("Moonlight is not installed:"); color: theme.onSurface; font.pixelSize: 13 }
+                                    KField { theme: win.theme; Layout.fillWidth: true; readOnly: true; text: app.sunshine.moonlightCmd || "" }
+                                    KButton { theme: win.theme; text: qsTr("Copy"); iconName: "copy"; onClicked: { app.copyText(app.sunshine.moonlightCmd || ""); toasts.append({ message: qsTr("Copied: paste it in a terminal") }) } }
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -6811,11 +7034,39 @@ ApplicationWindow {
                                     KField { theme: win.theme; Layout.preferredWidth: 190; placeholderText: qsTr("MAC address (to wake it)")
                                              text: app.settingsMap.stream_mac; onEditingFinished: app.setSetting("stream_mac", text.trim()) }
                                 }
-                                RowLayout {
+                                Flow {
                                     visible: !!app.settingsMap.stream_pc
-                                    spacing: 8
-                                    KButton { theme: win.theme; primary: true; text: qsTr("Stream from it"); iconName: "play"; onClicked: app.streamFromPc() }
+                                    Layout.fillWidth: true; spacing: 8
+                                    KButton { theme: win.theme; primary: true; text: qsTr("Its games"); iconName: "gamepad-2"; onClicked: { prefs.close(); streamBox.show() } }
+                                    KButton { visible: app.sunshine.moonlight !== false; theme: win.theme; text: qsTr("Pair with it"); iconName: "link"; onClicked: app.pairWithPc() }
                                     KButton { theme: win.theme; visible: !!app.settingsMap.stream_mac; text: qsTr("Wake it"); onClicked: app.wakePc() }
+                                }
+                                // While Moonlight waits: the PIN to type on the gaming PC.
+                                Rectangle {
+                                    visible: app.pairPin !== ""
+                                    Layout.fillWidth: true
+                                    implicitHeight: pinCol.implicitHeight + 24
+                                    radius: 10; color: Qt.alpha(theme.primary, 0.12); border.width: 1; border.color: Qt.alpha(theme.primary, 0.4)
+                                    ColumnLayout {
+                                        id: pinCol
+                                        anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 12 }
+                                        spacing: 4
+                                        Text { text: app.pairPin; color: theme.primary; font.pixelSize: 30; font.weight: Font.Bold; font.letterSpacing: 6 }
+                                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 12
+                                               text: qsTr("Type this PIN on %1: Cornerplay > Settings > Advanced > Pair a device, or Sunshine's page > PIN.").arg(app.settingsMap.stream_pc) }
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 8
+                                    Text { text: qsTr("Stream at"); color: theme.onSurface; font.pixelSize: 13 }
+                                    KCombo {
+                                        theme: win.theme; Layout.fillWidth: true
+                                        model: [{ label: qsTr("This screen's size and refresh rate"), value: "screen" }, { label: "1080p", value: "1080" },
+                                                { label: "1440p", value: "1440" }, { label: "4K", value: "2160" },
+                                                { label: qsTr("Moonlight's own setting"), value: "" }]
+                                        Component.onCompleted: select(app.settingsMap.stream_size === undefined ? "screen" : app.settingsMap.stream_size)
+                                        onActivated: app.setSetting("stream_size", currentValue)
+                                    }
                                 }
                             }
                             Toggle { visible: app.updateMode !== "package"; label: qsTr("Check for new Cornerplay versions (once a day)"); settingKey: "update_check" }

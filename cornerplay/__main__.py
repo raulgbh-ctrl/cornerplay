@@ -263,6 +263,8 @@ def main():
                     help="open or close quick access (volume, frame limit, quit...) over the game being played")
     ap.add_argument("--nxm", metavar="URL",
                     help="install a mod from a Nexus Mods \"Mod Manager Download\" link (nxm://...)")
+    ap.add_argument("--stream-display", nargs="+", metavar="start|stop",
+                    help="fit the display to a Sunshine stream and back (Sunshine runs this; start takes W H FPS too)")
     ap.add_argument("--demo", action="store_true", help="open with sample games (nothing is launched)")
     ap.add_argument("--check", action="store_true", help="compile every QML file and report errors, then exit")
     ap.add_argument("--fetch-umu", action="store_true", help=argparse.SUPPRESS)  # install.sh: a portable umu-launcher
@@ -293,6 +295,9 @@ def main():
         except Exception as e:
             print(f"SDL2 (controller support): not downloaded: {e}")
             return 1
+    if args.stream_display:
+        from . import stream
+        return stream.display_command(args.stream_display[0], args.stream_display[1:4])
     if args.check:
         return check_qml()
     if args.status:

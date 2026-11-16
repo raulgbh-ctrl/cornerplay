@@ -55,6 +55,8 @@ DEFAULTS = {
     "start_with_pc": False,      # an autostart entry that opens Cornerplay in the tray
     "stream_pc": "",             # the gaming PC Moonlight streams from (its name or address; stream.py)
     "stream_mac": "",            # its network card's MAC address, to wake it (Wake-on-LAN)
+    "stream_fit": True,          # this PC hosts: the display switches to the stream's size while it runs
+    "stream_size": "screen",     # this PC plays: "screen" (fit this screen), "1080", "1440", "2160" or "" (Moonlight's own)
     "profiles": [],        # people using this PC (personal.py); empty: one profile, "Me"
     "profile": "",
     "sync_dir": "",        # a folder another tool syncs between PCs; Cornerplay keeps personal data there

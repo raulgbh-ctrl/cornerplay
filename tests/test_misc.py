@@ -170,7 +170,7 @@ def test_stream_wake_on_lan_and_sunshine_list(tmp_path, monkeypatch):
     assert p[:6] == b"\xff" * 6 and p[6:12] == bytes.fromhex("3c7c3f123456") and len(p) == 102
     with pytest.raises(ValueError):
         stream.magic_packet("not a mac")
-    monkeypatch.setattr(stream, "_launcher", lambda: ["/usr/bin/cornerplay"])
+    monkeypatch.setattr(stream, "_launcher", lambda kind="": ["/usr/bin/cornerplay"])
     old = {"apps": [{"name": "Desktop"}, {"name": "Stale", "cmd": "/old/cornerplay --play gog:1"},
                     {"name": "Mine", "cmd": "/usr/bin/other-launcher"}]}
     data = stream.sunshine_apps(old, [{"key": "steam:620", "title": "Portal 2"}], "/i.png")
@@ -182,6 +182,179 @@ def test_stream_wake_on_lan_and_sunshine_list(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError):
         stream.stream_argv("pc; rm -rf ~")                                    # never a shell
     assert stream.stream_argv("gaming-pc")[-3:] == ["stream", "gaming-pc", "Cornerplay (TV mode)"]
+    # the stream fits this screen
+    assert stream.stream_argv("gaming-pc", "Portal 2", (1920, 1200, 60))[-7:] == \
+        ["stream", "gaming-pc", "Portal 2", "--resolution", "1920x1200", "--fps", "60"]
+    # every entry switches the display while it runs, unless that is off
+    assert data["apps"][3]["prep-cmd"][0]["do"] == "/usr/bin/cornerplay --stream-display start"
+    assert data["apps"][3]["prep-cmd"][0]["undo"] == "/usr/bin/cornerplay --stream-display stop"
+    assert "prep-cmd" not in stream.sunshine_apps(old, [], fit=False)["apps"][-1]
+    # Sunshine's Flatpak: Cornerplay through flatpak-spawn, the size as arguments
+    monkeypatch.setattr(stream, "_launcher", lambda kind="": (["flatpak-spawn", "--host"] if kind == "flatpak" else []) + ["/usr/bin/cornerplay"])
+    flat = stream.sunshine_apps({}, [{"key": "gog:1", "title": "X", "image": "/a.png"}], kind="flatpak")["apps"][1]
+    assert flat["cmd"].startswith("flatpak-spawn --host /usr/bin/cornerplay --play")
+    assert flat["prep-cmd"][0]["do"].endswith("--stream-display start $(SUNSHINE_CLIENT_WIDTH) $(SUNSHINE_CLIENT_HEIGHT) $(SUNSHINE_CLIENT_FPS)")
+    assert flat["image-path"] == "/a.png"
+
+
+def test_stream_size_pairing_and_app_list(monkeypatch):
+    import pytest
+    from cornerplay import stream
+    assert stream.stream_size(3072, 1920, 60) == (3072, 1920, 60)
+    assert stream.stream_size(7680, 4320, 59.94) == (3840, 2160, 60)        # capped, aspect kept
+    assert stream.stream_size(1366, 767, 0) == (1366, 766, 60)              # even, 60 when unknown
+    assert stream.stream_size(1920, 1080, 500)[2] == 240
+    monkeypatch.setattr(stream, "moonlight", lambda: ["moonlight"])
+    assert stream.pair_argv("gaming-pc", "0420")[-4:] == ["pair", "gaming-pc", "--pin", "0420"]
+    for bad in ("12", "12345", "12a4"):
+        with pytest.raises(RuntimeError):
+            stream.pair_argv("gaming-pc", bad)
+    pin = stream.new_pin()
+    assert len(pin) == 4 and pin.isdigit()
+    csv_out = ("Name, ID, HDR Supported, App Collection Game, Hidden, Direct Launch, Boxart URL\n"
+               "Desktop, 1, false, false, false, false, http://x/1.png\n"
+               "\"Cornerplay (TV mode)\", 2, false, false, false, false, \n"
+               "Secret, 3, false, false, true, false, \n"
+               "\"Ori, the Blind Forest\", 4, false, false, false, false, \n")
+    apps = stream.parse_app_list(csv_out)
+    assert [a["name"] for a in apps] == ["Desktop", "Cornerplay (TV mode)", "Secret", "Ori, the Blind Forest"]
+    assert [a["hidden"] for a in apps] == [False, False, True, False]
+    assert stream.parse_app_list("Desktop\nSteam Big Picture\n") == [{"name": "Desktop", "hidden": False},
+                                                                      {"name": "Steam Big Picture", "hidden": False}]
+    assert stream.parse_app_list("") == []
+
+
+def test_stream_pick_mode():
+    from cornerplay import stream
+    modes = [(3072, 1920, 60.0), (2880, 1800, 60.0), (1920, 1200, 60.0), (1920, 1080, 60.0), (1920, 1080, 120.0),
+             (1680, 1050, 60.0), (1280, 800, 60.0), (1024, 768, 60.0)]
+    assert stream.pick_mode(modes, 1920, 1080, 60) == (1920, 1080, 60.0)       # exact, rate not above
+    assert stream.pick_mode(modes, 1920, 1080, 120) == (1920, 1080, 120.0)
+    assert stream.pick_mode(modes, 2560, 1600, 60) == (1920, 1200, 60.0)      # same 16:10 aspect that fits
+    assert stream.pick_mode(modes, 1280, 720, 60) == (1024, 768, 60.0)        # nothing 16:9 fits: biggest that fits
+    assert stream.pick_mode(modes, 800, 600, 60) == (1024, 768, 60.0)         # nothing fits: the smallest
+    assert stream.pick_mode(modes, 1920, 1080, 30) == (1920, 1080, 60.0)      # no rate that low: the lowest
+    assert stream.pick_mode([], 1920, 1080, 60) is None
+
+
+def test_stream_display_hyprland_fit_and_restore(tmp_path, monkeypatch):
+    import json
+    from cornerplay import stream
+    mon = {"name": "DP-1", "width": 2560, "height": 1440, "refreshRate": 143.9, "x": 0, "y": 0, "scale": 1.25,
+           "focused": True, "disabled": False,
+           "availableModes": ["2560x1440@143.91Hz", "2560x1440@59.95Hz", "1920x1080@60.00Hz", "1920x1080@120.00Hz"]}
+    calls = []
+
+    def run(argv, env=None, timeout=15):
+        calls.append(argv)
+        if argv[:2] == ["hyprctl", "monitors"]:
+            return json.dumps([mon])
+        return "ok"
+    monkeypatch.setattr(stream, "display_backend", lambda: "hyprland")
+    monkeypatch.setattr(stream, "_run", run)
+    assert stream.fit_display(1920, 1080, 60, state_dir=tmp_path) == "DP-1 at 1920x1080@60"
+    assert "1920x1080@60.00" in calls[-1][-1] and "scale = 1 " in calls[-1][-1]   # small mode: scale 1
+    before = json.loads((tmp_path / stream.DISPLAY_STATE).read_text())
+    assert (before["w"], before["h"], before["scale"]) == (2560, 1440, 1.25)
+    assert stream.restore_display(state_dir=tmp_path)
+    assert "2560x1440@143.90" in calls[-1][-1] and "scale = 1.25" in calls[-1][-1]
+    assert not (tmp_path / stream.DISPLAY_STATE).exists()
+    assert not stream.restore_display(state_dir=tmp_path)                    # nothing left to put back
+    calls.clear()
+    assert stream.fit_display(2560, 1440, 144, state_dir=tmp_path) == ""      # already right: untouched
+    assert len(calls) == 1
+
+
+def test_stream_display_command_never_fails(monkeypatch, capsys):
+    from cornerplay import stream
+    monkeypatch.setattr(stream, "fit_display", lambda *a: (_ for _ in ()).throw(RuntimeError("no display")))
+    monkeypatch.setenv("SUNSHINE_CLIENT_WIDTH", "1920")
+    monkeypatch.setenv("SUNSHINE_CLIENT_HEIGHT", "1080")
+    assert stream.display_command("start") == 0
+    assert "not changed (no display)" in capsys.readouterr().out
+    seen = []
+    monkeypatch.setattr(stream, "fit_display", lambda w, h, fps: seen.append((w, h, fps)) or "x")
+    stream.display_command("start", ["1280", "800", "90"])                   # arguments win (Sunshine's Flatpak)
+    assert seen == [(1280, 800, 90.0)]
+
+
+def test_sunshine_api_login_pair_and_devices(tmp_path, monkeypatch):
+    """Against a stand-in for Sunshine's web API (HTTPS with its own certificate, basic auth)."""
+    import base64
+    import json
+    import ssl
+    import subprocess
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import pytest
+    from cornerplay import stream
+    cert, key = tmp_path / "c.pem", tmp_path / "k.pem"
+    subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", str(key), "-out", str(cert),
+                    "-days", "1", "-subj", "/CN=localhost"], check=True, capture_output=True)
+    state = {"login": None, "pins": [], "clients": [{"name": "Deck", "uuid": "u1"}]}
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def _send(self, code, body):
+            data = json.dumps(body).encode()
+            self.send_response(code)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def _authed(self):
+            want = state["login"]
+            got = self.headers.get("Authorization", "")
+            return want and got == "Basic " + base64.b64encode(f"{want[0]}:{want[1]}".encode()).decode()
+
+        def do_GET(self):
+            if not self._authed():
+                return self._send(401, {})
+            self._send(200, {"named_certs": state["clients"], "status": True})
+
+        def do_POST(self):
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+            if self.path == "/api/password" and state["login"] is None:
+                state["login"] = (body["newUsername"], body["newPassword"])
+                return self._send(200, {"status": True})
+            if not self._authed():
+                return self._send(401, {})
+            if self.path == "/api/pin":
+                state["pins"].append((body["pin"], body["name"]))
+                return self._send(200, {"status": True})
+            if self.path == "/api/clients/unpair":
+                state["clients"] = [c for c in state["clients"] if c["uuid"] != body["uuid"]]
+                return self._send(200, {"status": True})
+            self._send(404, {})
+
+    srv = HTTPServer(("127.0.0.1", 0), H)
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.load_cert_chain(str(cert), str(key))
+    srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        assert stream.sunshine_running(port)
+        stream.create_login("cornerplay", "s3cret", port)
+        login = {"username": "cornerplay", "password": "s3cret"}
+        assert stream.paired_devices(login, port) == [{"name": "Deck", "uuid": "u1"}]
+        with pytest.raises(RuntimeError, match="did not accept"):
+            stream.paired_devices({"username": "cornerplay", "password": "wrong"}, port)
+        stream.pair_device(" 1234 ", "Living room TV", login, port)
+        assert state["pins"] == [("1234", "Living room TV")]
+        with pytest.raises(RuntimeError, match="4 digits"):
+            stream.pair_device("12", "x", login, port)
+        stream.unpair_device("u1", login, port)
+        assert stream.paired_devices(login, port) == []
+    finally:
+        srv.shutdown()
+        srv.server_close()
+    assert not stream.sunshine_running(port)
+    (tmp_path / "sunshine_state.json").write_text('{"username": "me", "salt": "x"}')
+    assert stream.has_login(tmp_path)
+    assert not stream.has_login(tmp_path / "missing")
 
 
 def test_streaks():
