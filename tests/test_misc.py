@@ -524,3 +524,18 @@ def test_screen_watcher_follows_moonlight(tmp_path):
         assert (bl / "brightness").read_text() == "500"
     finally:
         stream.screen_off = real_off
+
+
+def test_screen_off_leaves_touch_bar_alone(tmp_path):
+    from cornerplay import stream
+    for name, value in (("gmux_backlight", "32000"), ("appletb_backlight", "2")):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "brightness").write_text(value)
+    assert stream.screen_off(tmp_path / "state", tmp_path)
+    assert (tmp_path / "gmux_backlight" / "brightness").read_text() == "0"
+    assert (tmp_path / "appletb_backlight" / "brightness").read_text() == "2"
+
+
+def test_tests_never_touch_the_real_backlight():
+    from cornerplay import stream
+    assert str(stream.BACKLIGHT_DIR) != "/sys/class/backlight"

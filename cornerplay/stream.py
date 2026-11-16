@@ -690,6 +690,7 @@ def restore_display(state_dir: Path = None) -> bool:
 
 BACKLIGHT_STATE = "stream-backlight.json"
 BACKLIGHT_DIR = Path("/sys/class/backlight")
+NOT_THE_SCREEN = ("appletb", "touchbar", "kbd", "keyboard")   # lights that are not the screen's (a MacBook's Touch Bar)
 
 
 def screen_off(state_dir: Path = None, root: Path = None) -> bool:
@@ -700,6 +701,8 @@ def screen_off(state_dir: Path = None, root: Path = None) -> bool:
     state = (state_dir or CACHE_DIR) / BACKLIGHT_STATE
     saved = {}
     for d in sorted((root or BACKLIGHT_DIR).glob("*")):
+        if any(word in d.name.lower() for word in NOT_THE_SCREEN):
+            continue
         f = d / "brightness"
         try:
             now = int(f.read_text().strip())
