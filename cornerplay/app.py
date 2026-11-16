@@ -3486,13 +3486,44 @@ class AioLaunch(QObject):
                 return lambda msg=str(e): self.toast.emit(msg)
 
             def start():
-                if QProcess.startDetached(cmd[0], cmd[1:])[0]:
-                    what = f"{app_name} from {pc}" if app_name else f"from {pc}"
-                    self.toast.emit(f"Streaming {what}…")
-                else:
+                # Watched, not detached: Moonlight exits 0 even when the stream never starts (an app
+                # the gaming PC does not have, a failed handshake), so its "Critical" lines are the news.
+                p = QProcess(self)
+                p.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+                p.setProperty("problem", "")
+                name = app_name or stream.TV_APP
+
+                def read():
+                    # Reported as soon as Moonlight says it: after a failure it keeps running with its
+                    # own error dialog open, so waiting for it to exit would say nothing.
+                    for line in bytes(p.readAll()).decode("utf-8", "replace").splitlines():
+                        if "Critical" not in line or p.property("problem"):
+                            continue
+                        problem = line.split("Critical:", 1)[-1].strip()
+                        p.setProperty("problem", problem)
+                        if "Failed to find application" in problem:
+                            self.toast.emit(f"{pc} does not offer {name} yet: on it, open Cornerplay > Settings > Advanced > Add Cornerplay to Sunshine")
+                        else:
+                            self.toast.emit(f"Stream did not start: {problem}")
+
+                def finished(*_):
+                    self._streams.discard(p)
+                    p.deleteLater()
+
+                p.readyRead.connect(read)
+                p.finished.connect(finished)
+                p.start(cmd[0], cmd[1:])
+                if not p.waitForStarted(5000):
+                    p.deleteLater()
                     self.toast.emit("Moonlight did not start")
+                    return
+                self._streams.add(p)
+                what = f"{app_name} from {pc}" if app_name else f"from {pc}"
+                self.toast.emit(f"Streaming {what}…")
             return start
         self._bg(work)
+
+    _streams: set = set()
 
     # --- TV mode's system controls (syscontrol.py), like SteamOS's quick access ---------
     systemChanged = Signal()
