@@ -421,3 +421,37 @@ def test_journal():
     assert oct_["games"][0]["sessions"] == 2 and not oct_["games"][0]["first"]
     assert oct_["games"][1]["first"] and oct_["games"][1]["finished"] and oct_["started"] == 1
     assert out[1]["games"][0]["first"]
+
+
+def test_sunshine_applist(monkeypatch):
+    import urllib.error
+    import pytest
+    from cornerplay import stream
+    ok = ('<?xml version="1.0" encoding="utf-8"?><root status_code="200"><App><IsHdrSupported>1</IsHdrSupported>'
+          '<AppTitle>Cornerplay (TV mode)</AppTitle><ID>1</ID></App><App><AppTitle>Portal 2</AppTitle></App></root>')
+    assert [a["name"] for a in stream.parse_applist(ok)] == ["Cornerplay (TV mode)", "Portal 2"]
+    with pytest.raises(RuntimeError, match="not paired"):
+        stream.parse_applist('<root status_code="401" status_message="The client is not authorized"/>')
+    # the PC not answering is said at once: no 25 s `moonlight list` for the same answer
+    def refused(pc, timeout=6):
+        raise urllib.error.URLError(ConnectionRefusedError(111, "Connection refused"))
+    monkeypatch.setattr(stream, "fetch_apps", refused)
+    monkeypatch.setattr(stream, "_moonlight_or_raise", lambda: pytest.fail("fell back to Moonlight"))
+    with pytest.raises(RuntimeError, match="did not answer"):
+        stream.list_apps("192.168.0.9")
+    # no pairing data readable here: Moonlight is asked instead
+    def unpaired(pc, timeout=6):
+        raise RuntimeError("Moonlight has not paired with anything yet")
+    monkeypatch.setattr(stream, "fetch_apps", unpaired)
+    monkeypatch.setattr(stream, "_moonlight_or_raise", lambda: (_ for _ in ()).throw(RuntimeError("asked Moonlight")))
+    with pytest.raises(RuntimeError, match="asked Moonlight"):
+        stream.list_apps("192.168.0.9")
+
+
+def test_settings_get_takes_a_default():
+    # Play on another screen and Add Cornerplay to Sunshine called settings.get(key, default) and
+    # died with a TypeError the UI never showed (0.17.0-0.17.1)
+    from cornerplay.config import settings
+    assert settings.get("stream_size", "screen") == settings.get("stream_size")
+    assert settings.get("no_such_setting_here", 7) == 7
+    assert settings.get("no_such_setting_here") is None

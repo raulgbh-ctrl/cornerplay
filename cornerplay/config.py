@@ -186,8 +186,9 @@ class Settings:
         except (OSError, ValueError):
             pass
 
-    def get(self, key):
-        return self.data.get(key, DEFAULTS.get(key))
+    def get(self, key, default=None):
+        """Like dict.get: the setting, else its default from DEFAULTS, else `default`."""
+        return self.data.get(key, DEFAULTS.get(key, default))
 
     listeners: list = []  # called after every change (the app drops what it worked out from settings)
 

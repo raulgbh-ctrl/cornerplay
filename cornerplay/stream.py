@@ -143,8 +143,73 @@ def parse_app_list(text: str) -> list:
     return [{"name": l.strip(), "hidden": False} for l in lines]
 
 
+def moonlight_conf() -> Path | None:
+    """Moonlight's settings (its pairing certificate lives there): native or Flatpak."""
+    for base in (Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config"),
+                 Path.home() / ".var/app" / MOONLIGHT_FLATPAK / "config"):
+        f = base / "Moonlight Game Streaming Project" / "Moonlight.conf"
+        if f.is_file():
+            return f
+    return None
+
+
+def parse_applist(text: str) -> list:
+    """Sunshine's /applist answer: [{"name", "hidden"}]. A 401 there means this PC is not paired."""
+    import xml.etree.ElementTree as ET
+    root = ET.fromstring(text)
+    code = root.get("status_code", "200")
+    if code != "200":
+        if code == "401":
+            raise RuntimeError("not paired with it yet: use Pair with it first")
+        raise RuntimeError(root.get("status_message") or f"it answered {code}")
+    return [{"name": t.strip(), "hidden": False} for t in (a.findtext("AppTitle") for a in root.iter("App")) if t and t.strip()]
+
+
+def fetch_apps(pc: str, timeout: float = 6) -> list:
+    """The gaming PC's app list straight from Sunshine, with the certificate Moonlight paired with:
+    a tenth of a second, where `moonlight list` takes 10-30 s (it probes every address it knows,
+    the internet one too) and sometimes never returns."""
+    import ssl
+    import tempfile
+    import urllib.request
+    import uuid
+    from PySide6.QtCore import QSettings
+    _check_pc(pc)
+    conf = moonlight_conf()
+    if not conf:
+        raise RuntimeError("Moonlight has not paired with anything yet")
+    s = QSettings(str(conf), QSettings.Format.IniFormat)
+    cert, key, uid = s.value("certificate"), s.value("key"), str(s.value("uniqueid") or "0123456789ABCDEF")
+    if not cert or not key:
+        raise RuntimeError("Moonlight has not paired with anything yet")
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE  # Sunshine's own self-signed certificate; it checks ours
+    with tempfile.TemporaryDirectory() as d:
+        cf, kf = Path(d) / "c.pem", Path(d) / "k.pem"
+        cf.write_bytes(bytes(cert))
+        kf.write_bytes(bytes(key))
+        kf.chmod(0o600)
+        ctx.load_cert_chain(str(cf), str(kf))
+    host = f"[{pc}]" if ":" in pc else pc
+    url = f"https://{host}:47984/applist?uniqueid={uid}&uuid={uuid.uuid4().hex}"
+    with urllib.request.urlopen(url, context=ctx, timeout=timeout) as r:
+        return parse_applist(r.read().decode("utf-8", "replace"))
+
+
 def list_apps(pc: str, timeout: float = 25) -> list:
-    """What the gaming PC offers (Sunshine's app list), through Moonlight; this PC must be paired."""
+    """What the gaming PC offers (Sunshine's app list); this PC must be paired. Asked directly
+    first, through `moonlight list` when that cannot be done (no pairing data readable here)."""
+    try:
+        return fetch_apps(pc)
+    except RuntimeError as e:
+        if "paired" in str(e) and "Moonlight has not" not in str(e):
+            raise
+    except OSError as e:  # no answer: Moonlight would only wait longer for the same
+        if "certificate" not in str(e).lower() and "ssl" not in type(e).__name__.lower():
+            raise RuntimeError(f"{pc} did not answer: is it on, with Sunshine running?") from None
+    except (ValueError, ImportError):
+        pass  # an answer or a pairing file this does not understand: let Moonlight try
     exe = _moonlight_or_raise()
     _check_pc(pc)
     r = subprocess.run(host.argv(exe + ["list", pc, "--csv"]), capture_output=True, text=True, timeout=timeout)
