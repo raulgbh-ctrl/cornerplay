@@ -208,6 +208,38 @@ def status():
     return 0
 
 
+def play_steam(appid, start_wait=180, poll=2.0, run=None, running=None, sleep=None):
+    """A Steam game in the foreground (Sunshine's entries run `--play steam:<id>`): Steam starts
+    it, and this waits until it closes, so a stream lasts exactly as long as the game.
+    Steam may update the game or show a launcher first: it has `start_wait` seconds to appear."""
+    import subprocess
+    import time
+    from . import session, steamrun
+    from .stores.steam import Steam
+    run = run or (lambda argv: subprocess.Popen(argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                                start_new_session=True))
+    running = running or steamrun.running
+    sleep = sleep or time.sleep
+    if not appid.isdigit():
+        return 1
+    try:
+        cmd = Steam().launch(type("G", (), {"id": appid})())
+    except Exception as e:
+        session.notify("Steam game did not start", str(e))
+        return 1
+    run(cmd.argv)
+    waited = 0.0
+    while appid not in running():
+        if waited >= start_wait:
+            session.notify("Steam game did not start", "Steam did not start it within 3 minutes.")
+            return 1
+        sleep(poll)
+        waited += poll
+    while appid in running():
+        sleep(poll)
+    return 0
+
+
 def play(key):
     """Start one game in the foreground: download saves, run it, upload saves.
     Steam (and Game Mode) treat the game as running for as long as this process lives."""
@@ -216,6 +248,8 @@ def play(key):
     from .config import CACHE_DIR, LOG_DIR, game_options, read_json
     from .stores import all_stores
     from .stores.base import Game
+    if key.startswith("steam:"):
+        return play_steam(key.split(":", 1)[1])
     stores = {s.id: s for s in all_stores() if s.id != "steam"}
     cached = {d["store"] + ":" + d["id"]: d for d in read_json(CACHE_DIR / "library.json") or []}
     if key not in cached or cached[key]["store"] not in stores:
@@ -390,6 +424,11 @@ def main():
     app.setWindowIcon(icon)
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
+    try:   # a stream that never said it ended (Sunshine crashed) must not leave this screen dark
+        from . import stream as _stream
+        _stream.screen_on()
+    except Exception:
+        pass
     cornerplay = AioLaunch(demo=args.demo)
     cornerplay.web_login = web_login
     engine = QQmlApplicationEngine()

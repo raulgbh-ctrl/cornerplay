@@ -3383,12 +3383,18 @@ class AioLaunch(QObject):
         """The stream's size for this PC's screen (Settings > Stream at), or () for Moonlight's own."""
         from . import stream
         want = str(settings.get("stream_size", "screen") or "")
-        scr = QGuiApplication.primaryScreen()
-        if not want or scr is None:
+        if not want:
             return ()
-        dpr = scr.devicePixelRatio()
-        w, h = round(scr.size().width() * dpr), round(scr.size().height() * dpr)
-        fps = scr.refreshRate() or 60
+        real = stream.screen_mode()   # the compositor's real pixels; Qt rounds fractional scales
+        if real:
+            w, h, fps = real
+        else:
+            scr = QGuiApplication.primaryScreen()
+            if scr is None:
+                return ()
+            dpr = scr.devicePixelRatio()
+            w, h = round(scr.size().width() * dpr), round(scr.size().height() * dpr)
+            fps = scr.refreshRate() or 60
         if want in ("1080", "1440", "2160"):
             target = int(want)
             if h > target:

@@ -325,9 +325,8 @@ def sunshine_apps(existing: dict, games: list, icon: str = "", fit: bool = True,
         if g.get("image"):
             app["image-path"] = g["image"]
         ours.append(app)
-    if fit:
-        for a in ours:
-            a["prep-cmd"] = prep
+    for a in ours:   # always: fitting the display and darkening the screen are decided when a stream starts
+        a["prep-cmd"] = prep
     data.setdefault("env", {"PATH": "$(PATH):$(HOME)/.local/bin"})
     data["apps"] = apps + ours
     return data
@@ -558,6 +557,38 @@ def display_backend() -> str:
     return ""
 
 
+def screen_mode() -> tuple:
+    """This screen's real pixels and refresh rate (w, h, hz), from the compositor; () when it
+    cannot be told. Qt's numbers are not trusted for this: with fractional scaling it reports a
+    rounded scale (a 3072x1920 panel at 1.5 comes back as 2048x1280 at 2x = 4096x2560)."""
+    def upright(w, h, transform):
+        return (h, w) if str(transform) in ("1", "3", "5", "7", "90", "270", "flipped-90", "flipped-270") else (w, h)
+    try:
+        backend = display_backend()
+        if backend == "hyprland":
+            mons = json.loads(_run(["hyprctl", "monitors", "-j"], env=_hypr_env(), timeout=5))
+            m = next((m for m in mons if m.get("focused")), mons[0] if mons else None)
+            if m:
+                return (*upright(int(m["width"]), int(m["height"]), m.get("transform", 0)), float(m.get("refreshRate") or 60))
+        if backend == "sway":
+            outs = [o for o in json.loads(_run(["swaymsg", "-t", "get_outputs", "-r"], timeout=5)) if o.get("active")]
+            o = next((o for o in outs if o.get("focused")), outs[0] if outs else None)
+            cur = (o or {}).get("current_mode") or {}
+            if cur.get("width"):
+                return (*upright(cur["width"], cur["height"], o.get("transform", "normal")), (cur.get("refresh") or 60000) / 1000)
+        if backend == "kde":
+            outs = [o for o in json.loads(_run(["kscreen-doctor", "-j"], timeout=5)).get("outputs") or [] if o.get("enabled")]
+            o = next((o for o in outs if o.get("priority") == 1), outs[0] if outs else None)
+            cur = next((m for m in (o or {}).get("modes") or [] if str(m.get("id")) == str(o.get("currentModeId"))), None)
+            if cur:
+                turned = "90" if o.get("rotation") in (2, 8) else "0"   # kscreen: 2 = left, 8 = right
+                return (*upright(cur["size"]["width"], cur["size"]["height"], turned),
+                        float(cur.get("refreshRate") or 60))
+    except (RuntimeError, OSError, ValueError, KeyError, IndexError, TypeError, subprocess.TimeoutExpired):
+        pass
+    return ()
+
+
 def _hypr_mode_list(mon: dict) -> list:
     out = []
     for m in mon.get("availableModes") or []:
@@ -657,19 +688,166 @@ def restore_display(state_dir: Path = None) -> bool:
     return True
 
 
+BACKLIGHT_STATE = "stream-backlight.json"
+BACKLIGHT_DIR = Path("/sys/class/backlight")
+
+
+def screen_off(state_dir: Path = None, root: Path = None) -> bool:
+    """Darken this PC's own screen while it streams: its backlight goes to 0. The picture is still
+    drawn (a display switched off would leave Sunshine nothing to capture), only not lit. The
+    brightness it had is kept, for screen_on(); a second start keeps the first one's."""
+    from .config import CACHE_DIR
+    state = (state_dir or CACHE_DIR) / BACKLIGHT_STATE
+    saved = {}
+    for d in sorted((root or BACKLIGHT_DIR).glob("*")):
+        f = d / "brightness"
+        try:
+            now = int(f.read_text().strip())
+            if now > 0 and os.access(f, os.W_OK):
+                saved[str(f)] = now
+        except (OSError, ValueError):
+            continue
+    if not saved:
+        return False
+    if not state.exists():
+        state.parent.mkdir(parents=True, exist_ok=True)
+        state.write_text(json.dumps(saved))
+    for f in saved:
+        try:
+            Path(f).write_text("0")
+        except OSError:
+            pass
+    return True
+
+
+def screen_on(state_dir: Path = None) -> bool:
+    """Light this PC's screen again at the brightness screen_off() found (stream ended, or a
+    Cornerplay starting after a stream that never said it ended)."""
+    from .config import CACHE_DIR
+    state = (state_dir or CACHE_DIR) / BACKLIGHT_STATE
+    try:
+        saved = json.loads(state.read_text())
+    except (OSError, ValueError):
+        return False
+    for f, value in saved.items():
+        try:
+            Path(f).write_text(str(int(value)))
+        except (OSError, ValueError):
+            pass
+    state.unlink(missing_ok=True)
+    return True
+
+
+WATCH_PID = "stream-watch.pid"
+
+
+def sunshine_log() -> Path:
+    return sunshine_dir() / "sunshine.log"
+
+
+def _sunshine_alive() -> bool:
+    try:
+        return subprocess.run(["pgrep", "-x", "sunshine"], capture_output=True, timeout=5).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return True   # cannot tell: never relight on a guess
+
+
+def watch_screen(log: Path = None, state_dir: Path = None, poll: float = 1.0, alive=None, sleep=None,
+                 max_polls: int = 0) -> None:
+    """While the screen is dark for a stream: Sunshine only runs the stream's "ended" step when the
+    app closes, not when Moonlight just disconnects, so its log is followed instead. The screen
+    lights up on "CLIENT DISCONNECTED", goes dark again on "CLIENT CONNECTED", and lights up for
+    good when Sunshine is gone (a crash must not leave a handheld dark) or the stream ended."""
+    from .config import CACHE_DIR
+    alive = alive or _sunshine_alive
+    sleep = sleep or time.sleep
+    log = log or sunshine_log()
+    state_dir = state_dir or CACHE_DIR
+    try:
+        pos = log.stat().st_size
+    except OSError:
+        pos = 0
+    dark, polls, ended = True, 0, False
+    while not ended:
+        sleep(poll)
+        polls += 1
+        try:
+            with open(log, "rb") as f:
+                if f.seek(0, 2) < pos:
+                    pos = 0          # a new log (Sunshine restarted)
+                f.seek(pos)
+                new = f.read().decode("utf-8", "replace")
+                pos = f.tell()
+        except OSError:
+            new = ""
+        for line in new.splitlines():
+            if "CLIENT DISCONNECTED" in line and dark:
+                screen_on(state_dir)
+                dark = False
+            elif "CLIENT CONNECTED" in line and not dark:
+                dark = screen_off(state_dir)
+            elif "Undo Cmd" in line or "Hang detected" in line:
+                ended = True
+        if not alive() or (max_polls and polls >= max_polls):
+            ended = True
+    screen_on(state_dir)
+
+
+def _start_watch(state_dir: Path = None):
+    """One watcher, detached (Sunshine waits for the prep step to finish)."""
+    import sys
+    from .config import CACHE_DIR
+    pidf = (state_dir or CACHE_DIR) / WATCH_PID
+    try:
+        os.kill(int(pidf.read_text()), 0)
+        return               # already watching
+    except (OSError, ValueError):
+        pass
+    env = dict(os.environ)
+    here = str(Path(__file__).resolve().parent.parent)   # this copy of Cornerplay, however it was installed
+    env["PYTHONPATH"] = here + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    p = subprocess.Popen([sys.executable, "-c", "from cornerplay import stream; stream.watch_screen()"],
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True, cwd=str(Path.home()), env=env)
+    pidf.write_text(str(p.pid))
+
+
+def _stop_watch(state_dir: Path = None):
+    import signal
+    from .config import CACHE_DIR
+    pidf = (state_dir or CACHE_DIR) / WATCH_PID
+    try:
+        os.kill(int(pidf.read_text()), signal.SIGTERM)
+    except (OSError, ValueError):
+        pass
+    pidf.unlink(missing_ok=True)
+
+
 def display_command(action: str, size: list = ()) -> int:
     """cornerplay --stream-display start|stop [W H FPS], run by Sunshine (prep-cmd) with the
-    stream's size in SUNSHINE_CLIENT_WIDTH / _HEIGHT / _FPS (or as arguments)."""
+    stream's size in SUNSHINE_CLIENT_WIDTH / _HEIGHT / _FPS (or as arguments). `watch` is the
+    screen watcher that start leaves behind (see watch_screen())."""
     try:
+        from .config import settings
         if action == "start":
             env = os.environ
             vals = list(size) + [""] * 3
             w = int(vals[0] or env.get("SUNSHINE_CLIENT_WIDTH") or 0)
             h = int(vals[1] or env.get("SUNSHINE_CLIENT_HEIGHT") or 0)
             fps = float(vals[2] or env.get("SUNSHINE_CLIENT_FPS") or 60)
-            done = fit_display(w, h, fps) if w and h else ""
+            fit = settings.get("stream_fit", True) is not False
+            done = fit_display(w, h, fps) if fit and w and h else ""
             print(f"stream display: {done or 'left as it is'}")
+            if settings.get("stream_screen_off", True) is not False:
+                dark = screen_off()
+                print("stream display: " + ("screen dark" if dark else "no backlight to turn off"))
+                if dark:
+                    _start_watch()
+        elif action == "watch":
+            watch_screen()
         else:
+            _stop_watch()
+            print("stream display: " + ("screen lit again" if screen_on() else "screen was not darkened"))
             print("stream display: " + ("put back" if restore_display() else "nothing to put back"))
     except Exception as e:   # never stop the stream over the display
         print(f"stream display: not changed ({e})")

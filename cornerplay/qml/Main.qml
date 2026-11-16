@@ -7015,6 +7015,11 @@ ApplicationWindow {
                                        + (app.sunshine.backend ? "" : qsTr(" (works on Hyprland, Sway and KDE)"))
                                 settingKey: "stream_fit"
                             }
+                            Toggle {
+                                visible: !!app.sunshine.kind
+                                label: qsTr("While streaming, turn this PC's own screen dark (it lights up again when the stream ends)")
+                                settingKey: "stream_screen_off"
+                            }
                             Row2 {
                                 id: moonRow
                                 label: qsTr("This PC is the screen (Moonlight)")

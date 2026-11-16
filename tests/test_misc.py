@@ -191,7 +191,8 @@ def test_stream_wake_on_lan_and_sunshine_list(tmp_path, monkeypatch):
     # every entry switches the display while it runs, unless that is off
     assert data["apps"][1]["prep-cmd"][0]["do"] == "/usr/bin/cornerplay --stream-display start"
     assert data["apps"][1]["prep-cmd"][0]["undo"] == "/usr/bin/cornerplay --stream-display stop"
-    assert "prep-cmd" not in stream.sunshine_apps(old, [], fit=False)["apps"][-1]
+    # the hook is always there: fitting and darkening are decided when a stream starts (settings)
+    assert "prep-cmd" in stream.sunshine_apps(old, [], fit=False)["apps"][-1]
     # Sunshine's Flatpak: Cornerplay through flatpak-spawn, the size as arguments
     monkeypatch.setattr(stream, "_launcher", lambda kind="": (["flatpak-spawn", "--host"] if kind == "flatpak" else []) + ["/usr/bin/cornerplay"])
     flat = stream.sunshine_apps({}, [{"key": "gog:1", "title": "X", "image": "/a.png"}], kind="flatpak")["apps"][1]
@@ -455,3 +456,71 @@ def test_settings_get_takes_a_default():
     assert settings.get("stream_size", "screen") == settings.get("stream_size")
     assert settings.get("no_such_setting_here", 7) == 7
     assert settings.get("no_such_setting_here") is None
+
+
+def test_play_steam_waits_for_the_game(monkeypatch):
+    import pytest
+    # Sunshine's game entries run `cornerplay --play steam:<id>`: it used to say "Game not found"
+    # and exit at once, which ended the stream before the game started
+    from cornerplay import __main__ as m
+    from cornerplay.stores import steam
+    monkeypatch.setattr(steam.Steam, "client", lambda self: ["steam"])
+    started, polls = [], iter([set(), set(), {"620"}, {"620"}, set()])
+    rc = m.play_steam("620", run=started.append, running=lambda: next(polls), sleep=lambda s: None)
+    assert rc == 0 and started == [["steam", "steam://rungameid/620"]]
+    assert next(polls, "done") == "done"            # it waited for the game to start and to close
+    from cornerplay import session
+    monkeypatch.setattr(session, "notify", lambda *a: None)
+    assert m.play_steam("620", start_wait=4, run=lambda a: None, running=set, sleep=lambda s: None) == 1  # never appeared
+    assert m.play_steam("x;rm", run=lambda a: pytest.fail("ran")) == 1
+
+
+def test_host_screen_dark_while_streaming(tmp_path):
+    from cornerplay import stream
+    bl = tmp_path / "sys" / "amdgpu_bl0"
+    bl.mkdir(parents=True)
+    (bl / "brightness").write_text("27592\n")
+    state = tmp_path / "state"
+    assert stream.screen_off(state, tmp_path / "sys")
+    assert (bl / "brightness").read_text() == "0"
+    assert not stream.screen_off(state, tmp_path / "sys")          # already dark: nothing to save over
+    assert stream.screen_on(state) and (bl / "brightness").read_text() == "27592"
+    assert not stream.screen_on(state)                             # nothing left to put back
+    (bl / "brightness").write_text("0")                            # dark by the user's own choice:
+    assert not stream.screen_off(state, tmp_path / "sys")          # left alone
+
+
+def test_screen_watcher_follows_moonlight(tmp_path):
+    # Moonlight closing without quitting the game: Sunshine runs no "ended" step, so the watcher
+    # lights the screen from Sunshine's log, darkens it on reconnect, and lights it at the end
+    from cornerplay import stream
+    bl = tmp_path / "sys" / "bl"
+    bl.mkdir(parents=True)
+    (bl / "brightness").write_text("500")
+    state = tmp_path / "state"
+    real_off = stream.screen_off
+    stream.screen_off = lambda d=None, root=None: real_off(d, tmp_path / "sys")
+    try:
+        assert stream.screen_off(state)
+        log = tmp_path / "sunshine.log"
+        log.write_text("[x]: Info: CLIENT CONNECTED\n")
+        script = iter([
+            "[x]: Info: CLIENT DISCONNECTED\n",   # Moonlight closed: lit
+            "[x]: Info: CLIENT CONNECTED\n",      # back: dark
+            "",
+        ])
+        seen = []
+
+        def step(_):
+            with open(log, "a") as f:
+                f.write(next(script, ""))
+            seen.append((bl / "brightness").read_text().strip())
+
+        stream.watch_screen(log, state, alive=lambda: True, sleep=step, max_polls=4)
+        assert seen == ["0", "500", "0", "0"]          # dark, lit after the disconnect, dark after the reconnect
+        assert (bl / "brightness").read_text() == "500"  # lit for good at the end
+        assert stream.screen_off(state)
+        stream.watch_screen(log, state, alive=lambda: False, sleep=lambda s: None)   # Sunshine gone
+        assert (bl / "brightness").read_text() == "500"
+    finally:
+        stream.screen_off = real_off
