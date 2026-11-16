@@ -2,7 +2,8 @@
 
 - This PC hosts (Sunshine): add_to_sunshine() puts "Cornerplay (TV mode)" and your favourite
   games into Sunshine's app list (~/.config/sunshine/apps.json), so Moonlight anywhere in the
-  house can start them. Entries Cornerplay made before are replaced, everything else is kept.
+  house can start them, and nothing else: Sunshine's Desktop and Big Picture entries go (the
+  old list is kept as apps.json.before-cornerplay), and a game's stream ends when it closes.
 - This PC plays (Moonlight): play_on_host() wakes the gaming PC (Wake-on-LAN, when its network
   card's MAC address is set) and starts Moonlight streaming that PC's Cornerplay TV mode.
 - Setting Sunshine up (status, start, pairing a device with its PIN, paired devices) goes
@@ -235,12 +236,16 @@ def _ours(app: dict) -> bool:
 MAX_GAMES = 60
 
 
-def sunshine_apps(existing: dict, games: list, icon: str = "", fit: bool = True, kind: str = "") -> dict:
+def sunshine_apps(existing: dict, games: list, icon: str = "", fit: bool = True, kind: str = "",
+                  only_ours: bool = True) -> dict:
     """Sunshine's apps.json with Cornerplay's entries replaced: TV mode, then games
     [{"key", "title", "image"?}]. Detached: Cornerplay hands over to a copy already running.
-    fit: each entry switches this PC's display to the stream's size while it runs (prep-cmd)."""
+    fit: each entry switches this PC's display to the stream's size while it runs (prep-cmd).
+    only_ours: Sunshine's own entries (Desktop, Steam Big Picture) go, so Moonlight offers
+    games and never the whole desktop. A game's stream lasts as long as `--play` waits for it:
+    the game closes, the stream ends (no auto-detach, so a game that fails at once ends it too)."""
     data = dict(existing) if isinstance(existing, dict) else {}
-    apps = [a for a in (data.get("apps") or []) if isinstance(a, dict) and not _ours(a)]
+    apps = [] if only_ours else [a for a in (data.get("apps") or []) if isinstance(a, dict) and not _ours(a)]
     run = " ".join(shlex.quote(a) for a in _launcher(kind))
     # Sunshine's Flatpak cannot hand its environment over to the host: the size goes as arguments
     # (Sunshine fills in $(NAME) itself).
@@ -251,7 +256,7 @@ def sunshine_apps(existing: dict, games: list, icon: str = "", fit: bool = True,
         tv["image-path"] = icon
     ours = [tv]
     for g in games[:MAX_GAMES]:
-        app = {"name": g["title"][:60], "cmd": f"{run} --play {shlex.quote(g['key'])}", "auto-detach": "true"}
+        app = {"name": g["title"][:60], "cmd": f"{run} --play {shlex.quote(g['key'])}", "auto-detach": "false"}
         if g.get("image"):
             app["image-path"] = g["image"]
         ours.append(app)
@@ -271,6 +276,12 @@ def add_to_sunshine(games: list, icon: str = "", fit: bool = True) -> int:
         existing = json.loads(text) if text and text.strip() else {}
     except ValueError:
         raise RuntimeError("Sunshine's apps.json is not valid JSON; left as it is")
+    others = [a for a in (existing.get("apps") or []) if isinstance(a, dict) and not _ours(a)] \
+        if isinstance(existing, dict) else []
+    if others and not host.IN_FLATPAK:  # Desktop & co. are dropped: keep the list as it was, once
+        backup = sunshine_file().with_name("apps.json.before-cornerplay")
+        if not backup.exists():
+            backup.write_text(text)
     data = sunshine_apps(existing, games, icon, fit, sunshine_kind())
     _write(json.dumps(data, indent=2))
     return 1 + min(len(games), MAX_GAMES)
@@ -365,7 +376,11 @@ def api(method: str, path: str, body=None, login: dict = None, port: int = API_P
     except urllib.error.HTTPError as e:
         if e.code == 401:
             raise RuntimeError("Sunshine did not accept the username and password")
-        raise RuntimeError(f"Sunshine answered {e.code}")
+        try:  # Sunshine explains a 400 in its body: {"status": false, "error": "..."}
+            why = str(json.loads(e.read().decode("utf-8", "replace")).get("error") or "")
+        except Exception:
+            why = ""
+        raise RuntimeError(f"Sunshine answered {e.code}" + (f": {why}" if why else ""))
     except (urllib.error.URLError, OSError) as e:
         raise RuntimeError("Sunshine is not running" if "refused" in str(e).lower() else f"Sunshine: {e}")
     try:
@@ -387,7 +402,24 @@ def pair_device(pin: str, name: str, login: dict, port: int = API_PORT):
     """Accept a Moonlight that shows `pin` (Moonlight > add PC > it shows a 4-digit PIN)."""
     if not re.fullmatch(r"\d{4}", (pin or "").strip()):
         raise RuntimeError("the PIN Moonlight shows has 4 digits")
-    api("POST", "/api/pin", {"pin": pin.strip(), "name": (name or "Moonlight").strip()[:40]}, login, port, timeout=40)
+    body = {"pin": pin.strip(), "name": (name or "Moonlight").strip()[:40]}
+    # Sunshine from 2026 on keeps each waiting Moonlight apart and wants its pairing_id with the
+    # PIN (GET /api/pin lists them); older Sunshine has no such list and takes the PIN alone.
+    try:
+        waiting = api("GET", "/api/pin", None, login, port).get("pairings")
+    except (RuntimeError, AttributeError):
+        waiting = None
+    if isinstance(waiting, list):
+        waiting = [w for w in waiting if isinstance(w, dict) and w.get("id")]
+        if not waiting:
+            raise RuntimeError("no Moonlight is waiting: add this PC in Moonlight first, then type the PIN it shows")
+        body["pairing_id"] = waiting[-1]["id"]
+    try:
+        api("POST", "/api/pin", body, login, port, timeout=40)
+    except RuntimeError as e:
+        if str(e) == "Sunshine said no":
+            raise RuntimeError("wrong PIN, or Moonlight stopped waiting") from None
+        raise
 
 
 def paired_devices(login: dict, port: int = API_PORT) -> list:

@@ -173,11 +173,14 @@ def test_stream_wake_on_lan_and_sunshine_list(tmp_path, monkeypatch):
     monkeypatch.setattr(stream, "_launcher", lambda kind="": ["/usr/bin/cornerplay"])
     old = {"apps": [{"name": "Desktop"}, {"name": "Stale", "cmd": "/old/cornerplay --play gog:1"},
                     {"name": "Mine", "cmd": "/usr/bin/other-launcher"}]}
+    kept = stream.sunshine_apps(old, [{"key": "steam:620", "title": "Portal 2"}], "/i.png", only_ours=False)
+    assert [a["name"] for a in kept["apps"]] == ["Desktop", "Mine", "Cornerplay (TV mode)", "Portal 2"]
     data = stream.sunshine_apps(old, [{"key": "steam:620", "title": "Portal 2"}], "/i.png")
     names = [a["name"] for a in data["apps"]]
-    assert names == ["Desktop", "Mine", "Cornerplay (TV mode)", "Portal 2"]   # ours replaced, theirs kept
-    assert data["apps"][2]["detached"] == ["setsid /usr/bin/cornerplay --tv"]
-    assert data["apps"][3]["cmd"] == "/usr/bin/cornerplay --play steam:620"
+    assert names == ["Cornerplay (TV mode)", "Portal 2"]   # games only: no Desktop, no Big Picture
+    assert data["apps"][0]["detached"] == ["setsid /usr/bin/cornerplay --tv"]
+    assert data["apps"][1]["cmd"] == "/usr/bin/cornerplay --play steam:620"
+    assert data["apps"][1]["auto-detach"] == "false"   # the game closes, the stream ends
     monkeypatch.setattr(stream, "moonlight", lambda: ["moonlight"])
     with pytest.raises(RuntimeError):
         stream.stream_argv("pc; rm -rf ~")                                    # never a shell
@@ -186,8 +189,8 @@ def test_stream_wake_on_lan_and_sunshine_list(tmp_path, monkeypatch):
     assert stream.stream_argv("gaming-pc", "Portal 2", (1920, 1200, 60))[-7:] == \
         ["stream", "gaming-pc", "Portal 2", "--resolution", "1920x1200", "--fps", "60"]
     # every entry switches the display while it runs, unless that is off
-    assert data["apps"][3]["prep-cmd"][0]["do"] == "/usr/bin/cornerplay --stream-display start"
-    assert data["apps"][3]["prep-cmd"][0]["undo"] == "/usr/bin/cornerplay --stream-display stop"
+    assert data["apps"][1]["prep-cmd"][0]["do"] == "/usr/bin/cornerplay --stream-display start"
+    assert data["apps"][1]["prep-cmd"][0]["undo"] == "/usr/bin/cornerplay --stream-display stop"
     assert "prep-cmd" not in stream.sunshine_apps(old, [], fit=False)["apps"][-1]
     # Sunshine's Flatpak: Cornerplay through flatpak-spawn, the size as arguments
     monkeypatch.setattr(stream, "_launcher", lambda kind="": (["flatpak-spawn", "--host"] if kind == "flatpak" else []) + ["/usr/bin/cornerplay"])
@@ -291,7 +294,7 @@ def test_sunshine_api_login_pair_and_devices(tmp_path, monkeypatch):
     cert, key = tmp_path / "c.pem", tmp_path / "k.pem"
     subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", str(key), "-out", str(cert),
                     "-days", "1", "-subj", "/CN=localhost"], check=True, capture_output=True)
-    state = {"login": None, "pins": [], "clients": [{"name": "Deck", "uuid": "u1"}]}
+    state = {"login": None, "pins": [], "waiting": [], "clients": [{"name": "Deck", "uuid": "u1"}]}
 
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -312,6 +315,8 @@ def test_sunshine_api_login_pair_and_devices(tmp_path, monkeypatch):
         def do_GET(self):
             if not self._authed():
                 return self._send(401, {})
+            if self.path == "/api/pin":   # Sunshine 2026: the Moonlights waiting for a PIN
+                return self._send(200, {"pairings": state["waiting"], "status": True})
             self._send(200, {"named_certs": state["clients"], "status": True})
 
         def do_POST(self):
@@ -322,8 +327,10 @@ def test_sunshine_api_login_pair_and_devices(tmp_path, monkeypatch):
             if not self._authed():
                 return self._send(401, {})
             if self.path == "/api/pin":
-                state["pins"].append((body["pin"], body["name"]))
-                return self._send(200, {"status": True})
+                if len(body.get("pairing_id", "")) != 32:
+                    return self._send(400, {"status": False, "error": "pairing_id must contain exactly 32 hexadecimal characters"})
+                state["pins"].append((body["pin"], body["name"], body["pairing_id"]))
+                return self._send(200, {"status": body["pin"] != "0000"})
             if self.path == "/api/clients/unpair":
                 state["clients"] = [c for c in state["clients"] if c["uuid"] != body["uuid"]]
                 return self._send(200, {"status": True})
@@ -342,8 +349,13 @@ def test_sunshine_api_login_pair_and_devices(tmp_path, monkeypatch):
         assert stream.paired_devices(login, port) == [{"name": "Deck", "uuid": "u1"}]
         with pytest.raises(RuntimeError, match="did not accept"):
             stream.paired_devices({"username": "cornerplay", "password": "wrong"}, port)
+        with pytest.raises(RuntimeError, match="no Moonlight is waiting"):
+            stream.pair_device("1234", "TV", login, port)
+        state["waiting"] = [{"id": "a" * 32, "name": "", "address": "192.168.0.5"}]
         stream.pair_device(" 1234 ", "Living room TV", login, port)
-        assert state["pins"] == [("1234", "Living room TV")]
+        assert state["pins"] == [("1234", "Living room TV", "a" * 32)]
+        with pytest.raises(RuntimeError, match="wrong PIN"):
+            stream.pair_device("0000", "TV", login, port)
         with pytest.raises(RuntimeError, match="4 digits"):
             stream.pair_device("12", "x", login, port)
         stream.unpair_device("u1", login, port)
