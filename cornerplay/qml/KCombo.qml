@@ -52,6 +52,9 @@ ComboBox {
         background: Rectangle { radius: 8; color: row.highlighted ? c.theme.surfaceContainerHighest : "transparent" }
     }
     popup: Popup {
+        id: comboPopup
+        onVisibleChanged: { const w = ApplicationWindow.window; if (w && w.notePopup) w.notePopup(comboPopup, visible) }
+        Component.onDestruction: { const w = ApplicationWindow.window; if (w && w.notePopup) w.notePopup(comboPopup, false) }
         y: c.height + 4
         width: c.width
         padding: 4

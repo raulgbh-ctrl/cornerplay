@@ -7,6 +7,8 @@ import QtQuick.Layouts
 // game bundles, and Steam bundles priced for you. Opened from the sidebar; the sidebar stays.
 Popup {
     id: store
+    onVisibleChanged: { const w = ApplicationWindow.window; if (w && w.notePopup) w.notePopup(store, visible) }
+    Component.onDestruction: { const w = ApplicationWindow.window; if (w && w.notePopup) w.notePopup(store, false) }
     required property var theme
     modal: false
     focus: true

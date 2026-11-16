@@ -14,6 +14,7 @@ KDialog {
     property string busy: ""
     property int tab: 0             // 0 installed, 1 find, 2 Steam Workshop
     property var workshopRows: []   // the game's Steam Workshop subscriptions (workshop.py)
+    property bool workshopLoaded: false
     heading: v.game ? qsTr("Mods for %1").arg(v.game) : qsTr("Mods")
     headingIcon: "sparkles"
     width: Math.min(parent ? parent.width - 80 : 900, 920)
@@ -21,7 +22,7 @@ KDialog {
     closePolicy: Popup.CloseOnEscape
 
     function show(key) {
-        gameKey = key; v = ({}); found = []; query = ""; busy = ""; tab = 0; workshopRows = []
+        gameKey = key; v = ({}); found = []; query = ""; busy = ""; tab = 0; workshopRows = []; workshopLoaded = false
         app.loadMods(key)
         app.loadWorkshop(key)
         open()
@@ -40,7 +41,7 @@ KDialog {
             page.v = view
             if (view.workshopOnly) page.tab = 2
         }
-        function onWorkshopReady(key, rows) { if (key === page.gameKey) page.workshopRows = rows }
+        function onWorkshopReady(key, rows) { if (key === page.gameKey) { page.workshopRows = rows; page.workshopLoaded = true } }
         function onModSearchReady(key, q, rows) { if (key === page.gameKey) { page.found = rows; page.searching = false } }
         function onModBusy(key, text) {
             if (key !== page.gameKey) return
@@ -441,6 +442,7 @@ KDialog {
                     color: theme.onSurfaceVariant; font.pixelSize: 13
                 }
                 KButton {
+                    visible: workshopList.count > 0 || !page.workshopLoaded   // the empty state has its own
                     theme: page.theme; iconName: "external-link"
                     text: qsTr("Browse the Workshop")
                     onClicked: app.browseWorkshop(page.gameKey)
@@ -455,6 +457,26 @@ KDialog {
                 boundsBehavior: Flickable.StopAtBounds
                 ScrollBar.vertical: KScrollBar { }
                 model: page.workshopRows
+                // Nothing subscribed (yet): say so and point to the Workshop, not a blank panel.
+                Column {
+                    anchors.centerIn: parent
+                    width: Math.min(parent.width - 40, 420)
+                    visible: workshopList.count === 0 && page.workshopLoaded
+                    spacing: 14
+                    EmptyScene { anchors.horizontalCenter: parent.horizontalCenter; width: 220; height: 146; theme: page.theme; kind: "search" }
+                    Text {
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
+                        text: qsTr("No Workshop items yet. Subscribe to some in Steam and they show up here; Steam downloads them the next time it runs.")
+                        color: theme.onSurfaceVariant; font.pixelSize: 14
+                    }
+                    KButton {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        theme: page.theme; primary: true; iconName: "external-link"
+                        text: qsTr("Browse the Workshop")
+                        onClicked: app.browseWorkshop(page.gameKey)
+                    }
+                }
                 delegate: Rectangle {
                     id: wsRow
                     required property var modelData

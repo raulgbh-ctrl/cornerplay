@@ -35,6 +35,12 @@ ApplicationWindow {
                                               primaryContainer: Qt.tint(win.theme.surfaceContainerHigh, Qt.alpha(accent, 0.3)) })
     }
 
+    // Theme presets are stored by their English name; this is what the interface shows.
+    function themeName(n) {
+        return ({ Midnight: qsTr("Midnight"), Graphite: qsTr("Graphite"), Forest: qsTr("Forest"), Ember: qsTr("Ember"),
+                  Ocean: qsTr("Ocean"), Sakura: qsTr("Sakura"), Paper: qsTr("Paper"), Daylight: qsTr("Daylight"),
+                  Linen: qsTr("Linen"), Mint: qsTr("Mint") })[n] || n
+    }
     function select(key) {
         selectedKey = key
         selected = app.game(key)
@@ -208,16 +214,28 @@ ApplicationWindow {
     // Any pop-up open over the library? Cards and tiles then ignore the pointer, and keep
     // ignoring it for a moment after the pop-up closes (the click that closed it must not
     // land on the game underneath).
-    readonly property bool popupOpen: detail.visible || gameOpts.visible || dlc.visible || accounts.visible
-                                      || prefs.visible || viewer.visible || conflict.visible || login.visible
-                                      || viewMenu.visible || gameMenu.visible
+    // Every dialog, menu and drop-down tells the window when it shows or hides (notePopup), so
+    // new ones are covered without being listed here.
+    property var openPopups: []
+    function notePopup(p, shown) {
+        const rest = openPopups.filter(x => x !== p)
+        if (shown) rest.push(p)
+        if (rest.length !== openPopups.length) openPopups = rest
+    }
+    readonly property bool popupOpen: openPopups.length > 0 || detail.visible || login.visible
     property bool justClosed: false
+    // Until when a click on the library is still ignored (ms since the epoch): checked again when
+    // a tap fires, because a single tap is only reported once the double-click time has passed.
+    property double quietUntil: 0
     onPopupOpenChanged: {
+        quietUntil = Date.now() + 450
         if (!popupOpen) { justClosed = true; closeGuard.restart() }
         else { trailerWait.stop(); trailerKey = ""; trailerUrl = "" }  // no trailer behind a pop-up
     }
     Timer { id: closeGuard; interval: 450; onTriggered: win.justClosed = false }
     readonly property bool cardsLive: !popupOpen && !justClosed
+    // For a tap that is about to open or start a game: nothing over the library, now or a moment ago.
+    function pointerOk() { return cardsLive && Date.now() >= quietUntil }
     Loader {
         id: tvLoader
         anchors.fill: parent
@@ -393,6 +411,7 @@ ApplicationWindow {
                         ToolTip.visible: win.rail && toolsHover.hovered; ToolTip.text: qsTr("Tools"); ToolTip.delay: 300
                         Popup {
                             id: toolsMenu
+                            onVisibleChanged: win.notePopup(toolsMenu, visible)
                             x: win.rail ? parent.width + 8 : 0
                             y: -height - 8
                             width: 270
@@ -787,6 +806,7 @@ ApplicationWindow {
                     onPicked: viewMenu.opened ? viewMenu.close() : viewMenu.open()
                     Popup {
                         id: viewMenu
+                        onVisibleChanged: win.notePopup(viewMenu, visible)
                         y: parent.height + 6
                         x: parent.width - width
                         width: 270
@@ -1084,11 +1104,10 @@ ApplicationWindow {
                     }
                     boundsBehavior: Flickable.StopAtBounds
                     ScrollBar.vertical: KScrollBar { }
-                    populate: Transition {
-                        enabled: !app.light
-                        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 320; easing.type: Easing.OutCubic }
-                        NumberAnimation { property: "y"; from: ViewTransition.destination.y + 24; duration: 360; easing.type: Easing.OutCubic }
-                    }
+                    // No populate transition: GridView never moves covers that are still in it, so a
+                    // window resized right after it opens (tiling compositors do that) kept the first
+                    // covers at their old places, overlapping the rest. Covers that arrive later still
+                    // fade in through add.
                     // Filters and searches: covers fade in and slide to their new places.
                     add: Transition {
                         enabled: !app.light
@@ -1323,6 +1342,7 @@ ApplicationWindow {
                                                 text: hero.game.installed ? qsTr("Resume") : qsTr("Install")
                                                 iconName: hero.game.installed ? "play" : "download"
                                                 onClicked: {
+                                                    if (!win.pointerOk()) return
                                                     if (hero.game.installed) win.activate(hero.info.key)
                                                     else { app.preferCopy(hero.info.key); win.install(hero.info.key) }
                                                 }
@@ -1332,7 +1352,7 @@ ApplicationWindow {
                                                 visible: !hero.game.job && !!hero.game.update
                                                 text: qsTr("Update")
                                                 iconName: "arrow-up"
-                                                onClicked: app.update(hero.info.key)
+                                                onClicked: if (win.pointerOk()) app.update(hero.info.key)
                                             }
                                             Text {
                                                 visible: !!hero.game.job
@@ -1344,7 +1364,7 @@ ApplicationWindow {
                                             KButton {
                                                 theme: hero.tint
                                                 text: qsTr("Details")
-                                                onClicked: win.select(hero.info.key)
+                                                onClicked: if (win.pointerOk()) win.select(hero.info.key)
                                             }
                                         }
                                     }
@@ -1443,9 +1463,9 @@ ApplicationWindow {
                                     HoverHandler { id: recentHover; enabled: win.cardsLive; cursorShape: Qt.PointingHandCursor }
                                     TapHandler {
                                         enabled: win.cardsLive
-                                        onSingleTapped: if (win.cardsLive) win.select(recentTile.modelData.key)
-                                        onDoubleTapped: if (win.cardsLive) win.activate(recentTile.modelData.key)
-                                        onLongPressed: if (win.cardsLive) gameMenu.showFor(recentTile.modelData.key, recentTile, point.position)
+                                        onSingleTapped: if (win.pointerOk()) win.select(recentTile.modelData.key)
+                                        onDoubleTapped: if (win.pointerOk()) win.activate(recentTile.modelData.key)
+                                        onLongPressed: if (win.pointerOk()) gameMenu.showFor(recentTile.modelData.key, recentTile, point.position)
                                     }
                                     TapHandler {
                                         enabled: win.cardsLive
@@ -1503,10 +1523,10 @@ ApplicationWindow {
                             else if (win.hoverKey === key) { previewTimer.stop(); preview.visible = false
                                                              trailerWait.stop(); win.trailerKey = ""; win.trailerUrl = "" }
                         }
-                        onOpened: { grid.currentIndex = index; flyer.from(key, gridCard); win.select(key) }
-                        onActivated: { grid.currentIndex = index; win.activate(key) }
-                        onInstallRequested: { grid.currentIndex = index; win.install(key) }
-                        onMenuRequested: at => { grid.currentIndex = index; gameMenu.showFor(key, gridCard, at) }
+                        onOpened: { if (!win.pointerOk()) return; grid.currentIndex = index; flyer.from(key, gridCard); win.select(key) }
+                        onActivated: { if (!win.pointerOk()) return; grid.currentIndex = index; win.activate(key) }
+                        onInstallRequested: { if (!win.pointerOk()) return; grid.currentIndex = index; win.install(key) }
+                        onMenuRequested: at => { if (!win.pointerOk()) return; grid.currentIndex = index; gameMenu.showFor(key, gridCard, at) }
                         picked: !!win.picked[key]
                         picking: win.pickCount > 0
                         onPickRequested: range => win.pick(index, range)
@@ -1628,8 +1648,8 @@ ApplicationWindow {
                                 Text { y: 216; width: parent.width; text: shelfCard.modelData.title; color: theme.onSurfaceVariant
                                        font.family: app.titleFamily; font.pixelSize: 12; elide: Text.ElideRight }
                                 HoverHandler { id: shelfHover; cursorShape: Qt.PointingHandCursor }
-                                TapHandler { onTapped: win.select(shelfCard.modelData.key) }
-                                TapHandler { acceptedButtons: Qt.LeftButton; onDoubleTapped: win.activate(shelfCard.modelData.key) }
+                                TapHandler { enabled: win.cardsLive; onTapped: if (win.pointerOk()) win.select(shelfCard.modelData.key) }
+                                TapHandler { enabled: win.cardsLive; acceptedButtons: Qt.LeftButton; onDoubleTapped: if (win.pointerOk()) win.activate(shelfCard.modelData.key) }
                             }
                         }
                     }
@@ -1724,11 +1744,12 @@ ApplicationWindow {
                                         Text { anchors.verticalCenter: parent.verticalCenter; text: trow.installed ? qsTr("Play") : qsTr("Install")
                                                color: theme.onPrimary; font.pixelSize: 12; font.weight: Font.DemiBold }
                                     }
-                                    HoverHandler { id: rowPlayHover; cursorShape: Qt.PointingHandCursor }
+                                    HoverHandler { id: rowPlayHover; enabled: win.cardsLive; cursorShape: Qt.PointingHandCursor }
                                     TapHandler {
+                                        enabled: win.cardsLive
                                         gesturePolicy: TapHandler.WithinBounds
                                         grabPermissions: PointerHandler.CanTakeOverFromAnything
-                                        onTapped: trow.installed ? win.activate(trow.key) : win.install(trow.key)
+                                        onTapped: if (win.pointerOk()) { trow.installed ? win.activate(trow.key) : win.install(trow.key) }
                                     }
                                 }
                             }
@@ -1748,15 +1769,17 @@ ApplicationWindow {
                             Text { visible: table.colOn(6); width: 84; anchors.verticalCenter: parent.verticalCenter; font.pixelSize: 12; color: theme.onSurfaceVariant
                                    text: trow.sizeBytes > 0 ? (trow.sizeBytes / 1073741824).toFixed(1) + qsTr(" GB") : "" }
                         }
-                        HoverHandler { id: rowHover; cursorShape: Qt.PointingHandCursor }
+                        HoverHandler { id: rowHover; enabled: win.cardsLive; cursorShape: Qt.PointingHandCursor }
                         TapHandler {
-                            onSingleTapped: if (!rowPlayHover.hovered) win.select(trow.key)
-                            onDoubleTapped: if (!rowPlayHover.hovered) win.activate(trow.key)
-                            onLongPressed: gameMenu.showFor(trow.key, trow, point.position)
+                            enabled: win.cardsLive
+                            onSingleTapped: if (win.pointerOk() && !rowPlayHover.hovered) win.select(trow.key)
+                            onDoubleTapped: if (win.pointerOk() && !rowPlayHover.hovered) win.activate(trow.key)
+                            onLongPressed: if (win.pointerOk()) gameMenu.showFor(trow.key, trow, point.position)
                         }
                         TapHandler {
+                            enabled: win.cardsLive
                             acceptedButtons: Qt.RightButton
-                            onTapped: (eventPoint, button) => gameMenu.showFor(trow.key, trow, eventPoint.position)
+                            onTapped: (eventPoint, button) => { if (win.pointerOk()) gameMenu.showFor(trow.key, trow, eventPoint.position) }
                         }
                     }
                 }
@@ -2711,6 +2734,7 @@ ApplicationWindow {
                         onClicked: moreMenu.opened ? moreMenu.close() : moreMenu.open()
                         Popup {
                             id: moreMenu
+                            onVisibleChanged: win.notePopup(moreMenu, visible)
                             y: -height - 8
                             width: 240
                             padding: 6
@@ -3913,6 +3937,7 @@ ApplicationWindow {
     Connections { target: library; function onFilterChanged() { if (library.shelf !== win.pickShelf) { win.pickShelf = library.shelf; win.picked = ({}) } } }
     Popup {
         id: pickMenu
+        onVisibleChanged: win.notePopup(pickMenu, visible)
         property string kind: ""
         function showFor(k, item) {
             kind = k
@@ -3954,6 +3979,7 @@ ApplicationWindow {
     // the things you would otherwise open the game's page for.
     Popup {
         id: gameMenu
+        onVisibleChanged: win.notePopup(gameMenu, visible)
         objectName: "gameMenu"
         property string key: ""
         property var g: ({})
@@ -6000,7 +6026,7 @@ ApplicationWindow {
                                         model: app.themePresets
                                         Chip {
                                             required property string modelData
-                                            label: modelData
+                                            label: win.themeName(modelData)
                                             active: app.settingsMap.theme_mode === modelData
                                             onPicked: app.setSetting("theme_mode", modelData)
                                         }
@@ -6030,14 +6056,14 @@ ApplicationWindow {
                                     Text { text: qsTr("Light"); color: theme.onSurfaceVariant; font.pixelSize: 13 }
                                     KCombo {
                                         theme: win.theme; Layout.preferredWidth: 150
-                                        model: app.lightPresets.map(n => ({ label: n, value: n }))
+                                        model: app.lightPresets.map(n => ({ label: win.themeName(n), value: n }))
                                         Component.onCompleted: select(app.settingsMap.theme_light)
                                         onActivated: app.setSetting("theme_light", currentValue)
                                     }
                                     Text { text: qsTr("Dark"); color: theme.onSurfaceVariant; font.pixelSize: 13 }
                                     KCombo {
                                         theme: win.theme; Layout.preferredWidth: 150
-                                        model: app.darkPresets.map(n => ({ label: n, value: n }))
+                                        model: app.darkPresets.map(n => ({ label: win.themeName(n), value: n }))
                                         Component.onCompleted: select(app.settingsMap.theme_dark)
                                         onActivated: app.setSetting("theme_dark", currentValue)
                                     }
@@ -7424,6 +7450,7 @@ ApplicationWindow {
     // -------------------------------------------------------------------- screenshot viewer
     Popup {
         id: viewer
+        onVisibleChanged: win.notePopup(viewer, visible)
         objectName: "viewer"
         property var shots: []
         property int at: 0

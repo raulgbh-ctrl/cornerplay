@@ -436,11 +436,12 @@ Item {
                 size: Math.round(parent.width * 0.42)
                 color: card.theme.onPrimary
             }
-            HoverHandler { id: quickHover; cursorShape: Qt.PointingHandCursor }
+            HoverHandler { id: quickHover; enabled: card.interactive; cursorShape: Qt.PointingHandCursor }
             TapHandler {
+                enabled: card.interactive
                 gesturePolicy: TapHandler.WithinBounds
                 grabPermissions: PointerHandler.CanTakeOverFromAnything
-                onTapped: card.installed ? card.activated() : card.installRequested()
+                onTapped: if (card.interactive) { card.installed ? card.activated() : card.installRequested() }
             }
             ToolTip.visible: quickHover.hovered
             ToolTip.delay: 600

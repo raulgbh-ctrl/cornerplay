@@ -17,6 +17,9 @@ Popup {
     padding: 24
     topPadding: 64
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    // Tell the window a pop-up is up: the library underneath then ignores the pointer.
+    onVisibleChanged: { const w = ApplicationWindow.window; if (w && w.notePopup) w.notePopup(d, visible) }
+    Component.onDestruction: { const w = ApplicationWindow.window; if (w && w.notePopup) w.notePopup(d, false) }
     // Behind the pop-up the app goes soft and dim, like frosted glass (the main window names
     // what to blur as blurTarget; without it, or without a GPU, it just dims).
     readonly property Item blurTarget: ApplicationWindow.window ? ApplicationWindow.window.blurTarget || null : null
