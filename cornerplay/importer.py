@@ -8,6 +8,7 @@
 import glob
 import json
 import os
+import shutil
 
 from .config import HOME, read_json, settings
 from .stores.base import run
@@ -78,3 +79,36 @@ def heroic_installs():
             if isinstance(e, dict) and e.get("path") and e.get("id"):
                 out.append({"store": "amazon", "id": e["id"], "title": e.get("title", ""), "path": e["path"]})
     return [g for g in out if os.path.isdir(g["path"])]
+
+
+# --- Lutris -------------------------------------------------------------------------------
+LUTRIS_DBS = ("~/.local/share/lutris/pga.db", "~/.var/app/net.lutris.Lutris/data/lutris/pga.db")
+
+
+def lutris_games():
+    """Lutris's installed games: [{"id", "title", "runner", "flatpak"}] from its database (read
+    only). They join Cornerplay as games that start through Lutris, so Lutris keeps its runners,
+    wine builds and install scripts."""
+    import sqlite3
+    out = []
+    for path in LUTRIS_DBS:
+        db = os.path.expanduser(path)
+        if not os.path.isfile(db):
+            continue
+        try:
+            con = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=2)
+            rows = con.execute("SELECT id, name, runner FROM games WHERE installed = 1 ORDER BY name").fetchall()
+            con.close()
+        except sqlite3.Error:
+            continue
+        for gid, name, runner in rows:
+            if name and runner != "steam":  # Steam games are in Cornerplay already
+                out.append({"id": int(gid), "title": str(name), "runner": runner or "", "flatpak": "/.var/app/" in db})
+    return out
+
+
+def lutris_command(game):
+    """The program and arguments that start a Lutris game."""
+    if game["flatpak"]:
+        return shutil.which("flatpak") or "/usr/bin/flatpak", f"run net.lutris.Lutris lutris:rungameid/{game['id']}"
+    return shutil.which("lutris") or "/usr/bin/lutris", f"lutris:rungameid/{game['id']}"

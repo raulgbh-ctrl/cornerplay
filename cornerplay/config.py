@@ -63,6 +63,7 @@ DEFAULTS = {
     "sync_dir": "",        # a folder another tool syncs between PCs; Cornerplay keeps personal data there
     "machine_id": "",
     "download_limit": 0.0,    # MB/s for Epic / GOG / Amazon downloads; 0 = as fast as it goes (throttle.py)
+    "download_limit_day_only": False,  # the limit only outside the overnight hours (full speed at night)
     "auto_update": False,     # update Epic / GOG / Amazon games overnight (mains power, not metered)
     "auto_update_from": 2,
     "auto_update_to": 6,

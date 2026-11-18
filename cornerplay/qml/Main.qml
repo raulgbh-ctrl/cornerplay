@@ -4227,7 +4227,8 @@ ApplicationWindow {
         property string exe: ""
         property string importStore: "epic"
         property int heroic: 0
-        function show() { exe = ""; addName.text = ""; addArgs.text = ""; heroic = app.heroicCount(); open() }
+        property int lutris: 0
+        function show() { exe = ""; addName.text = ""; addArgs.text = ""; heroic = app.heroicCount(); lutris = app.lutrisCount(); open() }
         width: Math.min(win.width - 60, 620)
         contentItem: ColumnLayout {
             spacing: 16
@@ -4278,6 +4279,15 @@ ApplicationWindow {
                 Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
                        text: qsTr("Heroic has ") + addBox.heroic + qsTr(" installed game") + (addBox.heroic === 1 ? "" : "s") + qsTr(". Bring them in (nothing is copied or downloaded).") }
                 KButton { theme: win.theme; primary: true; text: qsTr("Import from Heroic"); onClicked: { app.importHeroic(); addBox.close() } }
+            }
+            // 4. Lutris: its games start through Lutris (its runners and wine builds stay in charge)
+            RowLayout {
+                visible: addBox.lutris > 0
+                Layout.fillWidth: true
+                spacing: 8
+                Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
+                       text: qsTr("Lutris has %1 installed games that are not here yet. Add them: they start through Lutris, with its own settings.").arg(addBox.lutris) }
+                KButton { theme: win.theme; primary: true; text: qsTr("Import from Lutris"); onClicked: { app.importLutris(); addBox.close() } }
             }
         }
     }
@@ -6860,6 +6870,8 @@ ApplicationWindow {
                                     Text { text: qsTr("MB/s"); color: theme.onSurfaceVariant; font.pixelSize: 13 }
                                 }
                             }
+                            Toggle { label: qsTr("Limit downloads in the daytime only: full speed in the overnight hours (%1:00 to %2:00)").arg(app.settingsMap.auto_update_from).arg(app.settingsMap.auto_update_to)
+                                     settingKey: "download_limit_day_only"; visible: app.settingsMap.download_limit > 0 }
                             Row2 {
                                 label: qsTr("Games folder")
                                 hint: qsTr("Where Epic, GOG and Amazon games and all Proton prefixes are stored. Steam keeps using its own libraries.")

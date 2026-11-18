@@ -58,3 +58,18 @@ def test_family_limits(monkeypatch):
     assert family.blocked("Kid", [], late) == "bedtime"
     family.set_pin("1234")
     assert family.pin_ok("1234") and not family.pin_ok("0000")
+
+
+def test_lutris_games_from_its_database(tmp_path, monkeypatch):
+    import sqlite3
+    from cornerplay import importer
+    db = tmp_path / "pga.db"
+    con = sqlite3.connect(db)
+    con.execute("CREATE TABLE games (id INTEGER, name TEXT, runner TEXT, installed INTEGER)")
+    con.executemany("INSERT INTO games VALUES (?,?,?,?)", [(3, "Diablo II", "wine", 1), (4, "Portal", "steam", 1), (5, "Old", "wine", 0)])
+    con.commit()
+    con.close()
+    monkeypatch.setattr(importer, "LUTRIS_DBS", (str(db),))
+    games = importer.lutris_games()
+    assert [g["title"] for g in games] == ["Diablo II"]
+    assert importer.lutris_command(games[0])[1] == "lutris:rungameid/3"

@@ -153,6 +153,8 @@ def _translatable_names():
             QCoreApplication.translate("app", "Clips are off: Settings > Games > Clips"),
             QCoreApplication.translate("app", "No game is recording right now"),
             QCoreApplication.translate("app", "No such game"),
+            QCoreApplication.translate("app", "Imported %1 games from Lutris"),
+            QCoreApplication.translate("app", "Lutris is not installed"),
             QCoreApplication.translate("app", "That PIN is not right"),
             QCoreApplication.translate("app", "A PIN is 4 or more digits"),
             QCoreApplication.translate("app", "PIN saved"),
@@ -1341,6 +1343,31 @@ class AioLaunch(QObject):
                                             + (f"; could not import {', '.join(failed[:3])}" if failed else "")),
                             self.refresh("", False))
         self._bg(work)
+
+    @Slot(result=int)
+    def lutrisCount(self):
+        from .stores import custom
+        have = {e.get("args") for e in custom.entries()}
+        return sum(1 for g in importer.lutris_games() if importer.lutris_command(g)[1] not in have)
+
+    @Slot()
+    def importLutris(self):
+        """Lutris's installed games, as games that start through Lutris (added once each)."""
+        from .stores import custom
+        have = {e.get("args") for e in custom.entries()}
+        done, failed = 0, []
+        for g in importer.lutris_games():
+            exe, args = importer.lutris_command(g)
+            if args in have:
+                continue
+            try:
+                custom.add(exe, g["title"], args)
+                done += 1
+            except StoreError:
+                failed.append(g["title"])
+        self.toast.emit(_t("Imported %1 games from Lutris").replace("%1", str(done))
+                        + (f"; {', '.join(failed[:3])}: " + _t("Lutris is not installed") if failed else ""))
+        self.refresh("custom", False)
 
     # --- save backups -----------------------------------------------------------------
     savesReady = Signal(str, "QVariantList")
@@ -6034,7 +6061,14 @@ class AioLaunch(QObject):
         from . import throttle
         if p.processId() > 0:
             self._throttles[key] = throttle.Throttle(
-                p.processId(), lambda: max(0.0, float(settings.get("download_limit") or 0)) * 1_000_000, self)
+                p.processId(), self._download_limit, self)
+
+    def _download_limit(self):
+        """Bytes a second for downloads now: the limit, or none in the overnight hours when the
+        limit is for the daytime only (Settings > Library)."""
+        if settings.get("download_limit_day_only") and self._in_night():
+            return 0.0
+        return max(0.0, float(settings.get("download_limit") or 0)) * 1_000_000
 
     def _job_output(self, key):
         p = self.procs.get(key)
