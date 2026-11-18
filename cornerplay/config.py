@@ -110,6 +110,8 @@ DEFAULTS = {
     "fps_cap": 0,               # frames per second cap for every game (each can set its own), 0 = none
     "tdp": 0,                   # power limit in watts for every game (AMD + ryzenadj, tdp.py), 0 = leave alone
     "clips": False,             # keep the last 30 s of a game to save on demand (gpu-screen-recorder, clips.py)
+    "family": {},               # family limits per person (family.py)
+    "family_pin": "",
     "prelaunch_checks": True,   # before a game: battery, downloads, a missing controller, a full drive (toasts)
     "pad_battery_alerts": True, # a wireless controller at 20 % or less: say so (also over a game)
     "tv_library_view": "grid",  # TV mode's Library page: "grid" (covers) or "list"

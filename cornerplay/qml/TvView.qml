@@ -1347,6 +1347,21 @@ FocusScope {
         onOptions: libSheet.show()
         onSearchAsked: { libPrompt.back = tv.Window.activeFocusItem; libPrompt.ask(qsTr("Search the library"), qsTr("Type part of a name, a developer or a genre."), false) }
     }
+    // Family limits: the PIN, with the on-screen keyboard.
+    TvTextPrompt {
+        id: pinPrompt
+        anchors.fill: parent
+        theme: tv.theme
+        tint: tv.tint
+        property Item back: null
+        property string what: ""
+        property string arg: ""
+        Connections { target: app; enabled: tv.visible
+                      function onPinNeeded(what, arg) { pinPrompt.what = what; pinPrompt.arg = arg; pinPrompt.back = tv.Window.activeFocusItem
+                                                        pinPrompt.ask(qsTr("Family PIN"), what === "switch" ? qsTr("Type the PIN to switch to %1.").arg(arg) : qsTr("Type the PIN."), true) } }
+        onAccepted: text => { app.enterPin(text, what, arg); tv.refocus(back) }
+        onClosed: tv.refocus(back)
+    }
     TvTextPrompt {
         id: libPrompt
         anchors.fill: parent

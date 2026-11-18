@@ -39,3 +39,22 @@ def test_goals_merge_newer_wins():
     a = {"games": {}, "goals": {"finish": 3, "t": 5}}
     b = {"games": {}, "goals": {"finish": 1, "hours": 20, "t": 9}}
     assert personal._merge(a, b)["goals"]["hours"] == 20
+
+
+def test_family_limits(monkeypatch):
+    import time
+    from cornerplay import family
+    store = {}
+    monkeypatch.setattr(family.settings, "get", lambda k, d=None: store.get(k, d))
+    monkeypatch.setattr(family.settings, "set", lambda k, v: store.__setitem__(k, v))
+    family.set_rules("Kid", 60, "21:00", "")
+    assert family.limited("Kid") and not family.limited("Me")
+    noon = time.mktime((2026, 11, 18, 12, 0, 0, 0, 0, -1))
+    played = [["a", noon - 3000, noon - 1200]]  # 30 min this morning
+    assert family.blocked("Kid", played, noon) == ""
+    assert round(family.minutes_left("Kid", played, noon)) == 30
+    assert family.blocked("Kid", played, noon, running_since=[noon - 1800]) == "limit"
+    late = time.mktime((2026, 11, 18, 21, 30, 0, 0, 0, -1))
+    assert family.blocked("Kid", [], late) == "bedtime"
+    family.set_pin("1234")
+    assert family.pin_ok("1234") and not family.pin_ok("0000")

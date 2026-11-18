@@ -17,6 +17,7 @@ import shlex
 
 import sys
 
+from . import family
 from . import installinfo, humbleshop, pkgs, patchnotes, mods, workshop, cleanup, steambundles, syscontrol, achievements, backup, perf, search, couch, host, hostimport, statsdata, steamrun, wishlist, health, savebackup, importer, personal, problems, storage, updates, covers, details, epicfree, shelves, gamecolour, playtime, protondb, steamcompat, proton, runner, saves, session, steamgames, steamshortcut, theme as themes
 from . import __version__
 from .config import CACHE_DIR, CONFIG_DIR as CONFIG_DIR_STREAM, DATA_DIR as DATA_DIR_STREAM, DEFAULTS, LANGUAGES, LOG_DIR, game_options, read_json, settings, write_json
@@ -151,6 +152,16 @@ def _translatable_names():
             QCoreApplication.translate("app", "Clip saved"),
             QCoreApplication.translate("app", "Clips are off: Settings > Games > Clips"),
             QCoreApplication.translate("app", "No game is recording right now"),
+            QCoreApplication.translate("app", "That PIN is not right"),
+            QCoreApplication.translate("app", "A PIN is 4 or more digits"),
+            QCoreApplication.translate("app", "PIN saved"),
+            QCoreApplication.translate("app", "PIN removed"),
+            QCoreApplication.translate("app", "It is past bedtime: games are done for today"),
+            QCoreApplication.translate("app", "Today's play time is used up"),
+            QCoreApplication.translate("app", "Play time is over for today"),
+            QCoreApplication.translate("app", "Family limits"),
+            QCoreApplication.translate("app", "%1 minutes of play left: time to save"),
+            QCoreApplication.translate("app", "This game is not in the games allowed for %1"),
             QCoreApplication.translate("app", "Favourites"),
             QCoreApplication.translate("app", "Recently added"),
             QCoreApplication.translate("app", "Library"),
@@ -204,6 +215,9 @@ def _put_away(group) -> bool:
     from coming back."""
     return not any(g.installed for g in group) and any(game_options.get(g.key).get("put_away") for g in group)
 
+
+# Family limits: the games the current person may see (family.py), "" = every game.
+_FAMILY = {"only": ""}
 
 # The "Because you played" row's test, set by App._because() (the proxies have no App to ask).
 _BECAUSE = {"test": lambda group: False}
@@ -492,6 +506,8 @@ class LibraryProxy(QSortFilterProxyModel):
         if group and self._shelf and not self._on_shelf(model, model.groups[row]):
             return False
         if group and self._tags and not all(self._has_tag(model, model.groups[row], t) for t in self._tags):
+            return False
+        if group and _FAMILY["only"] and not shelves.in_group(model.groups[row], _FAMILY["only"]):
             return False
         return bool(group) and (not self._search or any(self._matches(g) for g in group))
 
@@ -3252,9 +3268,101 @@ class AioLaunch(QObject):
     def switchProfile(self, name):
         if name == personal.current():
             return
+        if family.limited(personal.current()) and family.has_pin() and not self._family_unlocked:
+            self.pinNeeded.emit("switch", name)  # leaving a limited person takes the PIN
+            return
+        self._do_switch(name)
+
+    def _do_switch(self, name):
         personal.switch(name)
+        self._family_unlocked = False
+        _FAMILY["only"] = family.rules(name)["only"]
         self._personal_reloaded()
+        self.familyChanged.emit()
         self.toast.emit(f"Hi {name}: your favourites, collections and stats")
+
+    # --- family limits (family.py) -----------------------------------------------------------
+    pinNeeded = Signal(str, str)   # what for ("switch", "family"), and its argument (a person)
+    familyChanged = Signal()
+    _family_unlocked = False
+
+    def _family_info(self):
+        return {"people": [dict(family.rules(p), name=p, limited=family.limited(p)) for p in personal.profiles()],
+                "hasPin": family.has_pin(), "unlocked": self._family_unlocked or not family.has_pin(),
+                "limitedNow": family.limited(personal.current())}
+
+    familyInfo = Property("QVariantMap", _family_info, notify=familyChanged)
+
+    @Slot(str, str, str, result=bool)
+    def enterPin(self, pin, what, arg):
+        """The PIN typed for `what`: carries on with it when right."""
+        if not family.pin_ok(pin):
+            self.toast.emit(_t("That PIN is not right"))
+            return False
+        self._family_unlocked = True
+        self.familyChanged.emit()
+        if what == "switch" and arg:
+            self._do_switch(arg)
+        return True
+
+    @Slot(str, int, str, str)
+    def setFamily(self, person, limit, bedtime, only):
+        if family.has_pin() and not self._family_unlocked:
+            self.pinNeeded.emit("family", person)
+            return
+        family.set_rules(person, limit, bedtime, only)
+        _FAMILY["only"] = family.rules(personal.current())["only"]
+        self._refilter_all()
+        self.familyChanged.emit()
+
+    @Slot(str, result=bool)
+    def setFamilyPin(self, pin):
+        """A new PIN ("" removes it); needs the old one first (enterPin) when there is one."""
+        if family.has_pin() and not self._family_unlocked:
+            self.pinNeeded.emit("family", "")
+            return False
+        if pin and (not pin.isdigit() or len(pin) < 4):
+            self.toast.emit(_t("A PIN is 4 or more digits"))
+            return False
+        family.set_pin(pin)
+        self._family_unlocked = False
+        self.familyChanged.emit()
+        self.toast.emit(_t("PIN saved") if pin else _t("PIN removed"))
+        return True
+
+    def _family_running(self):
+        return [v.get("since", 0) for v in list(self._playing.values()) + list(self._steam_playing.values())]
+
+    def _family_block(self):
+        """Why the current person may not start a game now ("" when they may)."""
+        who = personal.current()
+        if not family.limited(who):
+            return ""
+        why = family.blocked(who, playtime.sessions(), running_since=self._family_running())
+        return {"bedtime": _t("It is past bedtime: games are done for today"),
+                "limit": _t("Today's play time is used up")}.get(why, "")
+
+    def _check_family(self):
+        """While a limited person plays: a warning five minutes before, then the games close."""
+        who = personal.current()
+        if not self._now_playing() or not family.limited(who):
+            self._family_warned = False
+            return
+        left = family.minutes_left(who, playtime.sessions(), running_since=self._family_running())
+        if left is None:
+            return
+        if left <= 0:
+            for p in list(self._now_playing()):
+                self.quitGame(p["key"], False)
+            msg = _t("Play time is over for today")
+            self.toast.emit(msg)
+            self._notify(_t("Family limits"), msg)
+        elif left <= 5 and not getattr(self, "_family_warned", False):
+            self._family_warned = True
+            msg = _t("%1 minutes of play left: time to save").replace("%1", str(max(1, round(left))))
+            self.toast.emit(msg)
+            if shutil.which("notify-send"):
+                QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", "-u", "critical", _t("Family limits"), msg])
 
     # --- play on another screen (stream.py) ----------------------------------------------
     def _sun_login(self):
@@ -5183,6 +5291,13 @@ class AioLaunch(QObject):
         if began is not None and time.monotonic() - began < self.START_GRACE:
             self.toast.emit(f"{g.title} is already starting")
             return
+        why = self._family_block()
+        only = family.rules(personal.current())["only"]
+        if not why and only and not shelves.in_group(self.model.group_of(key) or [g], only):
+            why = _t("This game is not in the games allowed for %1").replace("%1", personal.current())
+        if why:
+            self.toast.emit(why)
+            return
         self._launch_state(key, "start")
         self._vulkan_warning(g)  # warn, but still try: the check should never stop a game that would run
         self._prelaunch(g)
@@ -6009,6 +6124,7 @@ class AioLaunch(QObject):
     # --- "Because you played", price watch, space planner, pre-launch checks, pad batteries,
     # --- sleep timer --------------------------------------------------------------------------
     def _extras_start(self):
+        _FAMILY["only"] = family.rules(personal.current())["only"]
         self._pad_low = set()      # controllers already warned about (until they charge again)
         self._sleep_at = 0.0       # sleep timer: when the PC sleeps (0: off)
         self._sleep_warned = False
@@ -6021,6 +6137,7 @@ class AioLaunch(QObject):
     def _extras_tick(self):
         self._check_pad_batteries()
         self._check_sleep_timer()
+        self._check_family()
 
     def _because(self):
         """The game the "Because you played" row is about: the most played of the last three

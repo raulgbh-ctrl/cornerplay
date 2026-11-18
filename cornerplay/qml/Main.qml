@@ -1977,6 +1977,31 @@ ApplicationWindow {
         }
     }
 
+    // Family limits: the PIN, to leave a limited person or change the limits (TV mode asks its own way).
+    KDialog {
+        id: pinBox
+        theme: win.theme
+        heading: qsTr("Family PIN")
+        headingIcon: "lock"
+        width: Math.min(win.width - 60, 380)
+        property string what: ""
+        property string arg: ""
+        Connections { target: app; enabled: !win.tv
+                      function onPinNeeded(what, arg) { pinBox.what = what; pinBox.arg = arg; familyPinField.text = ""; pinBox.open(); familyPinField.forceActiveFocus() } }
+        function go() { if (app.enterPin(familyPinField.text, what, arg)) close(); else familyPinField.text = "" }
+        contentItem: ColumnLayout {
+            spacing: 14
+            Text {
+                Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 14
+                text: pinBox.what === "switch" ? qsTr("%1 has family limits. Type the PIN to switch to %2.").arg(app.profile).arg(pinBox.arg)
+                                               : qsTr("Type the PIN to change the family limits.")
+            }
+            KField { id: familyPinField; theme: win.theme; Layout.fillWidth: true; echoMode: TextInput.Password; placeholderText: qsTr("PIN")
+                     inputMethodHints: Qt.ImhDigitsOnly; Keys.onReturnPressed: pinBox.go() }
+            KButton { theme: win.theme; primary: true; Layout.fillWidth: true; iconName: "lock"; text: qsTr("Unlock"); onClicked: pinBox.go() }
+        }
+    }
+
     // Play with friends: Steam friends (online first), pick who is in, see the games you share.
     KDialog {
         id: friendsPage
@@ -6722,6 +6747,49 @@ ApplicationWindow {
                                          Keys.onReturnPressed: { if (app.addProfile(text)) text = "" } }
                                 KButton { theme: win.theme; text: qsTr("Add"); iconName: "plus"; enabled: newPerson.text.trim() !== ""
                                           onClicked: { if (app.addProfile(newPerson.text)) newPerson.text = "" } }
+                            }
+                            // Family limits: a daily time, a bedtime and the games allowed, per person.
+                            Rectangle { Layout.fillWidth: true; height: 1; color: theme.outlineVariant }
+                            Text { text: qsTr("Family limits"); color: theme.onSurface; font.pixelSize: 15; font.weight: Font.DemiBold }
+                            Text {
+                                Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 13
+                                text: qsTr("For a family PC or the TV: Cornerplay will not start games past a person's daily time or bedtime, closes them when time is up (with a warning five minutes before), and shows only the games in their allowed collection. With a PIN, leaving that person or changing these takes the PIN. A gentle limit, not a lock.")
+                            }
+                            Repeater {
+                                model: (app.familyInfo.people || [])
+                                RowLayout {
+                                    id: famRow
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Text { Layout.preferredWidth: 110; text: modelData.name; color: theme.onSurface; font.pixelSize: 14; elide: Text.ElideRight }
+                                    KCombo {
+                                        theme: win.theme; Layout.fillWidth: true
+                                        model: [0, 30, 60, 90, 120, 180, 240].map(v => ({ label: v ? qsTr("%1 a day").arg(v < 60 ? v + " min" : (v / 60) + " h") : qsTr("No daily limit"), value: v }))
+                                        Component.onCompleted: select(famRow.modelData.limit)
+                                        onActivated: app.setFamily(famRow.modelData.name, currentValue, famRow.modelData.bedtime, famRow.modelData.only)
+                                    }
+                                    KCombo {
+                                        theme: win.theme; Layout.fillWidth: true
+                                        model: ["", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "23:00"].map(v => ({ label: v ? qsTr("Bedtime %1").arg(v) : qsTr("No bedtime"), value: v }))
+                                        Component.onCompleted: select(famRow.modelData.bedtime)
+                                        onActivated: app.setFamily(famRow.modelData.name, famRow.modelData.limit, currentValue, famRow.modelData.only)
+                                    }
+                                    KCombo {
+                                        theme: win.theme; Layout.fillWidth: true
+                                        model: [{ label: qsTr("Every game"), value: "" }].concat(app.collections.map(c => ({ label: qsTr("Only: %1").arg(c), value: c })))
+                                        Component.onCompleted: select(famRow.modelData.only)
+                                        onActivated: app.setFamily(famRow.modelData.name, famRow.modelData.limit, famRow.modelData.bedtime, currentValue)
+                                    }
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                KField { id: newPin; theme: win.theme; Layout.fillWidth: true; echoMode: TextInput.Password; inputMethodHints: Qt.ImhDigitsOnly
+                                         placeholderText: app.familyInfo.hasPin ? qsTr("New PIN (empty: remove it)") : qsTr("Set a PIN (4 or more digits)") }
+                                KButton { theme: win.theme; text: app.familyInfo.hasPin ? qsTr("Change PIN") : qsTr("Set PIN"); iconName: "lock"
+                                          onClicked: { if (app.setFamilyPin(newPin.text)) newPin.text = "" } }
                             }
                             Rectangle { Layout.fillWidth: true; height: 1; color: theme.outlineVariant }
                             Row2 {
