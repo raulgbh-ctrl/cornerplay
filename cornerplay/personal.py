@@ -97,7 +97,7 @@ def _path(name=None):
 
 
 def _empty():
-    return {"games": {}, "collections": [], "deleted": {}, "home": {}}
+    return {"games": {}, "collections": [], "deleted": {}, "home": {}, "goals": {}}
 
 
 def doc(name=None):
@@ -186,6 +186,26 @@ def set_home_layout(order, off):
     save()
 
 
+GOALS = ("finish", "new", "hours")
+
+
+def goals():
+    """This person's monthly challenges: {"finish": games, "new": games, "hours": hours}."""
+    g = doc().get("goals")
+    return {k: int(g.get(k) or 0) for k in GOALS} if isinstance(g, dict) else {k: 0 for k in GOALS}
+
+
+def set_goal(name, value):
+    if name not in GOALS:
+        return
+    with _lock:
+        g = dict(doc().get("goals") or {})
+        g[name] = max(0, int(value))
+        g["t"] = time.time()
+        doc()["goals"] = g
+    save()
+
+
 # --- playtime files --------------------------------------------------------------------
 def playtime_files(kind):
     """This PC's file for "playtime" / "sessions", then the other PCs' (synced in)."""
@@ -227,7 +247,10 @@ def _clean(d):
     ids = lambda v: [x for x in v if isinstance(x, str)][:200] if isinstance(v, list) else []  # noqa: E731
     home = {"order": ids(home.get("order")), "off": ids(home.get("off")),
             "t": home.get("t") if isinstance(home.get("t"), (int, float)) else 0} if home else {}
-    return {"home": home,"games": {str(k): v for k, v in games.items() if isinstance(v, dict) and isinstance(v.get("t", 0), (int, float))},
+    goals = d.get("goals") if isinstance(d.get("goals"), dict) else {}
+    goals = {k: int(goals[k]) for k in GOALS if isinstance(goals.get(k), (int, float)) and 0 <= goals[k] < 10000}
+    goals["t"] = (d.get("goals") or {}).get("t", 0) if isinstance((d.get("goals") or {}).get("t", 0), (int, float)) else 0
+    return {"home": home, "goals": goals,"games": {str(k): v for k, v in games.items() if isinstance(v, dict) and isinstance(v.get("t", 0), (int, float))},
             "collections": [c for c in cols if isinstance(c, str) and c.strip()][:500],
             "deleted": {str(k): v for k, v in deleted.items() if isinstance(v, (int, float))}}
 
@@ -252,6 +275,7 @@ def _merge(a, b):
     out["collections"] = [n for n in names if n not in deleted]
     out["deleted"] = deleted
     out["home"] = a["home"] if a["home"].get("t", 0) >= b["home"].get("t", 0) else b["home"]
+    out["goals"] = a["goals"] if a["goals"].get("t", 0) >= b["goals"].get("t", 0) else b["goals"]
     return out
 
 

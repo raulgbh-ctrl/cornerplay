@@ -15,7 +15,8 @@ Rectangle {
     property var yr: ({})
     property int yearAt: 0
 
-    function show() { d = app.stats(); yr = d.year || {}; yearAt = 0; flick.contentY = 0; visible = true; forceActiveFocus() }
+    property var ch: ({})
+    function show() { d = app.stats(); yr = d.year || {}; ch = app.challenges(); yearAt = 0; flick.contentY = 0; visible = true; forceActiveFocus() }
     function close() { app.uiSound("back"); visible = false; closed() }
     Keys.onPressed: event => {
         event.accepted = true
@@ -41,6 +42,7 @@ Rectangle {
             id: col
             width: flick.width
             spacing: st.u * 3
+            ChallengeBars { Layout.fillWidth: true; Layout.maximumWidth: st.width * 0.6; theme: st.tint; info: st.ch; unit: st.u / 7 }
             Text { text: qsTr("Your ") + (st.yr.year || "") + qsTr(" in Cornerplay"); color: st.theme.onSurface
                    font.pixelSize: Math.round(st.u * 5.5); font.weight: Font.Bold }
             RowLayout {

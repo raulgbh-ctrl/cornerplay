@@ -4666,10 +4666,11 @@ ApplicationWindow {
         property var yr: ({})
         property int page: 0
         property var journal: []
-        function show() { d = app.stats(); yr = d.year || {}; journal = []; page = 0; open() }
-        function go(p) { if (p === 2 && !journal.length) journal = app.journal(); page = p }
-        Shortcut { sequences: ["Ctrl+Tab", "Ctrl+PgDown"]; enabled: statsBox.visible; onActivated: statsBox.go((statsBox.page + 1) % 3) }
-        Shortcut { sequences: ["Ctrl+Shift+Tab", "Ctrl+Backtab", "Ctrl+PgUp"]; enabled: statsBox.visible; onActivated: statsBox.go((statsBox.page + 2) % 3) }
+        property var ch: ({})
+        function show() { d = app.stats(); yr = d.year || {}; journal = []; ch = app.challenges(); page = 0; open() }
+        function go(p) { if (p === 2 && !journal.length) journal = app.journal(); if (p === 3) ch = app.challenges(); page = p }
+        Shortcut { sequences: ["Ctrl+Tab", "Ctrl+PgDown"]; enabled: statsBox.visible; onActivated: statsBox.go((statsBox.page + 1) % 4) }
+        Shortcut { sequences: ["Ctrl+Shift+Tab", "Ctrl+Backtab", "Ctrl+PgUp"]; enabled: statsBox.visible; onActivated: statsBox.go((statsBox.page + 3) % 4) }
         width: Math.min(win.width - 60, 760)
         height: Math.min(win.height - 60, 720)
         component Tile: Rectangle {
@@ -4699,6 +4700,30 @@ ApplicationWindow {
                     Chip { label: qsTr("Overview"); icon: "trophy"; active: statsBox.page === 0; onPicked: statsBox.page = 0 }
                     Chip { label: qsTr("Your year"); icon: "sparkles"; active: statsBox.page === 1; onPicked: statsBox.page = 1 }
                     Chip { label: qsTr("Journal"); icon: "history"; active: statsBox.page === 2; onPicked: statsBox.go(2) }
+                    Chip { label: qsTr("Challenges"); icon: "zap"; active: statsBox.page === 3; onPicked: statsBox.go(3) }
+                }
+                // Challenges: a goal for this month (each person their own, synced), and how far along.
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    visible: statsBox.page === 3
+                    spacing: 14
+                    Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 13
+                           text: qsTr("Set a goal for the month to chip away at the backlog. Cornerplay counts from your play sessions and the games you mark Finished, and cheers when you get there.") }
+                    Repeater {
+                        model: statsBox.ch.items || []
+                        Row2 {
+                            required property var modelData
+                            label: modelData.label
+                            KCombo {
+                                theme: win.theme; Layout.fillWidth: true
+                                model: (modelData.id === "hours" ? [0, 5, 10, 20, 30, 40, 60, 80, 100] : [0, 1, 2, 3, 4, 5, 6, 8, 10, 15, 20])
+                                       .map(v => ({ label: v ? (modelData.id === "hours" ? qsTr("%1 hours").arg(v) : qsTr("%1 games").arg(v)) : qsTr("Off"), value: v }))
+                                Component.onCompleted: select(modelData.goal)
+                                onActivated: { app.setGoal(modelData.id, currentValue); statsBox.ch = app.challenges() }
+                            }
+                        }
+                    }
+                    ChallengeBars { Layout.fillWidth: true; Layout.topMargin: 6; theme: win.theme; info: statsBox.ch }
                 }
                 // Journal: month by month, what you played, started and finished.
                 ColumnLayout {

@@ -178,3 +178,19 @@ def journal(log, title_of, finished_at=None, months=24):
                     "hours": round(sum(g["secs"] for g in games) / 3600, 1), "games": rows,
                     "started": sum(1 for r in rows if r["first"]), "finished": sum(1 for r in rows if r["finished"])})
     return out
+
+
+def month_progress(log, title_of, finished_at, now=None):
+    """This month so far: hours played, games started for the first time, games finished
+    (by title, so one game on two stores counts once). For the monthly challenges."""
+    now = datetime.fromtimestamp(now) if now else datetime.now()
+    lo = datetime(now.year, now.month, 1).timestamp()
+    hi = datetime(now.year + (now.month == 12), now.month % 12 + 1, 1).timestamp()
+    secs, first_seen = 0.0, {}
+    for key, s, e in log:
+        first_seen[key] = min(first_seen.get(key, s), s)
+        secs += _overlap(s, e, lo, hi)
+    new = {t for t in (title_of(k) for k, s in first_seen.items() if lo <= s < hi) if t}
+    done = {t for t in (title_of(k) for k, w in (finished_at or {}).items() if lo <= w < hi) if t}
+    return {"hours": round(secs / 3600, 1), "new": len(new), "finish": len(done), "month": month(now.month - 1),
+            "daysLeft": int((hi - now.timestamp()) // 86400)}

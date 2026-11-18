@@ -1624,6 +1624,7 @@ FocusScope {
             { label: qsTr("Downloads"), icon: "download", act: "downloads", value: app.downloads.length ? String(app.downloads.length) : "" },
             { label: qsTr("Can't decide?"), icon: "sparkles", act: "roulette" },
             { label: qsTr("Your stats"), icon: "trophy", act: "stats" },
+            { label: qsTr("Challenges"), icon: "zap", act: "challenges" },
             ...(app.settingsMap.stream_pc ? [{ label: qsTr("Play on ") + app.settingsMap.stream_pc, icon: "tv", act: "stream" }] : []),
             { label: qsTr("Quick access"), icon: "sliders-horizontal", act: "quick" },
             { label: qsTr("Settings"), icon: "settings-2", act: "settings" },
@@ -1672,6 +1673,7 @@ FocusScope {
             else if (row.act === "settings") { hide(); tvSettings.show("") }
             else if (row.act === "downloads") { hide(); tvDownloads.show() }
             else if (row.act === "stats") { hide(); tvStats.show() }
+            else if (row.act === "challenges") { hide(); goalSheet.show() }
             else if (row.act === "roulette") { hide(); roulette.show() }
             else if (row.act === "stream") { hide(); app.streamFromPc() }
             else controls.run(row)
@@ -1756,6 +1758,28 @@ FocusScope {
         title: libraryPage.picking ? qsTr("Picked games") : qsTr("Sort and filter")
         rowsFn: tab => tv.libRows()
         onPicked: row => { if (row.run) row.run() }
+    }
+
+    // Challenges: this month's goals, left / right to set each; the progress is in the row.
+    function goalRows() {
+        const c = app.challenges(), out = []
+        for (const i of c.items) {
+            const steps = i.id === "hours" ? [0, 5, 10, 20, 30, 40, 60, 80, 100] : [0, 1, 2, 3, 4, 5, 6, 8, 10, 15, 20]
+            out.push({ group: qsTr("Challenges for %1").arg(c.month) + "  ·  " + qsTr("%1 days left").arg(c.daysLeft),
+                       label: i.label, icon: i.goal && i.done >= i.goal ? "check" : "zap",
+                       sub: i.goal ? qsTr("%1 of %2 so far").arg(i.done + i.unit).arg(i.goal + i.unit) : qsTr("Off"),
+                       kind: "choice", cur: i.goal,
+                       options: steps.map(v => ({ v: v, t: v ? (i.id === "hours" ? qsTr("%1 hours").arg(v) : qsTr("%1 games").arg(v)) : qsTr("Off") })),
+                       set: v => { app.setGoal(i.id, v); Qt.callLater(goalSheet.refresh) } })
+        }
+        return out
+    }
+    SideSheet {
+        id: goalSheet
+        objectName: "tvGoalSheet"
+        side: "right"
+        title: qsTr("Challenges")
+        rowsFn: tab => tv.goalRows()
     }
 
     // Edit Home: which rows Home shows, and in what order (each person their own, synced).

@@ -140,6 +140,17 @@ def _translatable_names():
             QCoreApplication.translate("app", "Sleep timer: closing games, then the PC sleeps"),
             QCoreApplication.translate("app", "Sleep timer: the PC sleeps in a minute. Save your game."),
             QCoreApplication.translate("app", "Sleep timer"),
+            QCoreApplication.translate("app", "Finish games"),
+            QCoreApplication.translate("app", "Start games you never played"),
+            QCoreApplication.translate("app", "Play hours"),
+            QCoreApplication.translate("app", "Challenge done: %1 (%2 of %3) this month"),
+            QCoreApplication.translate("app", "Challenge done"),
+            QCoreApplication.translate("app", "Power limit not set: "),
+            QCoreApplication.translate("app", "Clips need gpu-screen-recorder"),
+            QCoreApplication.translate("app", "Clip saved: the last %1 seconds"),
+            QCoreApplication.translate("app", "Clip saved"),
+            QCoreApplication.translate("app", "Clips are off: Settings > Games > Clips"),
+            QCoreApplication.translate("app", "No game is recording right now"),
             QCoreApplication.translate("app", "Favourites"),
             QCoreApplication.translate("app", "Recently added"),
             QCoreApplication.translate("app", "Library"),
@@ -4193,6 +4204,54 @@ class AioLaunch(QObject):
             out["games"] = len(played_now | {t["title"] for t in out["top"]} | set(out["newGames"]))
         return out
 
+    # --- monthly challenges (personal.goals, statsdata.month_progress) --------------------------
+    challengesChanged = Signal()
+
+    def _finished_at(self):
+        out = {}
+        for grp in self.model.groups:
+            if shelves.meta(grp, "status") == "finished":
+                when = next((personal.get(g.key, "finished_at") for g in grp if personal.get(g.key, "finished_at")), 0)
+                if isinstance(when, (int, float)) and when:
+                    out[self.model.rep(grp).key] = when
+        return out
+
+    @Slot(result="QVariantMap")
+    def challenges(self):
+        """This month's goals and how far along they are: {month, daysLeft, items: [{id, label,
+        goal, done, unit}]}. A goal of 0 is off."""
+        def title_of(key):
+            grp = self.model.group_of(key)
+            return self.model.rep(grp).title if grp else ""
+        prog = statsdata.month_progress(playtime.sessions(), title_of, self._finished_at())
+        goals = personal.goals()
+        names = {"finish": _t("Finish games"), "new": _t("Start games you never played"), "hours": _t("Play hours")}
+        items = [{"id": k, "label": names[k], "goal": goals[k], "done": prog[k],
+                  "unit": "h" if k == "hours" else ""} for k in personal.GOALS]
+        return {"month": prog["month"], "daysLeft": prog["daysLeft"], "items": items,
+                "any": any(i["goal"] for i in items)}
+
+    @Slot(str, int)
+    def setGoal(self, name, value):
+        personal.set_goal(name, value)
+        self.challengesChanged.emit()
+
+    def _check_goals(self):
+        """After a session: a goal reached this month is celebrated once."""
+        c = self.challenges()
+        told = set(settings.get("goals_told") or [])
+        stamp = time.strftime("%Y-%m")
+        for i in c["items"]:
+            tag = f"{personal.current()}:{stamp}:{i['id']}:{i['goal']}"
+            if i["goal"] and i["done"] >= i["goal"] and tag not in told:
+                told.add(tag)
+                msg = _t("Challenge done: %1 (%2 of %3) this month").replace("%1", i["label"]) \
+                    .replace("%2", str(i["done"])).replace("%3", str(i["goal"]))
+                self.toast.emit(msg)
+                self._notify(_t("Challenge done"), msg)
+        settings.set("goals_told", sorted(told)[-200:])
+        self.challengesChanged.emit()
+
     # --- your screenshots of a game (screenshots.py) ------------------------------------
     screenshotsReady = Signal(str, "QVariantList")  # key, [{"thumb", "full", "path", "time", "source"}]
 
@@ -5335,6 +5394,7 @@ class AioLaunch(QObject):
     tdpAvailable = Property(bool, lambda s: __import__("cornerplay.tdp", fromlist=["available"]).available(), constant=True)
 
     def _focus_stop(self):
+        QTimer.singleShot(5000, self._check_goals)  # the session is in the log by then
         undo, self._focus = self._focus or {}, None
         from . import focus
         self._sys_pool.submit(lambda: focus.end(undo))
