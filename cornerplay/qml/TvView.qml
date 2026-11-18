@@ -209,7 +209,7 @@ FocusScope {
     }
 
     function grab() { loadShelves(); grid.forceActiveFocus(); sync() }
-    onVisibleChanged: if (visible) { grab(); maybeIntro(); if (!intro.visible) Qt.callLater(maybeAskWho) }
+    onVisibleChanged: if (visible) { grab(); maybeIntro(); if (!intro.visible) Qt.callLater(maybeAskWho); app.refreshNews() }
     // "Who's playing?" once per start, when several people use this PC (TvWho.qml).
     property bool whoAsked: false
     function maybeAskWho() {
@@ -254,14 +254,19 @@ FocusScope {
         onOnChanged: if (on) { snapStage.scheduleUpdate(); snapContent.scheduleUpdate() }
         // Typing a search changes the shelf behind the keyboard: take a fresh picture of it.
         Connections { target: tvLibrary; function onFilterChanged() { if (fr.on) Qt.callLater(snapContent.scheduleUpdate) } }
-        ShaderEffectSource { id: snapStage; sourceItem: fr.on ? stage : null; live: false; hideSource: false
+        Connections { target: tvAllLibrary; function onFilterChanged() { if (fr.on && fr.overLib) Qt.callLater(fr.resnap) } }
+        Connections { target: fr.overLib ? libraryPage : null; function onListModeChanged() { if (fr.on) Qt.callLater(fr.resnap) } }
+        function resnap() { snapStage.scheduleUpdate() }
+        // Over the Library page, it is the page that is blurred (it covers the home screen).
+        readonly property bool overLib: typeof libraryPage !== "undefined" && libraryPage.visible
+        ShaderEffectSource { id: snapStage; sourceItem: fr.on ? (fr.overLib ? libraryPage : stage) : null; live: false; hideSource: false
                              anchors.fill: parent; visible: false }
-        ShaderEffectSource { id: snapContent; sourceItem: fr.on ? tvContent : null; live: false; hideSource: false
+        ShaderEffectSource { id: snapContent; sourceItem: fr.on && !fr.overLib ? tvContent : null; live: false; hideSource: false
                              x: tvContent.x; y: tvContent.y; width: tvContent.width; height: tvContent.height; visible: false }
         MultiEffect { anchors.fill: parent; visible: fr.on; source: snapStage
                       autoPaddingEnabled: false; blurEnabled: true; blur: 1.0; blurMax: 48 }
         MultiEffect { x: tvContent.x; y: tvContent.y; width: tvContent.width; height: tvContent.height
-                      visible: fr.on; source: snapContent
+                      visible: fr.on && !fr.overLib; source: snapContent
                       blurEnabled: true; blur: 1.0; blurMax: 48 }  // its blur spills past its edges: no seam
     }
 
@@ -776,7 +781,7 @@ FocusScope {
             Layout.bottomMargin: -6
             spacing: 12
             Icon {
-                name: tvLibrary.search !== "" ? "search" : ({ playing: "history", fav: "star", added: "gift", away: "download", "": "library" })[tv.shelf.id] || "bookmark"
+                name: tvLibrary.search !== "" ? "search" : ({ playing: "history", fav: "star", added: "gift", away: "download", news: "bell", "": "library" })[tv.shelf.id] || "bookmark"
                 size: 20
                 color: tv.tint.primary
             }
@@ -1332,6 +1337,18 @@ FocusScope {
         onClosed: grid.forceActiveFocus()
         onPlay: key => { tv.cur = app.game(key); tv.accept() }
         onMore: key => { tv.cur = app.game(key); tv.openPage() }
+        onOptions: libSheet.show()
+        onSearchAsked: { libPrompt.back = tv.Window.activeFocusItem; libPrompt.ask(qsTr("Search the library"), qsTr("Type part of a name, a developer or a genre."), false) }
+    }
+    TvTextPrompt {
+        id: libPrompt
+        anchors.fill: parent
+        theme: tv.theme
+        tint: tv.tint
+        property Item back: null
+        onAccepted: text => { tvAllLibrary.search = text; libraryPage.toTop(); tv.refocus(back) }
+        onClosed: tv.refocus(back)
+        onTextChanged: if (visible) { tvAllLibrary.search = text; libraryPage.toTop() }  // the results follow the typing
     }
     TvPage {
         id: gamePage
@@ -1593,6 +1610,7 @@ FocusScope {
             { label: qsTr("Home"), icon: "house", act: "home" },
             { label: qsTr("Library"), icon: "library", act: "library", value: String(app.totalCount || "") },
             { label: qsTr("Search"), icon: "search", act: "search" },
+            { label: qsTr("Edit Home"), icon: "layout-grid", act: "edithome" },
             { label: qsTr("Installed only"), icon: "filter", act: "installed", on: tvLibrary.installedOnly },
             { label: qsTr("Next store"), icon: "layout-grid", act: "store",
               value: (app.storesInfo.find(x => x.id === tvLibrary.storeFilter) || { name: qsTr("All games") }).name },
@@ -1637,6 +1655,7 @@ FocusScope {
         onPicked: (row) => {
             if (row.act === "home") { hide(); libraryPage.visible = false; if (tvLibrary.search !== "") tv.clearSearch(); if (tv.shelfAt > 0) tv.stepShelf(-tv.shelfAt); grid.forceActiveFocus() }
             else if (row.act === "library") { hide(); if (!libraryPage.visible) libraryPage.show() }
+            else if (row.act === "edithome") { hide(); homeSheet.show() }
             else if (row.act === "search") { hide(); tv.openSearch("") }
             else if (row.act === "installed") { tvLibrary.installedOnly = !tvLibrary.installedOnly; refresh() }
             else if (row.act === "store") { tv.cycleStore(1); refresh() }
@@ -1667,6 +1686,91 @@ FocusScope {
             if (row.act === "quitgame") { if (controls.arm("kill:" + row.key)) { app.quitGame(row.key, true); hide() } }
             else controls.runAlt(row)
         }
+    }
+
+    // The Library's Y menu: sort, view, which games, filters; while picking, what to do with them.
+    function libRows() {
+        const L = libraryPage, P = tvAllLibrary, out = []
+        const again = () => Qt.callLater(libSheet.refresh)
+        if (L.picking) {
+            const keys = L.picked, n = keys.length, g = qsTr("%1 picked").arg(n)
+            const bulk = (what, arg) => { app.bulk(keys, what, arg || ""); L.picking = false; L.picked = []; libSheet.hide() }
+            if (n) {
+                out.push({ group: g, label: qsTr("Install"), icon: "download", act: "do", run: () => bulk("install") })
+                out.push({ group: g, label: qsTr("Update"), icon: "arrow-up", act: "do", run: () => bulk("update") })
+                out.push({ group: g, label: qsTr("Add to favourites"), icon: "star", act: "do", run: () => bulk("fav") })
+                out.push({ group: g, label: qsTr("Remove from favourites"), icon: "star", act: "do", run: () => bulk("unfav") })
+                for (const c of app.collections)
+                    out.push({ group: g, label: qsTr("Add to ") + c, icon: "bookmark", act: "do", run: () => bulk("collection", c) })
+                for (const st of [["playing", qsTr("Playing")], ["want", qsTr("Want to play")], ["finished", qsTr("Finished")], ["dropped", qsTr("Dropped")]])
+                    out.push({ group: g, label: qsTr("Mark as ") + st[1], icon: "tag", act: "do", run: () => bulk("status", st[0]) })
+                out.push(P.showHidden ? { group: g, label: qsTr("Unhide"), icon: "eye", act: "do", run: () => bulk("unhide") }
+                                      : { group: g, label: qsTr("Hide"), icon: "eye-off", act: "do", run: () => bulk("hide") })
+            }
+            out.push({ group: g, label: qsTr("Pick all %1 shown").arg(L.count), icon: "check", act: "do",
+                       run: () => { const all = []; for (let i = 0; i < L.count; i++) all.push(P.keyAt(i)); L.picked = all; again() } })
+            out.push({ group: g, label: qsTr("Stop picking"), icon: "x", act: "do", run: () => { L.picking = false; L.picked = []; libSheet.hide() } })
+            return out
+        }
+        const sorts = ["name", "recent", "playtime", "added", "size", "rating"]
+        out.push({ group: qsTr("Order"), label: qsTr("Sort by"), icon: "list", kind: "choice", cur: P.sortMode,
+                   options: sorts.map(v => ({ v: v, t: L.sortNames[v] })), set: v => { P.sortMode = v; L.toTop(); again() } })
+        out.push({ group: qsTr("Order"), label: qsTr("Show as"), icon: "layout-grid", kind: "choice", cur: L.listMode ? "list" : "grid",
+                   options: [{ v: "grid", t: qsTr("Covers") }, { v: "list", t: qsTr("List") }], set: v => { L.setListMode(v === "list"); again() } })
+        // Which games: everything, a list of yours, a backlog status, or the hidden ones.
+        const which = [{ v: "", t: qsTr("All games") }, { v: "fav", t: qsTr("Favourites") }]
+        for (const c of app.collections) which.push({ v: "c:" + c, t: c })
+        for (const st of [["s:playing", qsTr("Playing")], ["s:want", qsTr("Want to play")], ["s:finished", qsTr("Finished")], ["s:dropped", qsTr("Dropped")]])
+            which.push({ v: st[0], t: st[1] })
+        which.push({ v: "hidden", t: qsTr("Hidden games") })
+        out.push({ group: qsTr("Games"), label: qsTr("Show"), icon: "library", kind: "choice", cur: P.showHidden ? "hidden" : P.shelf, options: which,
+                   set: v => { P.showHidden = v === "hidden"; P.shelf = v === "hidden" ? "" : v; L.toTop(); again() } })
+        out.push({ group: qsTr("Filters"), label: qsTr("Installed only"), icon: "download", on: P.installedOnly,
+                   set: v => { P.installedOnly = v; L.toTop(); again() } })
+        for (const t of ["unplayed", "controller", "protondb", "couch", "linux"]) {
+            const has = P.tags.indexOf(t) !== -1
+            out.push({ group: qsTr("Filters"), label: L.tagNames[t], icon: "filter", on: has,
+                       set: v => { P.tags = v ? P.tags.concat([t]) : P.tags.filter(x => x !== t); L.toTop(); again() } })
+        }
+        if (!L.plain || P.sortMode !== "name")
+            out.push({ group: qsTr("Filters"), label: qsTr("Clear all"), icon: "x", act: "do",
+                       run: () => { P.search = ""; P.shelf = ""; P.showHidden = false; P.installedOnly = false; P.tags = []; P.sortMode = "name"; L.toTop(); again() } })
+        out.push({ group: qsTr("Several at once"), label: qsTr("Pick games"), sub: qsTr("A picks or unpicks; Y again for what to do with them"), icon: "check", act: "do",
+                   run: () => { libSheet.hide(); L.startPicking() } })
+        return out
+    }
+    SideSheet {
+        id: libSheet
+        objectName: "tvLibrarySheet"
+        side: "right"
+        title: libraryPage.picking ? qsTr("Picked games") : qsTr("Sort and filter")
+        rowsFn: tab => tv.libRows()
+        onPicked: row => { if (row.run) row.run() }
+    }
+
+    // Edit Home: which rows Home shows, and in what order (each person their own, synced).
+    function homeRows() {
+        const all = app.homeShelves(), out = []
+        const save = list => { app.setHomeShelves(list.map(s => s.id), list.filter(s => !s.on).map(s => s.id)); Qt.callLater(homeSheet.refresh) }
+        all.forEach((s, i) => {
+            out.push({ group: qsTr("Rows on Home (X moves one up)"), label: s.name, icon: s.id === "news" ? "bell" : s.id.startsWith("c:") ? "bookmark" : "list",
+                       sub: s.count ? (s.count === 1 ? qsTr("1 game") : qsTr("%1 games").arg(s.count)) : qsTr("Empty right now: hidden until it has games"),
+                       on: s.on, alt: i > 0 ? qsTr("Move up") : "",
+                       set: v => { const l = all.slice(); l[i] = Object.assign({}, s, { on: v }); save(l) },
+                       move: () => { if (i === 0) return; const l = all.slice(); l.splice(i - 1, 0, l.splice(i, 1)[0]); save(l) } })
+        })
+        out.push({ group: qsTr("Rows on Home (X moves one up)"), label: qsTr("Back to the usual order"), icon: "refresh-cw", act: "do",
+                   run: () => { app.setHomeShelves([], []); Qt.callLater(homeSheet.refresh) } })
+        return out
+    }
+    SideSheet {
+        id: homeSheet
+        objectName: "tvHomeSheet"
+        side: "right"
+        title: qsTr("Edit Home")
+        rowsFn: tab => tv.homeRows()
+        onPicked: row => { if (row.run) row.run() }
+        onAlt: row => { if (row.move && row.alt) { row.move(); Qt.callLater(() => homeSheet.nudge(-1)) } }  // the cursor goes up with the row
     }
 
     // What the menus control (TvControls.qml), the Settings screen, and a keyboard for passwords.
@@ -1754,6 +1858,7 @@ FocusScope {
             app.uiSound("select"); app.refreshSystem(); refresh(); sheetList.first(); open = true; sheetList.forceActiveFocus()
         }
         function hide() { if (!open) return; app.uiSound("back"); open = false; tv.refocus(back) }
+        function nudge(d) { sheetList.currentIndex = Math.max(0, Math.min(rows.length - 1, sheetList.currentIndex + d)) }
         function refresh() { const i = sheetList.currentIndex; rows = rowsFn(tabId); sheetList.currentIndex = Math.min(Math.max(0, i), rows.length - 1)
                              if (!sheetList.pickable(rows[sheetList.currentIndex])) sheetList.first() }
         function setTab(i) {

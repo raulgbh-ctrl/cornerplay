@@ -97,7 +97,7 @@ def _path(name=None):
 
 
 def _empty():
-    return {"games": {}, "collections": [], "deleted": {}}
+    return {"games": {}, "collections": [], "deleted": {}, "home": {}}
 
 
 def doc(name=None):
@@ -174,6 +174,18 @@ def set_collections(names, deleted=None):
     save()
 
 
+def home_layout():
+    """TV mode's home rows for this person: {"order": [row ids], "off": [row ids], "t": changed}."""
+    h = doc().get("home")
+    return dict(h) if isinstance(h, dict) else {}
+
+
+def set_home_layout(order, off):
+    with _lock:
+        doc()["home"] = {"order": list(order), "off": list(off), "t": time.time()}
+    save()
+
+
 # --- playtime files --------------------------------------------------------------------
 def playtime_files(kind):
     """This PC's file for "playtime" / "sessions", then the other PCs' (synced in)."""
@@ -211,7 +223,11 @@ def _clean(d):
     games = d.get("games") if isinstance(d.get("games"), dict) else {}
     deleted = d.get("deleted") if isinstance(d.get("deleted"), dict) else {}
     cols = d.get("collections") if isinstance(d.get("collections"), list) else []
-    return {"games": {str(k): v for k, v in games.items() if isinstance(v, dict) and isinstance(v.get("t", 0), (int, float))},
+    home = d.get("home") if isinstance(d.get("home"), dict) else {}
+    ids = lambda v: [x for x in v if isinstance(x, str)][:200] if isinstance(v, list) else []  # noqa: E731
+    home = {"order": ids(home.get("order")), "off": ids(home.get("off")),
+            "t": home.get("t") if isinstance(home.get("t"), (int, float)) else 0} if home else {}
+    return {"home": home,"games": {str(k): v for k, v in games.items() if isinstance(v, dict) and isinstance(v.get("t", 0), (int, float))},
             "collections": [c for c in cols if isinstance(c, str) and c.strip()][:500],
             "deleted": {str(k): v for k, v in deleted.items() if isinstance(v, (int, float))}}
 
@@ -235,6 +251,7 @@ def _merge(a, b):
     # no "made" time, so a deletion wins over a plain listing.
     out["collections"] = [n for n in names if n not in deleted]
     out["deleted"] = deleted
+    out["home"] = a["home"] if a["home"].get("t", 0) >= b["home"].get("t", 0) else b["home"]
     return out
 
 

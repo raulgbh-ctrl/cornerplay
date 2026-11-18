@@ -4,7 +4,7 @@
 <context>
     <name></name>
     <message>
-        <location filename="../app.py" line="1408"/>
+        <location filename="../app.py" line="1421"/>
         <source>It needs %1. </source>
         <translation>Are nevoie de %1. </translation>
     </message>
@@ -6495,74 +6495,248 @@
 <context>
     <name>TvLibrary</name>
     <message>
-        <location filename="../qml/TvLibrary.qml" line="50"/>
+        <location filename="../qml/TvLibrary.qml" line="156"/>
         <source>Library</source>
         <translation>Bibliotecă</translation>
     </message>
     <message>
-        <location filename="../qml/TvLibrary.qml" line="53"/>
+        <location filename="../qml/TvLibrary.qml" line="161"/>
         <source> game</source>
         <translation> joc</translation>
     </message>
     <message>
-        <location filename="../qml/TvLibrary.qml" line="53"/>
+        <location filename="../qml/TvLibrary.qml" line="161"/>
         <source> games</source>
         <translation> jocuri</translation>
     </message>
     <message>
-        <location filename="../qml/TvLibrary.qml" line="66"/>
-        <location filename="../qml/TvLibrary.qml" line="187"/>
-        <location filename="../qml/TvLibrary.qml" line="189"/>
+        <location filename="../qml/TvLibrary.qml" line="174"/>
         <source>All games</source>
         <translation>Toate jocurile</translation>
     </message>
     <message>
-        <location filename="../qml/TvLibrary.qml" line="100"/>
-        <location filename="../qml/TvLibrary.qml" line="187"/>
-        <location filename="../qml/TvLibrary.qml" line="189"/>
+        <location filename="../qml/TvLibrary.qml" line="210"/>
         <source>Installed only</source>
         <translation>Doar instalate</translation>
     </message>
     <message>
-        <location filename="../qml/TvLibrary.qml" line="130"/>
+        <location filename="../qml/TvLibrary.qml" line="456"/>
         <source>not installed</source>
         <translation>neinstalat</translation>
     </message>
     <message>
-        <location filename="../qml/TvLibrary.qml" line="174"/>
+        <location filename="../qml/TvLibrary.qml" line="468"/>
         <source>No games here</source>
         <translation>Niciun joc aici</translation>
     </message>
     <message>
-        <location filename="../qml/TvLibrary.qml" line="184"/>
+        <location filename="../qml/TvLibrary.qml" line="480"/>
         <source>Install</source>
         <translation>Instalează</translation>
     </message>
     <message>
-        <location filename="../qml/TvLibrary.qml" line="184"/>
+        <location filename="../qml/TvLibrary.qml" line="480"/>
         <source>Play</source>
         <translation>Joacă</translation>
     </message>
     <message>
-        <location filename="../qml/TvLibrary.qml" line="186"/>
-        <location filename="../qml/TvLibrary.qml" line="186"/>
-        <location filename="../qml/TvLibrary.qml" line="188"/>
+        <location filename="../qml/TvLibrary.qml" line="484"/>
+        <location filename="../qml/TvLibrary.qml" line="489"/>
+        <location filename="../qml/TvLibrary.qml" line="491"/>
         <source>More</source>
         <translation>Mai mult</translation>
     </message>
     <message>
-        <location filename="../qml/TvLibrary.qml" line="187"/>
-        <location filename="../qml/TvLibrary.qml" line="189"/>
+        <location filename="../qml/TvLibrary.qml" line="482"/>
         <source>Back</source>
         <translation>Înapoi</translation>
     </message>
     <message>
-        <location filename="../qml/TvLibrary.qml" line="188"/>
+        <location filename="../qml/TvLibrary.qml" line="34"/>
+        <source>Name</source>
+        <translation>Nume</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="34"/>
+        <source>Recently played</source>
+        <translation>Jucate recent</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="34"/>
+        <source>Most played</source>
+        <translation>Cele mai jucate</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="35"/>
+        <source>Recently added</source>
+        <translation>Adăugate recent</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="35"/>
+        <source>Size</source>
+        <translation>Mărime</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="35"/>
+        <source>Your rating</source>
+        <translation>Nota ta</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="36"/>
+        <location filename="../qml/TvLibrary.qml" line="416"/>
+        <source>Not played yet</source>
+        <translation>Nejucat încă</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="36"/>
+        <source>Full controller support</source>
+        <translation>Suport complet pentru controller</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="37"/>
+        <source>ProtonDB Gold or better</source>
+        <translation>ProtonDB Gold sau mai bun</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="37"/>
+        <source>Play together</source>
+        <translation>Jucați împreună</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="38"/>
+        <source>Native Linux</source>
+        <translation>Linux nativ</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="38"/>
+        <location filename="../qml/TvLibrary.qml" line="42"/>
+        <source>Favourites</source>
+        <translation>Favorite</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="40"/>
+        <source>Hidden games</source>
+        <translation>Jocuri ascunse</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="44"/>
+        <source>Playing</source>
+        <translation>Se joacă</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="44"/>
+        <source>Want to play</source>
+        <translation>Vreau să joc</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="44"/>
+        <source>Finished</source>
+        <translation>Terminat</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="45"/>
+        <source>Dropped</source>
+        <translation>Abandonat</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="156"/>
+        <source>Pick games</source>
+        <translation>Alege jocuri</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="161"/>
+        <source> picked</source>
+        <translation> alese</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="208"/>
+        <source>Search: </source>
+        <translation>Căutare: </translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="209"/>
+        <source>Sorted: </source>
+        <translation>Sortat: </translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="248"/>
+        <location filename="../qml/TvLibrary.qml" line="282"/>
+        <source>Played recently</source>
+        <translation>Jucate recent</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="408"/>
+        <source>Working… </source>
+        <translation>Se lucrează… </translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="408"/>
+        <source>Installed</source>
+        <translation>Instalat</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="408"/>
+        <source>Not installed</source>
+        <translation>Neinstalat</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="468"/>
+        <source>Nothing matches</source>
+        <translation>Nimic nu se potrivește</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="480"/>
+        <source>Unpick</source>
+        <translation>Scoate</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="480"/>
+        <source>Pick</source>
+        <translation>Alege</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="481"/>
+        <source>Actions</source>
+        <translation>Acțiuni</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="481"/>
+        <source>Sort and filter</source>
+        <translation>Sortare și filtre</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="482"/>
+        <source>Stop picking</source>
+        <translation>Gata cu alesul</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="482"/>
+        <source>Clear search</source>
+        <translation>Șterge căutarea</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="485"/>
+        <location filename="../qml/TvLibrary.qml" line="492"/>
+        <source>Search</source>
+        <translation>Caută</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="486"/>
+        <source>Letter</source>
+        <translation>Literă</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="486"/>
+        <source>Page</source>
+        <translation>Pagină</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvLibrary.qml" line="491"/>
         <source>Enter</source>
         <translation>Enter</translation>
     </message>
     <message>
-        <location filename="../qml/TvLibrary.qml" line="189"/>
+        <location filename="../qml/TvLibrary.qml" line="492"/>
         <source>Esc</source>
         <translation>Esc</translation>
     </message>
@@ -7029,9 +7203,9 @@
     <name>TvView</name>
     <message>
         <location filename="../qml/TvView.qml" line="78"/>
-        <location filename="../qml/TvView.qml" line="484"/>
-        <location filename="../qml/TvView.qml" line="487"/>
-        <location filename="../qml/TvView.qml" line="1594"/>
+        <location filename="../qml/TvView.qml" line="489"/>
+        <location filename="../qml/TvView.qml" line="492"/>
+        <location filename="../qml/TvView.qml" line="1611"/>
         <source>Library</source>
         <translation>Bibliotecă</translation>
     </message>
@@ -7042,7 +7216,7 @@
     </message>
     <message>
         <location filename="../qml/TvView.qml" line="174"/>
-        <location filename="../qml/TvView.qml" line="1602"/>
+        <location filename="../qml/TvView.qml" line="1620"/>
         <source>Play on </source>
         <translation>Joacă pe </translation>
     </message>
@@ -7078,17 +7252,19 @@
     </message>
     <message>
         <location filename="../qml/TvView.qml" line="188"/>
-        <location filename="../qml/TvView.qml" line="1622"/>
+        <location filename="../qml/TvView.qml" line="1640"/>
         <source>Quit game</source>
         <translation>Închide jocul</translation>
     </message>
     <message>
         <location filename="../qml/TvView.qml" line="190"/>
+        <location filename="../qml/TvView.qml" line="1702"/>
         <source>Remove from favourites</source>
         <translation>Scoate de la favorite</translation>
     </message>
     <message>
         <location filename="../qml/TvView.qml" line="190"/>
+        <location filename="../qml/TvView.qml" line="1701"/>
         <source>Add to favourites</source>
         <translation>Adaugă la favorite</translation>
     </message>
@@ -7099,21 +7275,29 @@
     </message>
     <message>
         <location filename="../qml/TvView.qml" line="192"/>
+        <location filename="../qml/TvView.qml" line="1705"/>
+        <location filename="../qml/TvView.qml" line="1723"/>
         <source>Playing</source>
         <translation>Se joacă</translation>
     </message>
     <message>
         <location filename="../qml/TvView.qml" line="192"/>
+        <location filename="../qml/TvView.qml" line="1705"/>
+        <location filename="../qml/TvView.qml" line="1723"/>
         <source>Want to play</source>
         <translation>Vreau să joc</translation>
     </message>
     <message>
         <location filename="../qml/TvView.qml" line="192"/>
+        <location filename="../qml/TvView.qml" line="1705"/>
+        <location filename="../qml/TvView.qml" line="1723"/>
         <source>Finished</source>
         <translation>Terminat</translation>
     </message>
     <message>
         <location filename="../qml/TvView.qml" line="192"/>
+        <location filename="../qml/TvView.qml" line="1705"/>
+        <location filename="../qml/TvView.qml" line="1723"/>
         <source>Dropped</source>
         <translation>Abandonat</translation>
     </message>
@@ -7178,493 +7362,666 @@
         <translation>Închide</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="505"/>
-        <location filename="../qml/TvView.qml" line="1007"/>
-        <location filename="../qml/TvView.qml" line="1013"/>
-        <location filename="../qml/TvView.qml" line="1598"/>
+        <location filename="../qml/TvView.qml" line="510"/>
+        <location filename="../qml/TvView.qml" line="1012"/>
+        <location filename="../qml/TvView.qml" line="1018"/>
+        <location filename="../qml/TvView.qml" line="1616"/>
+        <location filename="../qml/TvView.qml" line="1721"/>
         <source>All games</source>
         <translation>Toate jocurile</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="649"/>
+        <location filename="../qml/TvView.qml" line="654"/>
         <source>Installing </source>
         <translation>Se instalează </translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="650"/>
+        <location filename="../qml/TvView.qml" line="655"/>
         <source>Updating </source>
         <translation>Se actualizează </translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="651"/>
+        <location filename="../qml/TvView.qml" line="656"/>
         <source>Installing DLC </source>
         <translation>Se instalează DLC </translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="652"/>
+        <location filename="../qml/TvView.qml" line="657"/>
         <source>Moving </source>
         <translation>Se mută </translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="653"/>
+        <location filename="../qml/TvView.qml" line="658"/>
         <source>Removing…</source>
         <translation>Se elimină…</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="654"/>
+        <location filename="../qml/TvView.qml" line="659"/>
         <source>Update available</source>
         <translation>Actualizare disponibilă</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="667"/>
+        <location filename="../qml/TvView.qml" line="672"/>
         <source>ProtonDB </source>
         <translation>ProtonDB </translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="675"/>
+        <location filename="../qml/TvView.qml" line="680"/>
         <source>🎮 Partial controller support</source>
         <translation>🎮 Suport parțial pentru controller</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="677"/>
+        <location filename="../qml/TvView.qml" line="682"/>
         <source>⌨ Mouse and keyboard</source>
         <translation>⌨ Mouse și tastatură</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="677"/>
+        <location filename="../qml/TvView.qml" line="682"/>
         <source> (controller set up as keyboard)</source>
         <translation> (controlerul e setat ca tastatură)</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="677"/>
+        <location filename="../qml/TvView.qml" line="682"/>
         <source> (More &gt; Options: controller as keyboard)</source>
         <translation> (Mai mult &gt; Opțiuni: controlerul ca tastatură)</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="721"/>
+        <location filename="../qml/TvView.qml" line="726"/>
         <source>Installing</source>
         <translation>Se instalează</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="721"/>
+        <location filename="../qml/TvView.qml" line="726"/>
         <source>Updating</source>
         <translation>Se actualizează</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="721"/>
+        <location filename="../qml/TvView.qml" line="726"/>
         <source>Installing DLC</source>
         <translation>Se instalează DLC</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="721"/>
+        <location filename="../qml/TvView.qml" line="726"/>
         <source>Moving</source>
         <translation>Se mută</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="721"/>
+        <location filename="../qml/TvView.qml" line="726"/>
         <source>Checking files</source>
         <translation>Verificare fișiere</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="721"/>
+        <location filename="../qml/TvView.qml" line="726"/>
         <source>Fixing</source>
         <translation>Se repară</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="721"/>
-        <location filename="../qml/TvView.qml" line="1627"/>
+        <location filename="../qml/TvView.qml" line="726"/>
+        <location filename="../qml/TvView.qml" line="1645"/>
         <source>Queued</source>
         <translation>În așteptare</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="721"/>
+        <location filename="../qml/TvView.qml" line="726"/>
         <source>Removing</source>
         <translation>Se elimină</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="721"/>
+        <location filename="../qml/TvView.qml" line="726"/>
         <source>Paused</source>
         <translation>În pauză</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="723"/>
+        <location filename="../qml/TvView.qml" line="728"/>
         <source>Resume</source>
         <translation>Continuă</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="723"/>
-        <location filename="../qml/TvView.qml" line="1004"/>
-        <location filename="../qml/TvView.qml" line="1019"/>
-        <location filename="../qml/TvView.qml" line="1020"/>
+        <location filename="../qml/TvView.qml" line="728"/>
+        <location filename="../qml/TvView.qml" line="1009"/>
+        <location filename="../qml/TvView.qml" line="1024"/>
+        <location filename="../qml/TvView.qml" line="1025"/>
         <source>Play</source>
         <translation>Joacă</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="723"/>
-        <location filename="../qml/TvView.qml" line="1004"/>
-        <location filename="../qml/TvView.qml" line="1019"/>
-        <location filename="../qml/TvView.qml" line="1020"/>
+        <location filename="../qml/TvView.qml" line="728"/>
+        <location filename="../qml/TvView.qml" line="1009"/>
+        <location filename="../qml/TvView.qml" line="1024"/>
+        <location filename="../qml/TvView.qml" line="1025"/>
+        <location filename="../qml/TvView.qml" line="1699"/>
         <source>Install</source>
         <translation>Instalează</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="757"/>
-        <location filename="../qml/TvView.qml" line="1007"/>
+        <location filename="../qml/TvView.qml" line="762"/>
         <location filename="../qml/TvView.qml" line="1012"/>
-        <location filename="../qml/TvView.qml" line="1013"/>
-        <location filename="../qml/TvView.qml" line="1019"/>
-        <location filename="../qml/TvView.qml" line="1020"/>
+        <location filename="../qml/TvView.qml" line="1017"/>
+        <location filename="../qml/TvView.qml" line="1018"/>
+        <location filename="../qml/TvView.qml" line="1024"/>
+        <location filename="../qml/TvView.qml" line="1025"/>
         <source>More</source>
         <translation>Mai mult</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="784"/>
+        <location filename="../qml/TvView.qml" line="789"/>
         <source>Results for “</source>
         <translation>Rezultate pentru „</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="795"/>
-        <location filename="../qml/TvView.qml" line="1007"/>
+        <location filename="../qml/TvView.qml" line="800"/>
         <location filename="../qml/TvView.qml" line="1012"/>
-        <location filename="../qml/TvView.qml" line="1013"/>
-        <location filename="../qml/TvView.qml" line="1596"/>
+        <location filename="../qml/TvView.qml" line="1017"/>
+        <location filename="../qml/TvView.qml" line="1018"/>
+        <location filename="../qml/TvView.qml" line="1614"/>
+        <location filename="../qml/TvView.qml" line="1728"/>
         <source>Installed only</source>
         <translation>Doar instalate</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="799"/>
+        <location filename="../qml/TvView.qml" line="804"/>
         <source> of </source>
         <translation> din </translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="813"/>
-        <location filename="../qml/TvView.qml" line="973"/>
+        <location filename="../qml/TvView.qml" line="818"/>
+        <location filename="../qml/TvView.qml" line="978"/>
         <source>▼  </source>
         <translation>▼  </translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="854"/>
+        <location filename="../qml/TvView.qml" line="859"/>
         <source>not installed</source>
         <translation>neinstalat</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="958"/>
+        <location filename="../qml/TvView.qml" line="963"/>
         <source>Loading your libraries…</source>
         <translation>Se încarcă bibliotecile…</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="958"/>
+        <location filename="../qml/TvView.qml" line="963"/>
         <source>Nothing matches</source>
         <translation>Nimic nu se potrivește</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="958"/>
+        <location filename="../qml/TvView.qml" line="963"/>
         <source>No games here</source>
         <translation>Niciun joc aici</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1007"/>
-        <location filename="../qml/TvView.qml" line="1013"/>
-        <location filename="../qml/TvView.qml" line="1020"/>
+        <location filename="../qml/TvView.qml" line="1012"/>
+        <location filename="../qml/TvView.qml" line="1018"/>
+        <location filename="../qml/TvView.qml" line="1025"/>
         <source>Menu</source>
         <translation>Meniu</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1008"/>
-        <location filename="../qml/TvView.qml" line="1014"/>
+        <location filename="../qml/TvView.qml" line="1013"/>
+        <location filename="../qml/TvView.qml" line="1019"/>
         <source>Shelf</source>
         <translation>Raft</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1008"/>
-        <location filename="../qml/TvView.qml" line="1014"/>
+        <location filename="../qml/TvView.qml" line="1013"/>
+        <location filename="../qml/TvView.qml" line="1019"/>
         <source>Jump</source>
         <translation>Salt</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1009"/>
-        <location filename="../qml/TvView.qml" line="1015"/>
+        <location filename="../qml/TvView.qml" line="1014"/>
+        <location filename="../qml/TvView.qml" line="1020"/>
         <source>Store</source>
         <translation>Magazin</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1010"/>
-        <location filename="../qml/TvView.qml" line="1016"/>
-        <location filename="../qml/TvView.qml" line="1020"/>
+        <location filename="../qml/TvView.qml" line="1015"/>
+        <location filename="../qml/TvView.qml" line="1021"/>
+        <location filename="../qml/TvView.qml" line="1025"/>
         <source>Clear search</source>
         <translation>Șterge căutarea</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1010"/>
-        <location filename="../qml/TvView.qml" line="1012"/>
-        <location filename="../qml/TvView.qml" line="1016"/>
-        <location filename="../qml/TvView.qml" line="1020"/>
-        <location filename="../qml/TvView.qml" line="1304"/>
-        <location filename="../qml/TvView.qml" line="1305"/>
-        <location filename="../qml/TvView.qml" line="1581"/>
-        <location filename="../qml/TvView.qml" line="1582"/>
-        <location filename="../qml/TvView.qml" line="1888"/>
-        <location filename="../qml/TvView.qml" line="1890"/>
+        <location filename="../qml/TvView.qml" line="1015"/>
+        <location filename="../qml/TvView.qml" line="1017"/>
+        <location filename="../qml/TvView.qml" line="1021"/>
+        <location filename="../qml/TvView.qml" line="1025"/>
+        <location filename="../qml/TvView.qml" line="1309"/>
+        <location filename="../qml/TvView.qml" line="1310"/>
+        <location filename="../qml/TvView.qml" line="1598"/>
+        <location filename="../qml/TvView.qml" line="1599"/>
+        <location filename="../qml/TvView.qml" line="1993"/>
+        <location filename="../qml/TvView.qml" line="1995"/>
         <source>Back</source>
         <translation>Înapoi</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1013"/>
-        <location filename="../qml/TvView.qml" line="1305"/>
-        <location filename="../qml/TvView.qml" line="1582"/>
-        <location filename="../qml/TvView.qml" line="1889"/>
+        <location filename="../qml/TvView.qml" line="1018"/>
+        <location filename="../qml/TvView.qml" line="1310"/>
+        <location filename="../qml/TvView.qml" line="1599"/>
+        <location filename="../qml/TvView.qml" line="1994"/>
         <source>Enter</source>
         <translation>Enter</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1014"/>
+        <location filename="../qml/TvView.qml" line="1019"/>
         <source>Shift ←/→</source>
         <translation>Shift ←/→</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1015"/>
+        <location filename="../qml/TvView.qml" line="1020"/>
         <source>PgUp / PgDn</source>
         <translation>PgUp / PgDn</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1015"/>
-        <location filename="../qml/TvView.qml" line="1304"/>
-        <location filename="../qml/TvView.qml" line="1305"/>
+        <location filename="../qml/TvView.qml" line="1020"/>
+        <location filename="../qml/TvView.qml" line="1309"/>
+        <location filename="../qml/TvView.qml" line="1310"/>
         <source>Type</source>
         <translation>Scrie</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1016"/>
-        <location filename="../qml/TvView.qml" line="1305"/>
-        <location filename="../qml/TvView.qml" line="1582"/>
-        <location filename="../qml/TvView.qml" line="1890"/>
+        <location filename="../qml/TvView.qml" line="1021"/>
+        <location filename="../qml/TvView.qml" line="1310"/>
+        <location filename="../qml/TvView.qml" line="1599"/>
+        <location filename="../qml/TvView.qml" line="1995"/>
         <source>Esc</source>
         <translation>Esc</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1019"/>
-        <location filename="../qml/TvView.qml" line="1020"/>
+        <location filename="../qml/TvView.qml" line="1024"/>
+        <location filename="../qml/TvView.qml" line="1025"/>
         <source>Options</source>
         <translation>Opțiuni</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1168"/>
+        <location filename="../qml/TvView.qml" line="1173"/>
         <source>Search your games</source>
         <translation>Caută în jocurile tale</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1174"/>
+        <location filename="../qml/TvView.qml" line="1179"/>
         <source> game</source>
         <translation> joc</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1174"/>
+        <location filename="../qml/TvView.qml" line="1179"/>
         <source> games</source>
         <translation> jocuri</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1268"/>
-        <location filename="../qml/TvView.qml" line="1304"/>
+        <location filename="../qml/TvView.qml" line="1273"/>
+        <location filename="../qml/TvView.qml" line="1309"/>
         <source>Delete</source>
         <translation>Șterge</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1268"/>
-        <location filename="../qml/TvView.qml" line="1304"/>
+        <location filename="../qml/TvView.qml" line="1273"/>
+        <location filename="../qml/TvView.qml" line="1309"/>
         <source>Done</source>
         <translation>Gata</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1268"/>
+        <location filename="../qml/TvView.qml" line="1273"/>
         <source>Clear</source>
         <translation>Golește</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1304"/>
+        <location filename="../qml/TvView.qml" line="1309"/>
         <source>Space</source>
         <translation>Spațiu</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1305"/>
+        <location filename="../qml/TvView.qml" line="1310"/>
         <source>or use the keys</source>
         <translation>sau folosește tastele</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1305"/>
-        <location filename="../qml/TvView.qml" line="1581"/>
-        <location filename="../qml/TvView.qml" line="1582"/>
-        <location filename="../qml/TvView.qml" line="1886"/>
-        <location filename="../qml/TvView.qml" line="1889"/>
+        <location filename="../qml/TvView.qml" line="1310"/>
+        <location filename="../qml/TvView.qml" line="1598"/>
+        <location filename="../qml/TvView.qml" line="1599"/>
+        <location filename="../qml/TvView.qml" line="1991"/>
+        <location filename="../qml/TvView.qml" line="1994"/>
         <source>Choose</source>
         <translation>Alege</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1572"/>
+        <location filename="../qml/TvView.qml" line="1341"/>
+        <source>Search the library</source>
+        <translation>Caută în bibliotecă</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1341"/>
+        <source>Type part of a name, a developer or a genre.</source>
+        <translation>Scrie o parte din nume, un dezvoltator sau un gen.</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1589"/>
         <source>Also:  ↑ on the top shelf: Library   ·   ↕ shelves   ·   LT / RT jump   ·   LB / RB store   ·   Y installed only   ·   ⧉ search   ·   Guide + A quick access</source>
         <translation>Și:  ↑ pe raftul de sus: Bibliotecă   ·   ↕ rafturi   ·   LT / RT salt   ·   LB / RB magazin   ·   Y doar instalate   ·   ⧉ căutare   ·   Guide + A acces rapid</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1604"/>
+        <location filename="../qml/TvView.qml" line="1613"/>
+        <location filename="../qml/TvView.qml" line="1770"/>
+        <source>Edit Home</source>
+        <translation>Editează Acasă</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1622"/>
         <source>Settings</source>
         <translation>Setări</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1611"/>
+        <location filename="../qml/TvView.qml" line="1629"/>
         <source>Performance</source>
         <translation>Performanță</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1628"/>
+        <location filename="../qml/TvView.qml" line="1646"/>
         <source>Games you start show here, with Quit</source>
         <translation>Jocurile pe care le pornești apar aici, cu Închide</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1675"/>
+        <location filename="../qml/TvView.qml" line="1696"/>
+        <source>%1 picked</source>
+        <translation>%1 alese</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1700"/>
+        <source>Update</source>
+        <translation>Actualizează</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1704"/>
+        <source>Add to </source>
+        <translation>Adaugă la </translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1706"/>
+        <source>Mark as </source>
+        <translation>Marchează ca </translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1707"/>
+        <source>Unhide</source>
+        <translation>Reafișează</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1708"/>
+        <source>Hide</source>
+        <translation>Ascunde</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1710"/>
+        <source>Pick all %1 shown</source>
+        <translation>Alege toate cele %1 afișate</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1712"/>
+        <source>Stop picking</source>
+        <translation>Gata cu alesul</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1716"/>
+        <location filename="../qml/TvView.qml" line="1718"/>
+        <source>Order</source>
+        <translation>Ordine</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1716"/>
+        <source>Sort by</source>
+        <translation>Sortează după</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1718"/>
+        <source>Show as</source>
+        <translation>Afișează ca</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1719"/>
+        <source>Covers</source>
+        <translation>Coperți</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1719"/>
+        <source>List</source>
+        <translation>Listă</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1721"/>
+        <source>Favourites</source>
+        <translation>Favorite</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1725"/>
+        <source>Hidden games</source>
+        <translation>Jocuri ascunse</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1726"/>
+        <source>Games</source>
+        <translation>Jocuri</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1726"/>
+        <source>Show</source>
+        <translation>Arată</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1728"/>
+        <location filename="../qml/TvView.qml" line="1732"/>
+        <location filename="../qml/TvView.qml" line="1736"/>
+        <source>Filters</source>
+        <translation>Filtre</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1736"/>
+        <source>Clear all</source>
+        <translation>Șterge tot</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1738"/>
+        <source>Several at once</source>
+        <translation>Mai multe deodată</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1738"/>
+        <source>Pick games</source>
+        <translation>Alege jocuri</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1738"/>
+        <source>A picks or unpicks; Y again for what to do with them</source>
+        <translation>A alege sau scoate; Y din nou pentru ce faci cu ele</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1746"/>
+        <source>Picked games</source>
+        <translation>Jocuri alese</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1746"/>
+        <source>Sort and filter</source>
+        <translation>Sortare și filtre</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1756"/>
+        <location filename="../qml/TvView.qml" line="1762"/>
+        <source>Rows on Home (X moves one up)</source>
+        <translation>Rânduri pe Acasă (X mută unul mai sus)</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1757"/>
+        <source>1 game</source>
+        <translation>1 joc</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1757"/>
+        <source>%1 games</source>
+        <translation>%1 jocuri</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1757"/>
+        <source>Empty right now: hidden until it has games</source>
+        <translation>Gol acum: ascuns până are jocuri</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1758"/>
+        <source>Move up</source>
+        <translation>Mută mai sus</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1762"/>
+        <source>Back to the usual order</source>
+        <translation>Înapoi la ordinea obișnuită</translation>
+    </message>
+    <message>
+        <location filename="../qml/TvView.qml" line="1779"/>
         <source>Join </source>
         <translation>Conectare la </translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1675"/>
+        <location filename="../qml/TvView.qml" line="1779"/>
         <source>Type the Wi-Fi password.</source>
         <translation>Scrie parola Wi-Fi.</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1886"/>
+        <location filename="../qml/TvView.qml" line="1991"/>
         <source>Mute</source>
         <translation>Fără sonor</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1887"/>
-        <location filename="../qml/TvView.qml" line="1889"/>
+        <location filename="../qml/TvView.qml" line="1992"/>
+        <location filename="../qml/TvView.qml" line="1994"/>
         <source>Change</source>
         <translation>Schimbă</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="654"/>
-        <location filename="../qml/TvView.qml" line="1454"/>
+        <location filename="../qml/TvView.qml" line="659"/>
+        <location filename="../qml/TvView.qml" line="1471"/>
         <source>Installed</source>
         <translation>Instalat</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="654"/>
-        <location filename="../qml/TvView.qml" line="1454"/>
+        <location filename="../qml/TvView.qml" line="659"/>
+        <location filename="../qml/TvView.qml" line="1471"/>
         <source>Not installed</source>
         <translation>Neinstalat</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1502"/>
+        <location filename="../qml/TvView.qml" line="1519"/>
         <source>What would you like to do?</source>
         <translation>Ce vrei să faci?</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1509"/>
+        <location filename="../qml/TvView.qml" line="1526"/>
         <source>You own this on </source>
         <translation>Îl deții pe </translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1509"/>
+        <location filename="../qml/TvView.qml" line="1526"/>
         <source> stores. Choose the launcher:</source>
         <translation> magazine. Alege lansatorul:</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1551"/>
+        <location filename="../qml/TvView.qml" line="1568"/>
         <source>Press again to uninstall</source>
         <translation>Apasă din nou pentru dezinstalare</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1593"/>
+        <location filename="../qml/TvView.qml" line="1610"/>
         <source>Home</source>
         <translation>Acasă</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1009"/>
-        <location filename="../qml/TvView.qml" line="1015"/>
-        <location filename="../qml/TvView.qml" line="1595"/>
+        <location filename="../qml/TvView.qml" line="1014"/>
+        <location filename="../qml/TvView.qml" line="1020"/>
+        <location filename="../qml/TvView.qml" line="1612"/>
         <source>Search</source>
         <translation>Caută</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1597"/>
+        <location filename="../qml/TvView.qml" line="1615"/>
         <source>Next store</source>
         <translation>Magazinul următor</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1600"/>
+        <location filename="../qml/TvView.qml" line="1618"/>
         <source>Can&apos;t decide?</source>
         <translation>Nu te poți hotărî?</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1603"/>
+        <location filename="../qml/TvView.qml" line="1621"/>
         <source>Quick access</source>
         <translation>Acces rapid</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1599"/>
-        <location filename="../qml/TvView.qml" line="1626"/>
+        <location filename="../qml/TvView.qml" line="1617"/>
+        <location filename="../qml/TvView.qml" line="1644"/>
         <source>Downloads</source>
         <translation>Descărcări</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1601"/>
+        <location filename="../qml/TvView.qml" line="1619"/>
         <source>Your stats</source>
         <translation>Statisticile tale</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1605"/>
-        <location filename="../qml/TvView.qml" line="1606"/>
+        <location filename="../qml/TvView.qml" line="1623"/>
+        <location filename="../qml/TvView.qml" line="1624"/>
         <source>Power</source>
         <translation>Alimentare</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1573"/>
+        <location filename="../qml/TvView.qml" line="1590"/>
         <source>Also:  ↑↓ shelves   ·   Shift+←/→ jump   ·   PgUp/PgDn store   ·   F3 installed only   ·   F9 quick access</source>
         <translation>În plus:  ↑↓ rafturi   ·   Shift+←/→ salt   ·   PgUp/PgDn magazin   ·   F3 doar instalate   ·   F9 acces rapid</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1612"/>
-        <location filename="../qml/TvView.qml" line="1621"/>
-        <location filename="../qml/TvView.qml" line="1622"/>
-        <location filename="../qml/TvView.qml" line="1628"/>
+        <location filename="../qml/TvView.qml" line="1630"/>
+        <location filename="../qml/TvView.qml" line="1639"/>
+        <location filename="../qml/TvView.qml" line="1640"/>
+        <location filename="../qml/TvView.qml" line="1646"/>
         <source>Now playing</source>
         <translation>Se joacă acum</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1613"/>
+        <location filename="../qml/TvView.qml" line="1631"/>
         <source>TV mode</source>
         <translation>Mod TV</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1621"/>
+        <location filename="../qml/TvView.qml" line="1639"/>
         <source>Running</source>
         <translation>Rulează</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1622"/>
+        <location filename="../qml/TvView.qml" line="1640"/>
         <source>Press again to force close</source>
         <translation>Apasă din nou ca să forțezi închiderea</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1623"/>
+        <location filename="../qml/TvView.qml" line="1641"/>
         <source>Force close</source>
         <translation>Forțează închiderea</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1627"/>
+        <location filename="../qml/TvView.qml" line="1645"/>
         <source>Starting</source>
         <translation>Pornește</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1628"/>
+        <location filename="../qml/TvView.qml" line="1646"/>
         <source>Nothing running</source>
         <translation>Nu rulează nimic</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1610"/>
+        <location filename="../qml/TvView.qml" line="1628"/>
         <source>Quick settings</source>
         <translation>Setări rapide</translation>
     </message>
     <message>
-        <location filename="../qml/TvView.qml" line="1635"/>
+        <location filename="../qml/TvView.qml" line="1653"/>
         <source>Cornerplay</source>
         <translation>Cornerplay</translation>
     </message>
@@ -7886,111 +8243,116 @@
     </message>
     <message>
         <location filename="../app.py" line="125"/>
+        <source>News from your games</source>
+        <translation>Noutăți din jocurile tale</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="126"/>
         <source>Favourites</source>
         <translation>Favorite</translation>
     </message>
     <message>
-        <location filename="../app.py" line="126"/>
+        <location filename="../app.py" line="127"/>
         <source>Recently added</source>
         <translation>Adăugate recent</translation>
     </message>
     <message>
-        <location filename="../app.py" line="127"/>
+        <location filename="../app.py" line="128"/>
         <source>Library</source>
         <translation>Bibliotecă</translation>
     </message>
     <message>
-        <location filename="../app.py" line="128"/>
+        <location filename="../app.py" line="129"/>
         <source>You&apos;re in the middle of it</source>
         <translation>Ești la jumătatea lui</translation>
     </message>
     <message>
-        <location filename="../app.py" line="129"/>
+        <location filename="../app.py" line="130"/>
         <source>It&apos;s on your Want to play list</source>
         <translation>E pe lista Vreau să joc</translation>
     </message>
     <message>
-        <location filename="../app.py" line="130"/>
+        <location filename="../app.py" line="131"/>
         <source>You haven&apos;t started it yet</source>
         <translation>Nu l-ai început încă</translation>
     </message>
     <message>
-        <location filename="../app.py" line="131"/>
+        <location filename="../app.py" line="132"/>
         <source>played so far</source>
         <translation>jucate până acum</translation>
     </message>
     <message>
-        <location filename="../app.py" line="132"/>
+        <location filename="../app.py" line="133"/>
         <source>You left it </source>
         <translation>L-ai lăsat acum </translation>
     </message>
     <message>
-        <location filename="../app.py" line="133"/>
+        <location filename="../app.py" line="134"/>
         <source>months ago</source>
         <translation>luni</translation>
     </message>
     <message>
-        <location filename="../app.py" line="134"/>
+        <location filename="../app.py" line="135"/>
         <source>a month ago</source>
         <translation>o lună</translation>
     </message>
     <message>
-        <location filename="../app.py" line="135"/>
+        <location filename="../app.py" line="136"/>
         <source>at</source>
         <translation>la</translation>
     </message>
     <message>
-        <location filename="../app.py" line="136"/>
+        <location filename="../app.py" line="137"/>
         <source>pick it back up?</source>
         <translation>îl reiei?</translation>
     </message>
     <message>
-        <location filename="../app.py" line="137"/>
+        <location filename="../app.py" line="138"/>
         <source>you often play it at this time</source>
         <translation>des îl joci la ora asta</translation>
     </message>
     <message>
-        <location filename="../app.py" line="138"/>
+        <location filename="../app.py" line="139"/>
         <source>plays on one screen together</source>
         <translation>se joacă împreună pe un ecran</translation>
     </message>
     <message>
-        <location filename="../app.py" line="139"/>
+        <location filename="../app.py" line="140"/>
         <source>usually about </source>
         <translation>de obicei cam </translation>
     </message>
     <message>
-        <location filename="../app.py" line="140"/>
+        <location filename="../app.py" line="141"/>
         <source>a session</source>
         <translation>pe sesiune</translation>
     </message>
     <message>
-        <location filename="../app.py" line="1131"/>
+        <location filename="../app.py" line="1144"/>
         <source>%1 h played</source>
         <translation>%1 h jucate</translation>
     </message>
     <message>
-        <location filename="../app.py" line="1133"/>
+        <location filename="../app.py" line="1146"/>
         <source>%1 min played</source>
         <translation>%1 min jucate</translation>
     </message>
     <message>
-        <location filename="../app.py" line="1136"/>
+        <location filename="../app.py" line="1149"/>
         <source>today</source>
         <translation>azi</translation>
     </message>
     <message>
-        <location filename="../app.py" line="1136"/>
+        <location filename="../app.py" line="1149"/>
         <source>yesterday</source>
         <translation>ieri</translation>
     </message>
     <message>
-        <location filename="../app.py" line="1137"/>
+        <location filename="../app.py" line="1150"/>
         <source>%1 days ago</source>
         <translation>acum %1 zile</translation>
     </message>
     <message>
-        <location filename="../app.py" line="1139"/>
+        <location filename="../app.py" line="1152"/>
         <source>last played %1</source>
         <translation>jucat ultima dată %1</translation>
     </message>

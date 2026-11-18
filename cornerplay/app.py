@@ -122,6 +122,7 @@ def _translatable_names():
             QCoreApplication.translate("app", "Finished"),
             QCoreApplication.translate("app", "Dropped"),
             QCoreApplication.translate("app", "Continue playing"),
+            QCoreApplication.translate("app", "News from your games"),
             QCoreApplication.translate("app", "Favourites"),
             QCoreApplication.translate("app", "Recently added"),
             QCoreApplication.translate("app", "Library"),
@@ -174,6 +175,11 @@ def _put_away(group) -> bool:
     """Put away to save space (Storage > Free up space): uninstalled, its saves kept, one press
     from coming back."""
     return not any(g.installed for g in group) and any(game_options.get(g.key).get("put_away") for g in group)
+
+
+def _has_news(group, days=7):
+    """News or patch notes in the last week (from the cache only: App.refreshNews fills it)."""
+    return any(patchnotes.recent(_appid(g), days) for g in group)
 
 
 def _appid(g):
@@ -386,6 +392,8 @@ class LibraryModel(QAbstractListModel):
         d["note"] = shelves.meta(group or [g], "note")
         d["playtime"] = self.group_value(group or [g], "playtime")
         d["lastPlayed"] = self.group_value(group or [g], "lastPlayed")
+        size = max([float(x.extra.get("size", 0) or 0) for x in group or [g] if x.installed] or [0])
+        d["sizeText"] = storage.nice(size) if size else ""  # on disk (TV Library's list view)
         return d
 
     def set_games(self, games):
@@ -423,12 +431,13 @@ class LibraryModel(QAbstractListModel):
 class LibraryProxy(QSortFilterProxyModel):
     filterChanged = Signal()
 
-    def __init__(self, model):
+    def __init__(self, model, sort_setting="sort"):
         super().__init__()
+        self._sort_setting = sort_setting  # TV mode's Library keeps its own order, apart from the desktop's
         self._store, self._installed, self._search, self._hidden = "", False, "", False
         self._shelf = ""  # "", "fav", "c:<name>", "playing" (played, most recent first), "added" (newest first)
         self._tags = []   # filter chips: "unplayed", "linux", "controller", "protondb", "genre:<name>"
-        self._sort = settings.get("sort") if settings.get("sort") in SORTS else "name"
+        self._sort = settings.get(sort_setting) if settings.get(sort_setting) in SORTS + ("added",) else "name"
         self._keys, self._keys_gen = {}, None
         self.setSourceModel(model)
         self.setSortCaseSensitivity(Qt.CaseInsensitive)
@@ -464,6 +473,8 @@ class LibraryProxy(QSortFilterProxyModel):
     def _has_tag(self, model, group, tag):
         if tag == "unplayed":
             return model.group_value(group, "playtime") == 0
+        if tag == "fav":
+            return shelves.in_group(group, shelves.FAV)
         if tag == "linux":
             return any(g.extra.get("linux") or g.extra.get("platform") == "linux" for g in group)
         if tag == "controller":
@@ -491,6 +502,8 @@ class LibraryProxy(QSortFilterProxyModel):
             return any(couch.local(_appid(g)) for g in group)
         if s == "away":
             return _put_away(group)
+        if s == "news":
+            return _has_news(group)
         if s.startswith("s:"):
             return shelves.meta(group, "status") == s[2:]
         return True
@@ -528,9 +541,9 @@ class LibraryProxy(QSortFilterProxyModel):
         return self._key(left.row()) < self._key(right.row())
 
     def _set_sort(self, mode):
-        if mode in SORTS and mode != self._sort:
+        if mode in SORTS + ("added",) and mode != self._sort:
             self._sort = mode
-            settings.set("sort", mode)
+            settings.set(self._sort_setting, mode)
             self.invalidate()
             self.filterChanged.emit()
 
@@ -614,7 +627,7 @@ class AioLaunch(QObject):
         self.proxy = LibraryProxy(self.model)
         self.tvProxy = LibraryProxy(self.model)  # TV mode's own list: its shelves leave the main view alone
         self.tvNextProxy = LibraryProxy(self.model)  # the shelf below, shown as a preview under TV mode's row
-        self.tvAllProxy = LibraryProxy(self.model)  # TV mode's Library page: every game, off the home screen
+        self.tvAllProxy = LibraryProxy(self.model, "tv_library_sort")  # TV mode's Library page: every game, off the home screen
         self.pool = ThreadPoolExecutor(min(4, os.cpu_count() or 2))
         # TV mode's system controls (syscontrol.py): one worker, so presses apply in order.
         self._sys_pool = ThreadPoolExecutor(1)
@@ -3835,18 +3848,16 @@ class AioLaunch(QObject):
                 out.append({"id": sid, "tag": tag, "name": name, "count": len(hits), "games": games})
         return out
 
-    @Slot(result="QVariantList")
-    def shelfList(self):
-        """TV mode's home rows, in order; empty ones are left out. Every game is on the Library
-        page (TvLibrary.qml), not here; Library is a home row only while there is no other row."""
+    def _home_shelves(self):
+        """Every row TV mode's home can show, with its game count (0: empty right now), in the
+        default order."""
         groups = [g for g in self.model.groups if not self.model.is_hidden(g)]
         out = []
 
         def add(sid, name, test):
-            n = sum(1 for g in groups if test(g))
-            if n:
-                out.append({"id": sid, "name": name, "count": n})
+            out.append({"id": sid, "name": name, "count": sum(1 for g in groups if test(g))})
         add("playing", _t("Continue playing"), lambda g: self.model.group_value(g, "lastPlayed") > 0)
+        add("news", _t("News from your games"), _has_news)
         add("s:playing", _t("Playing"), lambda g: shelves.meta(g, "status") == "playing")
         add("fav", _t("Favourites"), lambda g: shelves.in_group(g, shelves.FAV))
         add("s:want", _t("Want to play"), lambda g: shelves.meta(g, "status") == "want")
@@ -3856,13 +3867,64 @@ class AioLaunch(QObject):
         add("s:finished", _t("Finished"), lambda g: shelves.meta(g, "status") == "finished")
         add("together", _t("Play together"), lambda g: any(couch.local(_appid(x)) for x in g))
         add("away", _t("Put away"), _put_away)
+        # Each person's own order and choice of rows (personal.py: synced with their favourites).
+        layout = personal.home_layout()
+        order, off = layout.get("order") or [], set(layout.get("off") or [])
+        rank = {sid: i for i, sid in enumerate(order)}
+        default = {s["id"]: i for i, s in enumerate(out)}  # new rows (a new collection) go after the ordered ones
+        out.sort(key=lambda s: rank.get(s["id"], len(order) + default[s["id"]]))
+        for s in out:
+            s["on"] = s["id"] not in off
+        return out
+
+    @Slot(result="QVariantList")
+    def homeShelves(self):
+        """TV mode's Edit Home: every row, in this person's order, on or off."""
+        return self._home_shelves()
+
+    @Slot("QVariantList", "QVariantList")
+    def setHomeShelves(self, order, off):
+        personal.set_home_layout([str(x) for x in order or []], [str(x) for x in off or []])
+        self.collectionsChanged.emit()  # TV mode reloads its rows
+
+    @Slot(result="QVariantList")
+    def shelfList(self):
+        """TV mode's home rows, in this person's order; empty and switched-off ones are left out.
+        Every game is on the Library page (TvLibrary.qml), not here; Library is a home row only
+        while there is no other row."""
+        out = [{"id": s["id"], "name": s["name"], "count": s["count"]}
+               for s in self._home_shelves() if s["on"] and s["count"]]
         if not out:
-            out.append({"id": "", "name": _t("Library"), "count": len(groups)})
+            out.append({"id": "", "name": _t("Library"),
+                        "count": sum(1 for g in self.model.groups if not self.model.is_hidden(g))})
         # Two or more controllers: friends are on the sofa, so games to play together come first.
         pads = len(getattr(getattr(self, "gamepad", None), "_pads", None) or {})
         if pads >= 2:
             out.sort(key=lambda s: s["id"] != "together")
         return out
+
+    @Slot()
+    def refreshNews(self):
+        """Patch notes for the 20 games played last, in the background (each at most every 6 h),
+        for TV mode's "News from your games" row."""
+        if self.demo or getattr(self, "_news_busy", False):
+            return
+        m = self.model
+        groups = [g for g in m.groups if m.group_value(g, "lastPlayed") > 0]
+        groups.sort(key=lambda g: -m.group_value(g, "lastPlayed"))
+        ids = [a for a in dict.fromkeys(_appid(x) for grp in groups[:20] for x in grp) if a]
+        if not ids:
+            return
+        self._news_busy = True
+
+        def work():
+            try:
+                for a in ids:
+                    patchnotes.get(a)
+            finally:
+                self._news_busy = False
+            return lambda: self.collectionsChanged.emit()
+        self._bg(work)
 
     def _sidebar_shelves(self):
         """Favourites and the collections, with counts, for the sidebar (shown even when empty)."""

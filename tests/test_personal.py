@@ -41,3 +41,17 @@ def test_playtime_record_skips_failed_starts():
 def test_playtime_of_takes_steams_record_too():
     g = Game("steam", "1", "X", extra={"steam_playtime": 500, "steam_last_played": 7})
     assert playtime.of(g, {"steam:1": {"seconds": 100, "last": 9}}) == (500, 9)
+
+
+def test_merge_keeps_the_newer_home_layout():
+    a = {"games": {}, "home": {"order": ["fav", "playing"], "off": ["away"], "t": 20}}
+    b = {"games": {}, "home": {"order": ["playing"], "off": [], "t": 10}}
+    assert personal._merge(a, b)["home"]["order"] == ["fav", "playing"]
+    assert personal._merge(b, a)["home"]["off"] == ["away"]
+    assert personal._merge({"games": {}}, {"games": {}})["home"] == {}
+
+
+def test_merge_drops_a_malformed_home_layout():
+    bad = {"games": {}, "home": {"order": [1, "fav", None], "off": "x", "t": "soon"}}
+    home = personal._merge(bad, {"games": {}})["home"]
+    assert home["order"] == ["fav"] and home["off"] == [] and home["t"] == 0

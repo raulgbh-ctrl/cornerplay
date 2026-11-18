@@ -20,6 +20,7 @@ COUNT = 6
 MAX_TEXT = 1800
 PATCH_WORDS = re.compile(r"\b(patch|hotfix|update|fix(es|ed)?|changelog|release notes|v?\d+\.\d+(\.\d+)*)\b", re.I)
 _lock = threading.Lock()
+_mem = {"mtime": None, "cache": {}}  # the cache file as last read, for recent()
 
 
 def plain(text):
@@ -84,3 +85,21 @@ def get(appid, force=False):
                 cache.pop(old, None)
         write_json(FILE, cache)
     return notes
+
+
+def recent(appid, days=7):
+    """True when the cached notes have one from the last `days` days (no network: for lists
+    worked out often, like TV mode's rows)."""
+    appid = str(appid or "")
+    if not appid.isdigit():
+        return False
+    try:
+        mtime = FILE.stat().st_mtime
+    except OSError:
+        return False
+    if _mem["mtime"] != mtime:
+        with _lock:
+            _mem["cache"], _mem["mtime"] = read_json(FILE) or {}, mtime
+    notes = (_mem["cache"].get(appid) or {}).get("notes") or []
+    since = time.time() - days * 86400
+    return any(n.get("date", 0) >= since for n in notes)
