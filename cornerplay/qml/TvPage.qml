@@ -12,6 +12,9 @@ Rectangle {
     objectName: "tvPage"
     required property var theme
     required property var tint
+    // One hundredth of the screen's height, but never more than on an 1100 px tall screen: a tall
+    // or 4K screen gets the same, comfortable sizes as Home instead of ever-bigger buttons.
+    readonly property real u: Math.min(height, 1100) / 100
     property var game: ({})
     property var info: ({})
     property var ach: ({})
@@ -101,12 +104,12 @@ Rectangle {
     }
 
     ColumnLayout {
-        anchors { left: parent.left; right: parent.right; top: parent.top; margins: page.height * 0.07 }
-        spacing: page.height * 0.022
+        anchors { left: parent.left; right: parent.right; top: parent.top; margins: page.u * 5 }
+        spacing: page.u * 1.6
         // Logo, or the title when there is none.
         Item {
-            Layout.preferredHeight: page.height * 0.16
-            Layout.preferredWidth: page.width * 0.42
+            Layout.preferredHeight: page.u * 11
+            Layout.preferredWidth: page.width * 0.36
             Image {
                 id: logo
                 anchors.fill: parent
@@ -122,7 +125,7 @@ Rectangle {
                 text: page.game.title || ""
                 color: page.theme.onSurface
                 wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight
-                font.pixelSize: Math.round(page.height * 0.06); font.weight: Font.Bold; font.family: app.titleFamily
+                font.pixelSize: Math.round(page.u * 5); font.weight: Font.Bold; font.family: app.titleFamily
             }
         }
         Text {
@@ -137,7 +140,7 @@ Rectangle {
                 return parts.filter(p => p).join("   ·   ")
             }
             color: page.theme.onSurfaceVariant
-            font.pixelSize: Math.round(page.height * 0.024)
+            font.pixelSize: Math.round(page.u * 1.9)
         }
         // Play / Install, Options, Favourite
         Row {
@@ -148,60 +151,60 @@ Rectangle {
                     required property var modelData
                     required property int index
                     readonly property bool focused: page.row === 0 && page.button === index
-                    height: page.height * 0.075
-                    width: bRow.implicitWidth + page.height * 0.06
+                    height: page.u * 5.6
+                    width: bRow.implicitWidth + page.u * 4.4
                     radius: height / 2
                     color: modelData.primary ? page.tint.primary : Qt.alpha(page.theme.surfaceContainerHigh, 0.9)
-                    border.width: focused ? 4 : 0
+                    border.width: focused ? 3 : 0
                     border.color: page.theme.onSurface
-                    scale: focused ? 1.06 : 1
+                    scale: focused ? 1.04 : 1
                     Behavior on scale { enabled: !app.still; NumberAnimation { duration: 120 } }
                     Row {
                         id: bRow
                         anchors.centerIn: parent
                         spacing: 10
-                        Icon { anchors.verticalCenter: parent.verticalCenter; name: modelData.icon; size: page.height * 0.03
+                        Icon { anchors.verticalCenter: parent.verticalCenter; name: modelData.icon; size: page.u * 2.2
                                color: modelData.primary ? page.tint.onPrimary : page.theme.onSurface }
                         Text { anchors.verticalCenter: parent.verticalCenter; text: modelData.label
                                color: modelData.primary ? page.tint.onPrimary : page.theme.onSurface
-                               font.pixelSize: Math.round(page.height * 0.027); font.weight: Font.DemiBold }
+                               font.pixelSize: Math.round(page.u * 2.1); font.weight: Font.DemiBold }
                     }
                     TapHandler { onTapped: { page.row = 0; page.button = index; page.press() } }
                 }
             }
         }
         Text {
-            Layout.preferredWidth: page.width * 0.55
+            Layout.preferredWidth: Math.min(page.width * 0.45, page.u * 70)
             visible: !!page.info.description
             text: page.info.description || ""
             textFormat: Text.PlainText
-            wrapMode: Text.WordWrap; maximumLineCount: 4; elide: Text.ElideRight
+            wrapMode: Text.WordWrap; maximumLineCount: 3; elide: Text.ElideRight
             color: page.theme.onSurface; opacity: 0.9
-            font.pixelSize: Math.round(page.height * 0.023)
+            font.pixelSize: Math.round(page.u * 1.75)
             lineHeight: 1.15
         }
         Text {
             visible: (page.info.genres || []).length > 0 || !!page.info.developer
             text: [(page.info.genres || []).slice(0, 4).join(", "), page.info.developer || "", page.info.year || ""].filter(x => x).join("   ·   ")
             color: page.theme.onSurfaceVariant
-            font.pixelSize: Math.round(page.height * 0.02)
+            font.pixelSize: Math.round(page.u * 1.6)
         }
     }
 
     // Screenshots: yours first, then the store's.
     Column {
-        anchors { left: parent.left; right: parent.right; bottom: hints.top; leftMargin: page.height * 0.07; bottomMargin: page.height * 0.03 }
+        anchors { left: parent.left; right: parent.right; bottom: hints.top; leftMargin: page.u * 5; bottomMargin: page.u * 2.5 }
         spacing: 10
         visible: page.allShots.length > 0
         Text {
             text: page.shots.length ? qsTr("Your screenshots and the store's") : qsTr("Screenshots")
             color: page.theme.onSurfaceVariant
-            font.pixelSize: Math.round(page.height * 0.022); font.weight: Font.DemiBold
+            font.pixelSize: Math.round(page.u * 1.7); font.weight: Font.DemiBold
         }
         ListView {
             id: strip
             width: parent.width
-            height: page.height * 0.17
+            height: page.u * 13
             orientation: ListView.Horizontal
             spacing: 14
             clip: false
@@ -216,7 +219,7 @@ Rectangle {
                 required property int index
                 readonly property bool focused: page.row === 1 && page.shot === index
                 width: strip.height * 16 / 9; height: strip.height
-                scale: focused ? 1.08 : 1
+                scale: focused ? 1.05 : 1
                 z: focused ? 1 : 0
                 Behavior on scale { enabled: !app.still; NumberAnimation { duration: 120 } }
                 RoundedArt {
@@ -241,7 +244,7 @@ Rectangle {
 
     TvHints {
         id: hints
-        anchors { left: parent.left; bottom: parent.bottom; margins: page.height * 0.05 }
+        anchors { left: parent.left; bottom: parent.bottom; margins: page.u * 4 }
         theme: page.theme
         hints: [{ b: "a", k: "Enter", t: page.viewing ? qsTr("Close") : page.row === 0 ? qsTr("Choose") : qsTr("Full size") },
                 { b: "x", k: "F2", t: qsTr("Options") }, { b: "b", k: "Esc", t: qsTr("Back") }]

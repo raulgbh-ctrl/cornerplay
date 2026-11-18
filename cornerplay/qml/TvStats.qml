@@ -30,7 +30,7 @@ Rectangle {
             yr = app.yearStats(years[yearAt]); app.uiSound("move")
         }
     }
-    readonly property real u: height / 100   // one per cent of the screen's height
+    readonly property real u: Math.min(height, 1100) / 100   // one per cent of the height, up to an 1100 px screen
 
     Flickable {
         id: flick

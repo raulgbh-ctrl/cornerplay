@@ -541,9 +541,13 @@ ApplicationWindow {
                         glyph: nav.glyph
                         tint: nav.tint
                         x: win.rail ? Math.round((parent.width - size) / 2) : 10; anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenterOffset: navHover.hovered && !app.light ? -1 : 0
                         size: 22
                         store: nav.store
                         opacity: nav.dim ? 0.35 : 1
+                        scale: navHover.hovered && !app.still ? 1.12 : 1
+                        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutBack } }
+                        Behavior on anchors.verticalCenterOffset { NumberAnimation { duration: 140 } }
                     }
                     Icon {
                         visible: nav.dot === "" && nav.glyph === "" && nav.icon !== ""

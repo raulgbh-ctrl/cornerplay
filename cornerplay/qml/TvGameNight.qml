@@ -18,7 +18,7 @@ Rectangle {
     readonly property var games: night.games || []
     readonly property int topVotes: Math.max(0, ...games.map(g => g.votes))
     readonly property string winner: { const w = games.filter(g => g.votes === topVotes && topVotes > 0); return w.length ? w[0].key : "" }
-    readonly property real u: height / 100
+    readonly property real u: Math.min(height, 1100) / 100  // capped: a tall screen is not bigger type
     function show() { app.startGameNight(); at = 0; visible = true; forceActiveFocus(); app.uiSound("select") }
     function close() { app.uiSound("back"); app.closeGameNight(); visible = false; closed() }
     Keys.onPressed: event => {

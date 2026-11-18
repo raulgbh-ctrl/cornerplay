@@ -5,6 +5,7 @@ import QtQuick
 // collections, backlog, notes and playtime (personal.py).
 Rectangle {
     id: who
+    readonly property real capH: Math.min(height, 1100)  // sizes stop growing past an 1100 px tall screen
     objectName: "tvWho"
     required property var theme
     signal done()
@@ -35,16 +36,16 @@ Rectangle {
 
     Column {
         anchors.centerIn: parent
-        spacing: who.height * 0.06
+        spacing: who.capH * 0.06
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: qsTr("Who's playing?")
             color: who.theme.onSurface
-            font.pixelSize: Math.round(who.height * 0.055); font.weight: Font.DemiBold
+            font.pixelSize: Math.round(who.capH * 0.055); font.weight: Font.DemiBold
         }
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: who.height * 0.05
+            spacing: who.capH * 0.05
             Repeater {
                 model: who.people
                 Column {
@@ -52,7 +53,7 @@ Rectangle {
                     required property string modelData
                     required property int index
                     readonly property bool current: index === who.at
-                    readonly property real size: who.height * 0.17
+                    readonly property real size: who.capH * 0.17
                     spacing: 16
                     Rectangle {
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -77,7 +78,7 @@ Rectangle {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: person.modelData
                         color: person.current ? who.theme.onSurface : who.theme.onSurfaceVariant
-                        font.pixelSize: Math.round(who.height * 0.03); font.weight: person.current ? Font.DemiBold : Font.Normal
+                        font.pixelSize: Math.round(who.capH * 0.03); font.weight: person.current ? Font.DemiBold : Font.Normal
                     }
                 }
             }

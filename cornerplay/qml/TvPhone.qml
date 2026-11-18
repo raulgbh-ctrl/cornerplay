@@ -19,7 +19,7 @@ Rectangle {
         if (event.key === Qt.Key_Escape || event.key === Qt.Key_Backspace) close()
         else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) app.setSetting("phone_remote", !app.settingsMap.phone_remote)
     }
-    readonly property real u: height / 100
+    readonly property real u: Math.min(height, 1100) / 100  // capped: a tall screen is not bigger type
 
     RowLayout {
         anchors.centerIn: parent

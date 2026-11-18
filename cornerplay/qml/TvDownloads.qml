@@ -5,6 +5,7 @@ import QtQuick
 // later; X cancels (press it twice); B goes back.
 Rectangle {
     id: dl
+    readonly property real capH: Math.min(height, 1100)  // sizes stop growing past an 1100 px tall screen
     objectName: "tvDownloads"
     required property var theme
     required property var tint
@@ -45,22 +46,22 @@ Rectangle {
 
     Text {
         id: heading
-        anchors { left: parent.left; top: parent.top; margins: dl.height * 0.07 }
+        anchors { left: parent.left; top: parent.top; margins: dl.capH * 0.07 }
         text: qsTr("Downloads")
         color: dl.theme.onSurface
-        font.pixelSize: Math.round(dl.height * 0.05); font.weight: Font.DemiBold
+        font.pixelSize: Math.round(dl.capH * 0.04); font.weight: Font.DemiBold
     }
     Text {
         anchors { left: heading.left; top: heading.bottom; topMargin: 30 }
         visible: !dl.rows.length
         text: qsTr("Nothing is downloading.")
         color: dl.theme.onSurfaceVariant
-        font.pixelSize: Math.round(dl.height * 0.028)
+        font.pixelSize: Math.round(dl.capH * 0.028)
     }
     ListView {
         id: list
         anchors { left: parent.left; right: parent.right; top: heading.bottom; bottom: hints.top
-                  leftMargin: dl.height * 0.07; rightMargin: dl.height * 0.07; topMargin: 30; bottomMargin: 20 }
+                  leftMargin: dl.capH * 0.07; rightMargin: dl.capH * 0.07; topMargin: 30; bottomMargin: 20 }
         spacing: 14
         clip: true
         interactive: false
@@ -72,7 +73,7 @@ Rectangle {
             required property int index
             readonly property bool focused: index === dl.at
             width: list.width
-            height: dl.height * 0.13
+            height: dl.capH * 0.13
             radius: 18
             color: focused ? Qt.alpha(dl.theme.surfaceContainerHigh, 1) : Qt.alpha(dl.theme.surfaceContainerHigh, 0.5)
             border.width: focused ? 4 : 0; border.color: dl.theme.onSurface
@@ -80,7 +81,7 @@ Rectangle {
                 anchors { left: parent.left; leftMargin: 18; verticalCenter: parent.verticalCenter }
                 spacing: 22
                 RoundedArt {
-                    width: height * 0.72; height: dl.height * 0.1
+                    width: height * 0.72; height: dl.capH * 0.1
                     radius: 8
                     ArtImage { anchors.fill: parent; sources: modelData.covers || []; sourceSize.width: 120 }
                 }
@@ -89,10 +90,10 @@ Rectangle {
                     spacing: 8
                     width: list.width * 0.62
                     Text { text: modelData.title; color: dl.theme.onSurface; elide: Text.ElideRight; width: parent.width
-                           font.pixelSize: Math.round(dl.height * 0.03); font.weight: Font.DemiBold }
+                           font.pixelSize: Math.round(dl.capH * 0.03); font.weight: Font.DemiBold }
                     Text {
                         color: dl.theme.onSurfaceVariant
-                        font.pixelSize: Math.round(dl.height * 0.022)
+                        font.pixelSize: Math.round(dl.capH * 0.022)
                         text: {
                             const d = modelData
                             if (dl.armed === d.key) return qsTr("Press X again to cancel")
@@ -117,7 +118,7 @@ Rectangle {
     }
     TvHints {
         id: hints
-        anchors { left: parent.left; bottom: parent.bottom; margins: dl.height * 0.05 }
+        anchors { left: parent.left; bottom: parent.bottom; margins: dl.capH * 0.05 }
         theme: dl.theme
         hints: [{ b: "a", k: "Enter", t: dl.cur.state === "tonight" ? qsTr("Install now") : dl.cur.state === "paused" ? qsTr("Resume") : qsTr("Pause") },
                 { b: "x", k: "F2", t: qsTr("Cancel") }, { b: "b", k: "Esc", t: qsTr("Back") }]

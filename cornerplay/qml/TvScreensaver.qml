@@ -5,6 +5,7 @@ import QtQuick
 // click or pointer movement wakes it, and that first press only wakes it (it does nothing else).
 Rectangle {
     id: saver
+    readonly property real capH: Math.min(height, 1100)  // sizes stop growing past an 1100 px tall screen
     objectName: "tvSaver"
     required property var theme
     signal woke()
@@ -84,18 +85,18 @@ Rectangle {
     Timer { interval: 1000; repeat: true; triggeredOnStart: true; running: saver.visible
             onTriggered: saver.clock = Qt.formatTime(new Date(), Qt.locale(app.uiLocale).timeFormat(Locale.ShortFormat)) }
     Text {
-        anchors { right: parent.right; top: parent.top; margins: saver.height * 0.06 }
+        anchors { right: parent.right; top: parent.top; margins: saver.capH * 0.06 }
         text: saver.clock
         color: "white"; opacity: 0.92
-        font.pixelSize: Math.round(saver.height * 0.09); font.weight: Font.Light
+        font.pixelSize: Math.round(saver.capH * 0.09); font.weight: Font.Light
     }
     Column {
-        anchors { left: parent.left; bottom: parent.bottom; margins: saver.height * 0.07 }
+        anchors { left: parent.left; bottom: parent.bottom; margins: saver.capH * 0.07 }
         spacing: 8
         Text {
             text: saver.game.title || ""
             color: "white"
-            font.pixelSize: Math.round(saver.height * 0.045); font.weight: Font.DemiBold; font.family: app.titleFamily
+            font.pixelSize: Math.round(saver.capH * 0.045); font.weight: Font.DemiBold; font.family: app.titleFamily
         }
         Text {
             visible: !!saver.game.lastPlayed
@@ -106,7 +107,7 @@ Rectangle {
                 return qsTr("Last played ") + (days <= 0 ? qsTr("today") : days === 1 ? qsTr("yesterday") : days + qsTr(" days ago"))
             }
             color: "white"; opacity: 0.75
-            font.pixelSize: Math.round(saver.height * 0.024)
+            font.pixelSize: Math.round(saver.capH * 0.024)
         }
     }
     Text {
@@ -114,6 +115,6 @@ Rectangle {
         anchors.centerIn: parent
         text: qsTr("Cornerplay")
         color: "white"; opacity: 0.4
-        font.pixelSize: Math.round(saver.height * 0.05)
+        font.pixelSize: Math.round(saver.capH * 0.05)
     }
 }
