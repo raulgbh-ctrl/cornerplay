@@ -1650,6 +1650,7 @@ FocusScope {
             { label: qsTr("Challenges"), icon: "zap", act: "challenges" },
             { label: qsTr("Game night"), icon: "user-round", act: "night" },
             { label: qsTr("Phone remote"), icon: "link", act: "phone", value: app.settingsMap.phone_remote ? qsTr("On") : "" },
+            ...app.pluginActions.map(a => ({ group: qsTr("Plugins"), label: a.label, icon: "puzzle", act: "plugin", id: a.id })),
             ...(app.settingsMap.stream_pc ? [{ label: qsTr("Play on ") + app.settingsMap.stream_pc, icon: "tv", act: "stream" }] : []),
             { label: qsTr("Quick access"), icon: "sliders-horizontal", act: "quick" },
             { label: qsTr("Settings"), icon: "settings-2", act: "settings" },
@@ -1701,6 +1702,7 @@ FocusScope {
             else if (row.act === "challenges") { hide(); goalSheet.show() }
             else if (row.act === "night") { hide(); gameNight.show() }
             else if (row.act === "phone") { hide(); phonePage.show() }
+            else if (row.act === "plugin") { hide(); app.runPluginAction(row.id) }
             else if (row.act === "roulette") { hide(); roulette.show() }
             else if (row.act === "stream") { hide(); app.streamFromPc() }
             else controls.run(row)

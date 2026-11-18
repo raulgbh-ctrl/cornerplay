@@ -219,6 +219,9 @@ def _put_away(group) -> bool:
     return not any(g.installed for g in group) and any(game_options.get(g.key).get("put_away") for g in group)
 
 
+# Plugins (plugins.py): the loaded host, for the proxies' plugin rows.
+_PLUGINS = {"host": {}, "game": lambda group: {}}
+
 # Family limits: the games the current person may see (family.py), "" = every game.
 _FAMILY = {"only": ""}
 
@@ -559,6 +562,13 @@ class LibraryProxy(QSortFilterProxyModel):
             return _has_news(group)
         if s == "because":
             return _BECAUSE["test"](group)
+        if s.startswith("p:"):
+            from . import plugins
+            test = plugins.test_of(_PLUGINS["host"], s)
+            try:
+                return bool(test and test(_PLUGINS["game"](group)))
+            except Exception:
+                return False
         if s.startswith("s:"):
             return shelves.meta(group, "status") == s[2:]
         return True
@@ -4044,6 +4054,13 @@ class AioLaunch(QObject):
         add("s:finished", _t("Finished"), lambda g: shelves.meta(g, "status") == "finished")
         add("together", _t("Play together"), lambda g: any(couch.local(_appid(x)) for x in g))
         add("away", _t("Put away"), _put_away)
+        for ps in (_PLUGINS["host"].get("shelves") or []):
+            def ptest(g, t=ps["test"]):
+                try:
+                    return bool(t(self._plugin_game(g)))
+                except Exception:
+                    return False
+            add(ps["id"], ps["name"], ptest)
         # Each person's own order and choice of rows (personal.py: synced with their favourites).
         layout = personal.home_layout()
         order, off = layout.get("order") or [], set(layout.get("off") or [])
@@ -6158,7 +6175,72 @@ class AioLaunch(QObject):
 
     # --- "Because you played", price watch, space planner, pre-launch checks, pad batteries,
     # --- sleep timer --------------------------------------------------------------------------
+    # --- plugins (plugins.py) ---------------------------------------------------------------
+    pluginsChanged = Signal()
+
+    def _plugin_game(self, group):
+        m = self.model
+        g = m.rep(group)
+        return {"key": g.key, "title": g.title, "store": g.store, "installed": any(x.installed for x in group),
+                "playtime": m.group_value(group, "playtime"), "lastPlayed": m.group_value(group, "lastPlayed"),
+                "genres": list((details.cached(g.key) or {}).get("genres") or [])}
+
+    def _plugins_load(self):
+        from . import plugins
+        if self.demo:
+            return
+        _PLUGINS["host"] = plugins.load(lambda text: self._after.emit(lambda: self.toast.emit(text)))
+        _PLUGINS["game"] = self._plugin_game
+        self._plugins_playing_now = {p["key"] for p in self._now_playing()}
+        self.pluginsChanged.emit()
+        self.collectionsChanged.emit()  # rows may have come or gone
+
+    def _plugins_playing(self):
+        from . import plugins
+        host = _PLUGINS["host"]
+        if not host:
+            return
+        now = {p["key"] for p in self._now_playing()}
+        before = getattr(self, "_plugins_playing_now", set())
+        for key, kind in [(k, "start") for k in now - before] + [(k, "stop") for k in before - now]:
+            grp = self.model.group_of(key)
+            if grp:
+                plugins.call(host, kind, self._plugin_game(grp))
+        self._plugins_playing_now = now
+
+    def _plugin_list(self):
+        from . import plugins
+        errors = _PLUGINS["host"].get("errors") or {}
+        return [dict(p, error=errors.get(p["name"], "")) for p in plugins.available()]
+
+    pluginList = Property("QVariantList", _plugin_list, notify=pluginsChanged)
+    pluginActions = Property("QVariantList", lambda s: [{"id": a["id"], "label": a["label"]} for a in _PLUGINS["host"].get("actions") or []],
+                             notify=pluginsChanged)
+
+    @Slot(str, bool)
+    def setPluginOn(self, name, on):
+        from . import plugins
+        plugins.set_on(name, on)
+        self._plugins_load()
+
+    @Slot(str)
+    def runPluginAction(self, aid):
+        for a in _PLUGINS["host"].get("actions") or []:
+            if a["id"] == aid:
+                try:
+                    a["fn"]()
+                except Exception as e:
+                    self.toast.emit(f"{a['plugin']}: {e}")
+
+    @Slot()
+    def openPluginsFolder(self):
+        from . import plugins
+        QDesktopServices.openUrl(QUrl.fromLocalFile(plugins.make_example()))
+        self.pluginsChanged.emit()
+
     def _extras_start(self):
+        self.nowPlayingChanged.connect(self._plugins_playing)
+        QTimer.singleShot(1000, self._plugins_load)
         QTimer.singleShot(1500, self._remote_apply)
         _FAMILY["only"] = family.rules(personal.current())["only"]
         self._pad_low = set()      # controllers already warned about (until they charge again)

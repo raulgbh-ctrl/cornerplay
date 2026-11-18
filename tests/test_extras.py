@@ -73,3 +73,25 @@ def test_lutris_games_from_its_database(tmp_path, monkeypatch):
     games = importer.lutris_games()
     assert [g["title"] for g in games] == ["Diablo II"]
     assert importer.lutris_command(games[0])[1] == "lutris:rungameid/3"
+
+
+def test_plugins_load_only_when_switched_on(tmp_path, monkeypatch):
+    from cornerplay import plugins
+    monkeypatch.setattr(plugins, "FOLDER", tmp_path / "plugins")
+    monkeypatch.setattr(plugins, "STATE", tmp_path / "plugins.json")
+    plugins.make_example()
+    bad = tmp_path / "plugins" / "bad"
+    bad.mkdir()
+    (bad / "plugin.py").write_text("def register(api):\n    raise RuntimeError('nope')\n")
+    assert {p["name"]: p["on"] for p in plugins.available()} == {"bad": False, "example": False}
+    assert plugins.load(print)["shelves"] == []
+    plugins.set_on("example", True)
+    plugins.set_on("bad", True)
+    host = plugins.load(print)
+    assert [s["name"] for s in host["shelves"]] == ["Quick to try"] and len(host["actions"]) == 1
+    assert "nope" in host["errors"]["bad"]
+    test = plugins.test_of(host, host["shelves"][0]["id"])
+    assert test({"installed": True, "playtime": 600}) and not test({"installed": True, "playtime": 9000})
+    host["start"].append(("boom", lambda g: 1 / 0))
+    plugins.call(host, "start", {"title": "x"})
+    assert "boom" in host["errors"] and all(n != "boom" for n, _ in host["start"])

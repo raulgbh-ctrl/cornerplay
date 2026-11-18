@@ -431,7 +431,7 @@ ApplicationWindow {
                                         { i: "eye-off", t: qsTr("Hidden games"), k: "", hidden: true,
                                           run: () => { library.storeFilter = ""; library.shelf = ""; library.showHidden = !library.showHidden } },
                                         { i: "keyboard", t: qsTr("Keyboard shortcuts"), k: "F1", run: () => keysBox.open() }
-                                    ]
+                                    ].concat(app.pluginActions.map(a => ({ i: "puzzle", t: a.label, k: "", run: () => app.runPluginAction(a.id) })))
                                     Rectangle {
                                         id: tm
                                         required property var modelData
@@ -5894,6 +5894,7 @@ ApplicationWindow {
         property string label
         property string settingKey
         property var act: null  // set: called with the new state instead of saving settingKey
+        property var state: undefined  // set: shown instead of the setting (with act)
         readonly property bool hit: prefs.query !== "" && label.toLowerCase().indexOf(prefs.query) !== -1
         Layout.fillWidth: true
         implicitHeight: Math.max(48, tgText.implicitHeight + 24)  // a long label wraps instead of losing its end
@@ -5909,7 +5910,7 @@ ApplicationWindow {
         Switch {
             anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
             id: sw
-            checked: app.settingsMap[tg.settingKey] === true
+            checked: tg.state !== undefined ? tg.state === true : app.settingsMap[tg.settingKey] === true
             onToggled: tg.act ? tg.act(checked) : app.setSetting(tg.settingKey, checked)
             indicator: Rectangle {
                 implicitWidth: 40; implicitHeight: 22; radius: 11
@@ -7044,6 +7045,26 @@ ApplicationWindow {
                                 color: theme.onSurfaceVariant; font.pixelSize: 13
                                 text: qsTr("Things most people never need to change.")
                             }
+                            // Plugins: your own Python files that add rows, actions and game hooks (plugins.py).
+                            Text { text: qsTr("Plugins"); color: theme.onSurface; font.pixelSize: 15; font.weight: Font.DemiBold }
+                            Text {
+                                Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
+                                text: qsTr("Small Python files in Cornerplay's plugins folder can add Home rows, menu actions and things to do when a game starts or stops. They run with your rights, like any program: switch on only plugins you wrote or trust.")
+                            }
+                            Repeater {
+                                model: app.pluginList
+                                ColumnLayout {
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    spacing: 2
+                                    Toggle { label: modelData.title + (modelData.description ? "  ·  " + modelData.description : ""); state: modelData.on
+                                             act: on => app.setPluginOn(modelData.name, on) }
+                                    Text { visible: !!modelData.error; Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.error; font.pixelSize: 12
+                                           text: qsTr("Stopped: %1").arg(modelData.error) }
+                                }
+                            }
+                            KButton { theme: win.theme; iconName: "folder-open"; text: qsTr("Open the plugins folder (with an example)"); onClicked: app.openPluginsFolder() }
+                            Rectangle { Layout.fillWidth: true; height: 1; color: theme.outlineVariant }
                             Toggle { label: qsTr("Show what I play on Discord (Epic, GOG, Amazon and added games)"); settingKey: "discord_presence" }
                             Row2 {
                                 visible: !!app.settingsMap.discord_presence
