@@ -6460,6 +6460,27 @@ ApplicationWindow {
                                 onActivated: app.setSetting("tv_skin", currentValue)
                             }
                         }
+                        Row2 {
+                            label: qsTr("Room lights in the game's colour")
+                            hint: qsTr("Follows the game in focus in TV mode and the game you play. OpenRGB: turn on its SDK server (OpenRGB's SDK Server tab). Philips Hue: type the bridge's address, press its round button, then Pair.")
+                            KCombo {
+                                theme: win.theme; Layout.fillWidth: true
+                                model: [{ label: qsTr("Off"), value: "" }, { label: "OpenRGB", value: "openrgb" }, { label: "Philips Hue", value: "hue" }]
+                                Component.onCompleted: select(app.settingsMap.lights || "")
+                                onActivated: app.setSetting("lights", currentValue)
+                            }
+                        }
+                        RowLayout {
+                            visible: app.settingsMap.lights === "hue"
+                            Layout.fillWidth: true
+                            spacing: 8
+                            KField { id: hueIp; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("Hue bridge address (e.g. 192.168.0.20)")
+                                     text: app.settingsMap.hue_bridge || "" }
+                            KField { theme: win.theme; Layout.preferredWidth: 110; placeholderText: qsTr("Room id (0: all)")
+                                     text: app.settingsMap.hue_group || "0"; onEditingFinished: app.setSetting("hue_group", text.trim() || "0") }
+                            KButton { theme: win.theme; text: app.settingsMap.hue_user ? qsTr("Paired · Pair again") : qsTr("Pair"); iconName: "link"
+                                      enabled: hueIp.text.trim() !== ""; onClicked: app.pairHue(hueIp.text) }
+                        }
                         Toggle { label: qsTr("Phone remote and web library on your home network (a code keeps others out)"); settingKey: "phone_remote" }
                         Text {
                             visible: !!app.remoteInfo.on || !!app.remoteInfo.error

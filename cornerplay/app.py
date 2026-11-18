@@ -153,6 +153,10 @@ def _translatable_names():
             QCoreApplication.translate("app", "Clips are off: Settings > Games > Clips"),
             QCoreApplication.translate("app", "No game is recording right now"),
             QCoreApplication.translate("app", "No such game"),
+            QCoreApplication.translate("app", "Lights did not answer: "),
+            QCoreApplication.translate("app", "No Hue bridge there: "),
+            QCoreApplication.translate("app", "Press the round button on the Hue bridge, then Pair again"),
+            QCoreApplication.translate("app", "Paired with the Hue bridge"),
             QCoreApplication.translate("app", "Imported %1 games from Lutris"),
             QCoreApplication.translate("app", "Lutris is not installed"),
             QCoreApplication.translate("app", "That PIN is not right"),
@@ -5509,6 +5513,7 @@ class AioLaunch(QObject):
             want["tdp"] = int((own["tdp"] if "tdp" in own else settings.get("tdp")) or 0)
             if settings.get("clips"):
                 want["clips"] = first.get("title") or "Game"
+            self.lightsFor(self.gameColour(first["key"]))
             self._focus = {}
             if settings.get("focus_downloads"):
                 self._focus_paused = [k for k, j in list(self.model.jobs.items()) if j.get("kind") in self.PAUSABLE]
@@ -6175,6 +6180,58 @@ class AioLaunch(QObject):
 
     # --- "Because you played", price watch, space planner, pre-launch checks, pad batteries,
     # --- sleep timer --------------------------------------------------------------------------
+    # --- room lights in the game's colour (lights.py) ------------------------------------------
+    @Slot(str)
+    def lightsFor(self, colour):
+        """TV mode's focused game (or the game started) gives the lights its colour, after the
+        focus rests a moment."""
+        if not settings.get("lights") or self.demo or not colour:
+            return
+        self._lights_want = colour
+        if not hasattr(self, "_lights_timer"):
+            self._lights_timer = QTimer(self, singleShot=True, interval=700)
+            self._lights_timer.timeout.connect(self._lights_go)
+        self._lights_timer.start()
+
+    def _lights_go(self):
+        from . import lights
+        colour = getattr(self, "_lights_want", "")
+        if not colour or colour == getattr(self, "_lights_now", ""):
+            return
+        self._lights_now = colour
+
+        def work():
+            err = lights.apply(colour, settings.get)
+            return (lambda: self._lights_error(err)) if err else None
+        self._bg(work)
+
+    def _lights_error(self, err):
+        if not getattr(self, "_lights_told", False):  # once a session is enough
+            self._lights_told = True
+            self.toast.emit(_t("Lights did not answer: ") + err[:120])
+
+    @Slot(str)
+    def pairHue(self, bridge):
+        from . import lights
+        bridge = bridge.strip()
+
+        def work():
+            try:
+                user = lights.hue_pair(bridge)
+            except Exception as e:
+                return lambda m=str(e): self.toast.emit(_t("No Hue bridge there: ") + m[:100])
+
+            def done():
+                if not user:
+                    self.toast.emit(_t("Press the round button on the Hue bridge, then Pair again"))
+                    return
+                settings.set("hue_bridge", bridge)
+                settings.set("hue_user", user)
+                self.settingsChanged.emit()
+                self.toast.emit(_t("Paired with the Hue bridge"))
+            return done
+        self._bg(work)
+
     # --- plugins (plugins.py) ---------------------------------------------------------------
     pluginsChanged = Signal()
 

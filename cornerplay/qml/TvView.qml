@@ -27,6 +27,7 @@ FocusScope {
     // The focused game's own colour (from its cover) tints the glow and the active tab.
     property string gameAccent: ""
     property color accent: gameAccent || theme.primary
+    onGameAccentChanged: if (gameAccent && tv.visible) app.lightsFor(gameAccent)  // room lights (lights.py)
     Behavior on accent { enabled: !app.still; ColorAnimation { duration: 450 } }
     readonly property var tint: {
         const c = tv.accent

@@ -95,3 +95,19 @@ def test_plugins_load_only_when_switched_on(tmp_path, monkeypatch):
     host["start"].append(("boom", lambda g: 1 / 0))
     plugins.call(host, "start", {"title": "x"})
     assert "boom" in host["errors"] and all(n != "boom" for n, _ in host["start"])
+
+
+def test_openrgb_led_count_and_hue_colour():
+    import struct
+    from cornerplay import lights
+
+    def text(s):
+        b = s.encode() + b"\0"
+        return struct.pack("<H", len(b)) + b
+    mode = text("Direct") + struct.pack("<9I", 0, 0, 0, 0, 0, 0, 0, 0, 1) + struct.pack("<H", 1) + b"\0\0\0\0"
+    zone = text("Keys") + struct.pack("<iIII", 0, 1, 104, 104) + struct.pack("<H", 1) + struct.pack("<II", 2, 2) + b"\0" * 16
+    body = struct.pack("<i", 5) + b"".join(text(x) for x in ("Kbd", "d", "v", "s", "l")) + struct.pack("<H", 1) + struct.pack("<i", 0) \
+        + mode + struct.pack("<H", 1) + zone + struct.pack("<H", 104)
+    assert lights.led_count(struct.pack("<I", len(body) + 4) + body) == 104
+    assert lights.rgb_to_xy((255, 0, 0))[0] > 0.6
+    assert lights.hex_rgb("#ff8000") == (255, 128, 0)

@@ -113,6 +113,10 @@ DEFAULTS = {
     "clips": False,             # keep the last 30 s of a game to save on demand (gpu-screen-recorder, clips.py)
     "family": {},               # family limits per person (family.py)
     "family_pin": "",
+    "lights": "",               # room lights in the game's colour: "", "openrgb", "hue" (lights.py)
+    "hue_bridge": "",
+    "hue_user": "",
+    "hue_group": "0",           # all lights, or a room's group id
     "tv_skin": "",              # TV mode's look: "", "phosphor", "gallery", "arcade"
     "phone_remote": False,      # the phone remote and web library on the home network (remote.py), off by default
     "prelaunch_checks": True,   # before a game: battery, downloads, a missing controller, a full drive (toasts)
