@@ -6449,6 +6449,17 @@ ApplicationWindow {
                         Toggle { label: qsTr("TV mode: the controller buzzes lightly when moving and choosing"); settingKey: "tv_rumble" }
                         Toggle { visible: typeof canPlayVideo !== "undefined" && canPlayVideo; label: qsTr("TV mode: calm background music (quiet during trailers and games)"); settingKey: "tv_music" }
                         Toggle { label: qsTr("TV mode: ask \"Who's playing?\" at start (when several people use this PC)"); settingKey: "tv_who" }
+                        Row2 {
+                            label: qsTr("TV mode's look")
+                            hint: qsTr("Phosphor: an old screen's scanlines and pixel titles. Gallery: calm and flat, bigger covers, no moving art. Arcade Night: a dark room with a neon glow around the game in focus.")
+                            KCombo {
+                                theme: win.theme; Layout.fillWidth: true
+                                model: [{ label: qsTr("Cornerplay"), value: "" }, { label: qsTr("Phosphor"), value: "phosphor" },
+                                        { label: qsTr("Gallery"), value: "gallery" }, { label: qsTr("Arcade Night"), value: "arcade" }]
+                                Component.onCompleted: select(app.settingsMap.tv_skin || "")
+                                onActivated: app.setSetting("tv_skin", currentValue)
+                            }
+                        }
                         Toggle { label: qsTr("Phone remote and web library on your home network (a code keeps others out)"); settingKey: "phone_remote" }
                         Text {
                             visible: !!app.remoteInfo.on || !!app.remoteInfo.error

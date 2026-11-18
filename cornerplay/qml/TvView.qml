@@ -18,6 +18,12 @@ FocusScope {
 
     property var cur: ({})
 
+    // Skins (Settings > TV mode > Look), all Cornerplay's own: "" the usual; "phosphor" an old
+    // CRT's scanlines and glow with pixel titles; "gallery" calm and flat, bigger covers, no
+    // moving art; "arcade" a dark room with a neon glow around the game in focus.
+    readonly property string skin: app.settingsMap.tv_skin || ""
+    readonly property string skinFamily: ({ phosphor: "Silkscreen", gallery: "Lora", arcade: "Barlow Condensed" })[skin] || app.titleFamily
+
     // The focused game's own colour (from its cover) tints the glow and the active tab.
     property string gameAccent: ""
     property color accent: gameAccent || theme.primary
@@ -313,7 +319,7 @@ FocusScope {
     Item {
         id: stage
         anchors.fill: parent
-        visible: tv.visible
+        visible: tv.visible && tv.skin !== "gallery"
         property bool showA: true
         property bool none: true      // no wide art for this game: show its blurred cover instead
         property string incoming: ""  // "a" or "b" while that image loads the next game's art
@@ -437,6 +443,26 @@ FocusScope {
                 GradientStop { position: 0.82; color: Qt.alpha(theme.background, 0.85) }
                 GradientStop { position: 1.0; color: theme.background }
             }
+        }
+    }
+
+    // Gallery: a calm, flat wall in the game's colour instead of the moving art.
+    Rectangle {
+        anchors.fill: parent
+        visible: tv.skin === "gallery"
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Qt.tint(theme.background, Qt.alpha(tv.accent, 0.10)) }
+            GradientStop { position: 1.0; color: theme.background }
+        }
+    }
+    // Arcade Night: the art sinks into a dark room, with a coloured horizon at the bottom.
+    Rectangle {
+        anchors.fill: parent
+        visible: tv.skin === "arcade"
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Qt.alpha("#05030a", 0.72) }
+            GradientStop { position: 0.7; color: Qt.alpha("#05030a", 0.55) }
+            GradientStop { position: 1.0; color: Qt.alpha(tv.accent, 0.30) }
         }
     }
 
@@ -629,9 +655,10 @@ FocusScope {
                 LogoTitle {
                     id: titleBlock
                     Layout.fillWidth: true
-                    logos: tv.cur.logos || []
+                    logos: tv.skin === "phosphor" ? [] : (tv.cur.logos || [])
                     title: tv.cur.title || ""
-                    color: theme.onSurface
+                    family: tv.skinFamily
+                    color: tv.skin === "phosphor" ? tv.tint.primary : theme.onSurface
                     pixelSize: Math.round(Math.min(72, Math.max(40, tv.height * 0.06)))
                     logoHeight: Math.round(Math.min(170, Math.max(80, Math.min(tv.height * 0.15, infoArea.height * 0.3))))
                     maxWidth: Math.min(width, 640)
@@ -834,7 +861,7 @@ FocusScope {
             transform: Translate { id: shelfSlide }
             objectName: "tvGrid"
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.round(Math.max(200, tv.height * (peek.visible ? 0.29 : 0.34)))
+            Layout.preferredHeight: Math.round(Math.max(200, tv.height * (tv.skin === "gallery" ? 0.42 : peek.visible ? 0.29 : 0.34)))
             focus: true
             clip: false
             model: tvLibrary
@@ -907,6 +934,14 @@ FocusScope {
                             GradientStop { position: 1.0; color: theme.background }
                         }
                     }
+                }
+                // Arcade Night: a neon glow in the game's colour around the cover in focus.
+                RectangularShadow {
+                    z: -1
+                    visible: tv.skin === "arcade" && tvCard.current && GraphicsInfo.api !== GraphicsInfo.Software
+                    anchors.fill: parent; anchors.margins: 8
+                    radius: app.settingsMap.card_radius; blur: 40; spread: 6
+                    color: Qt.alpha(tv.accent, 0.85)
                 }
                 // The focused game's animated cover, over its still one.
                 RoundedArt {
@@ -1034,6 +1069,30 @@ FocusScope {
                 }
                 Hint { required property var modelData; hint: modelData }
             }
+        }
+    }
+
+    // Phosphor: scanlines and a dark vignette over everything on the home screen (menus and
+    // pages on top stay clean). Drawn once per size, not per frame.
+    Canvas {
+        id: scan
+        anchors.fill: parent
+        z: 30
+        visible: tv.skin === "phosphor"
+        enabled: false
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        onVisibleChanged: if (visible) requestPaint()
+        onPaint: {
+            const c = getContext("2d")
+            c.reset()
+            c.fillStyle = "rgba(0,0,0,0.16)"
+            for (let y = 0; y < height; y += 3) c.fillRect(0, y, width, 1)
+            const g = c.createRadialGradient(width / 2, height / 2, Math.min(width, height) * 0.35, width / 2, height / 2, Math.max(width, height) * 0.75)
+            g.addColorStop(0, "rgba(0,0,0,0)")
+            g.addColorStop(1, "rgba(0,0,0,0.55)")
+            c.fillStyle = g
+            c.fillRect(0, 0, width, height)
         }
     }
 

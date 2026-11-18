@@ -10,6 +10,7 @@ Item {
     property int pixelSize: 36
     property int logoHeight: 96
     property int maxWidth: 520
+    property string family: app.titleFamily  // TV mode's skins choose their own
     readonly property bool hasLogo: logo.status === Image.Ready
     implicitWidth: hasLogo ? Math.min(maxWidth, logo.paintedWidth) : Math.min(maxWidth, text.implicitWidth)
     implicitHeight: hasLogo ? logoHeight : text.implicitHeight
@@ -58,7 +59,7 @@ Item {
         text: lt.title
         color: lt.color
         font.pixelSize: lt.pixelSize
-        font.family: app.titleFamily
+        font.family: lt.family
         font.weight: Font.Black
         wrapMode: Text.WordWrap
         maximumLineCount: 2
