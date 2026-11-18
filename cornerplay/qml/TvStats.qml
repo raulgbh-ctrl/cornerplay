@@ -22,6 +22,7 @@ Rectangle {
         event.accepted = true
         const k = event.key, years = d.years || []
         if (k === Qt.Key_Escape || k === Qt.Key_Backspace || k === Qt.Key_Return) close()
+        else if (k === Qt.Key_F2 && (yr.hours || 0) > 0 && !app.videoBusy) app.makeYearVideo(yr.year)
         else if (k === Qt.Key_Down) flick.contentY = Math.min(Math.max(0, flick.contentHeight - flick.height), flick.contentY + st.height * 0.2)
         else if (k === Qt.Key_Up) flick.contentY = Math.max(0, flick.contentY - st.height * 0.2)
         else if ((k === Qt.Key_Left || k === Qt.Key_Right) && years.length > 1) {
@@ -135,6 +136,6 @@ Rectangle {
     TvHints {
         anchors { left: parent.left; bottom: parent.bottom; margins: st.u * 4 }
         theme: st.theme
-        hints: [{ b: "b", k: "Esc", t: qsTr("Back") }].concat((st.d.years || []).length > 1 ? [{ b: "", k: "\u2190 \u2192", t: qsTr("another year") }] : [])
+        hints: [{ b: "b", k: "Esc", t: qsTr("Back") }, { b: "x", k: "F2", t: app.videoBusy ? qsTr("Making the video…") : qsTr("Make a video") }].concat((st.d.years || []).length > 1 ? [{ b: "", k: "\u2190 \u2192", t: qsTr("another year") }] : [])
     }
 }

@@ -111,3 +111,15 @@ def test_openrgb_led_count_and_hue_colour():
     assert lights.led_count(struct.pack("<I", len(body) + 4) + body) == 104
     assert lights.rgb_to_xy((255, 0, 0))[0] > 0.6
     assert lights.hex_rgb("#ff8000") == (255, 128, 0)
+
+
+def test_year_video_slides_and_pictures_without_ffmpeg(tmp_path, monkeypatch):
+    from PySide6.QtGui import QGuiApplication
+    QGuiApplication.instance() or QGuiApplication([])
+    from cornerplay import recapvideo
+    yr = {"year": 2026, "hours": 12, "games": 3, "top": [{"title": "A", "hours": 10}], "months": [0] * 10 + [12, 0],
+          "busiestMonth": "November", "newCount": 1, "finishedCount": 0, "finished": [], "longest": {}}
+    assert len(recapvideo.slides(yr, "", "#f0a868")) == 6  # title, hours, top, months, started, the end
+    monkeypatch.setattr(recapvideo.shutil, "which", lambda name: None)
+    path, err = recapvideo.make(yr, "", "#f0a868", tmp_path)
+    assert "ffmpeg" in err and len(list((tmp_path / "Cornerplay 2026").glob("*.png"))) == 6

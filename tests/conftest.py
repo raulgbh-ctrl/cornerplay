@@ -10,6 +10,7 @@ os.environ["HOME"] = str(_HOME)
 for var, sub in (("XDG_CONFIG_HOME", ".config"), ("XDG_DATA_HOME", ".local/share"), ("XDG_CACHE_HOME", ".cache")):
     os.environ[var] = str(_HOME / sub)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest  # noqa: E402
 
@@ -21,3 +22,12 @@ def _no_real_backlight(monkeypatch, tmp_path_factory):
     from cornerplay import stream
     monkeypatch.setattr(stream, "BACKLIGHT_DIR", tmp_path_factory.mktemp("backlight"))
     monkeypatch.setattr(stream, "_start_watch", lambda *a, **k: None)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _one_qt_app():
+    """One QGuiApplication for every test (a QCoreApplication made first by one test would stop
+    a later one from drawing pictures or windows)."""
+    from PySide6.QtCore import QCoreApplication
+    from PySide6.QtGui import QGuiApplication
+    yield QCoreApplication.instance() or QGuiApplication([])

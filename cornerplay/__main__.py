@@ -126,7 +126,7 @@ def check_qml():
         QtWebEngineQuick.initialize()
     except ImportError:
         pass
-    app = QGuiApplication(["cornerplay"])
+    app = QGuiApplication.instance() or QGuiApplication(["cornerplay"])
     engine = QQmlEngine()
     bad = 0
     for qml in sorted((Path(__file__).parent / "qml").glob("*.qml")):

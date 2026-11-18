@@ -5046,6 +5046,9 @@ ApplicationWindow {
                     visible: statsBox.page === 1
                     spacing: 16
                     readonly property var yr: statsBox.yr
+                    KButton { theme: win.theme; iconName: "play"; enabled: !app.videoBusy && (statsBox.yr.hours || 0) > 0
+                              text: app.videoBusy ? qsTr("Making the video…") : qsTr("Make a video of this year")
+                              onClicked: app.makeYearVideo(statsBox.yr.year) }
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8

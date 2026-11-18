@@ -153,6 +153,9 @@ def _translatable_names():
             QCoreApplication.translate("app", "Clips are off: Settings > Games > Clips"),
             QCoreApplication.translate("app", "No game is recording right now"),
             QCoreApplication.translate("app", "No such game"),
+            QCoreApplication.translate("app", "Making your year's video…"),
+            QCoreApplication.translate("app", "Your year's video is ready: "),
+            QCoreApplication.translate("app", "Could not make the video: "),
             QCoreApplication.translate("app", "Lights did not answer: "),
             QCoreApplication.translate("app", "No Hue bridge there: "),
             QCoreApplication.translate("app", "Press the round button on the Hue bridge, then Pair again"),
@@ -4360,6 +4363,48 @@ class AioLaunch(QObject):
         if played_now:
             out["games"] = len(played_now | {t["title"] for t in out["top"]} | set(out["newGames"]))
         return out
+
+    # --- your year as a video (recapvideo.py) --------------------------------------------------
+    videoBusyChanged = Signal()
+    videoBusy = Property(bool, lambda s: getattr(s, "_video_busy", False), notify=videoBusyChanged)
+
+    @Slot(int)
+    def makeYearVideo(self, year):
+        """A short video of the year's stats, into ~/Videos/Cornerplay/ (opened when done)."""
+        if getattr(self, "_video_busy", False):
+            return
+        yr = dict(self.yearStats(year))
+        covers_of = {}
+        for t in (yr.get("top") or [])[:3]:
+            g = self.model.find(t.get("key", ""))
+            if g:
+                covers_of[t["title"]] = (_covers(g) or [""])[0]
+        yr["covers"] = covers_of
+        person = personal.current() if len(personal.profiles()) > 1 else ""
+        accent = self._theme.get("primary", "#f0a868")
+        from . import clips
+        out_dir = clips.folder("x").parent
+        self._video_busy = True
+        self.videoBusyChanged.emit()
+        self.toast.emit(_t("Making your year's video…"))
+
+        def work():
+            from . import recapvideo
+            try:
+                path, err = recapvideo.make(yr, person, accent, out_dir)
+            except Exception as e:
+                path, err = "", str(e)
+
+            def done():
+                self._video_busy = False
+                self.videoBusyChanged.emit()
+                if path:
+                    self.toast.emit(_t("Your year's video is ready: ") + os.path.basename(path) + (f" ({err})" if err else ""))
+                    QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path) if path.endswith(".mp4") else path))
+                else:
+                    self.toast.emit(_t("Could not make the video: ") + err)
+            return done
+        self._bg(work)
 
     # --- monthly challenges (personal.goals, statsdata.month_progress) --------------------------
     challengesChanged = Signal()
