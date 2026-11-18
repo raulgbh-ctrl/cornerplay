@@ -558,6 +558,13 @@ FocusScope {
                         Icon { required property var modelData; anchors.verticalCenter: parent.verticalCenter; name: modelData; size: 22; color: theme.onSurfaceVariant }
                     }
                 }
+                Row {  // the sleep timer, while it runs
+                    visible: app.sleepTimerLeft > 0
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 6
+                    Icon { anchors.verticalCenter: parent.verticalCenter; name: "moon"; size: 20; color: tv.tint.primary }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("%1 min").arg(app.sleepTimerLeft); color: theme.onSurfaceVariant; font.pixelSize: 18 }
+                }
                 Row {
                     visible: topStatus.batt.level !== undefined
                     anchors.verticalCenter: parent.verticalCenter
@@ -781,7 +788,7 @@ FocusScope {
             Layout.bottomMargin: -6
             spacing: 12
             Icon {
-                name: tvLibrary.search !== "" ? "search" : ({ playing: "history", fav: "star", added: "gift", away: "download", news: "bell", "": "library" })[tv.shelf.id] || "bookmark"
+                name: tvLibrary.search !== "" ? "search" : ({ playing: "history", fav: "star", added: "gift", away: "download", news: "bell", because: "sparkles", "": "library" })[tv.shelf.id] || "bookmark"
                 size: 20
                 color: tv.tint.primary
             }
@@ -1727,7 +1734,7 @@ FocusScope {
                    set: v => { P.showHidden = v === "hidden"; P.shelf = v === "hidden" ? "" : v; L.toTop(); again() } })
         out.push({ group: qsTr("Filters"), label: qsTr("Installed only"), icon: "download", on: P.installedOnly,
                    set: v => { P.installedOnly = v; L.toTop(); again() } })
-        for (const t of ["unplayed", "controller", "protondb", "couch", "linux"]) {
+        for (const t of ["unplayed", "controller", "protondb", "couch", "linux", "dupes"]) {
             const has = P.tags.indexOf(t) !== -1
             out.push({ group: qsTr("Filters"), label: L.tagNames[t], icon: "filter", on: has,
                        set: v => { P.tags = v ? P.tags.concat([t]) : P.tags.filter(x => x !== t); L.toTop(); again() } })
@@ -1827,6 +1834,7 @@ FocusScope {
         enabled: quickMenu.open || mainMenu.open
         function onSystemChanged() { if (quickMenu.open) quickMenu.refresh() }
         function onSettingsChanged() { if (quickMenu.open) Qt.callLater(quickMenu.refresh) }
+        function onSleepTimerChanged() { if (quickMenu.open) Qt.callLater(quickMenu.refresh) }
     }
     Connections {
         target: controls

@@ -447,6 +447,7 @@ def main():
     gamepad.quickAccess.connect(cornerplay.quickAccessRequested)
     cornerplay.gamepad = gamepad  # asked at check time: SDL only loads a moment after start-up
     ctx.setContextProperty("startTv", args.tv)
+    cornerplay.setTvActive(bool(args.tv))
     ctx.setContextProperty("startHidden", bool(args.background))
     ctx.setContextProperty("webLogin", web_login)
     # TV-mode trailers need Qt Multimedia's QML module; without it they are simply left out.

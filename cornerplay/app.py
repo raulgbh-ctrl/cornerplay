@@ -123,6 +123,23 @@ def _translatable_names():
             QCoreApplication.translate("app", "Dropped"),
             QCoreApplication.translate("app", "Continue playing"),
             QCoreApplication.translate("app", "News from your games"),
+            QCoreApplication.translate("app", "Because you played %1"),
+            QCoreApplication.translate("app", "%1 is %2% off (%3): the price you were waiting for"),
+            QCoreApplication.translate("app", "Price watch"),
+            QCoreApplication.translate("app", "never played"),
+            QCoreApplication.translate("app", "Battery at %1%: plug in for a long session"),
+            QCoreApplication.translate("app", "Downloads pause while you play"),
+            QCoreApplication.translate("app", "A download is running: the game may stutter"),
+            QCoreApplication.translate("app", "No controller connected: this game is made for one"),
+            QCoreApplication.translate("app", "Your home drive is almost full: the game may not save"),
+            QCoreApplication.translate("app", "%1 battery is low"),
+            QCoreApplication.translate("app", "Controller"),
+            QCoreApplication.translate("app", "%1 battery is low (%2%)"),
+            QCoreApplication.translate("app", "Controller battery"),
+            QCoreApplication.translate("app", "The PC sleeps in %1 min"),
+            QCoreApplication.translate("app", "Sleep timer: closing games, then the PC sleeps"),
+            QCoreApplication.translate("app", "Sleep timer: the PC sleeps in a minute. Save your game."),
+            QCoreApplication.translate("app", "Sleep timer"),
             QCoreApplication.translate("app", "Favourites"),
             QCoreApplication.translate("app", "Recently added"),
             QCoreApplication.translate("app", "Library"),
@@ -175,6 +192,10 @@ def _put_away(group) -> bool:
     """Put away to save space (Storage > Free up space): uninstalled, its saves kept, one press
     from coming back."""
     return not any(g.installed for g in group) and any(game_options.get(g.key).get("put_away") for g in group)
+
+
+# The "Because you played" row's test, set by App._because() (the proxies have no App to ask).
+_BECAUSE = {"test": lambda group: False}
 
 
 def _has_news(group, days=7):
@@ -475,6 +496,8 @@ class LibraryProxy(QSortFilterProxyModel):
             return model.group_value(group, "playtime") == 0
         if tag == "fav":
             return shelves.in_group(group, shelves.FAV)
+        if tag == "dupes":  # owned on more than one store
+            return len({g.store for g in group}) > 1
         if tag == "linux":
             return any(g.extra.get("linux") or g.extra.get("platform") == "linux" for g in group)
         if tag == "controller":
@@ -504,6 +527,8 @@ class LibraryProxy(QSortFilterProxyModel):
             return _put_away(group)
         if s == "news":
             return _has_news(group)
+        if s == "because":
+            return _BECAUSE["test"](group)
         if s.startswith("s:"):
             return shelves.meta(group, "status") == s[2:]
         return True
@@ -746,6 +771,7 @@ class AioLaunch(QObject):
             # The fallback covers a window that never shows. Nothing cached: refresh at once.
             self._first_refresh_done = False
             QTimer.singleShot(2500 if cached else 0, self._first_refresh)
+        self._extras_start()
 
     def _first_refresh(self):
         if not self._first_refresh_done:
@@ -2567,6 +2593,7 @@ class AioLaunch(QObject):
                 self._wishlist = res["items"]
                 self.wishlistChanged.emit()
                 self._announce_releases()
+                self._check_price_watch()
                 deals = res.get("deals") or []
                 if deals:
                     self._announce_deals(deals)
@@ -3857,6 +3884,9 @@ class AioLaunch(QObject):
         def add(sid, name, test):
             out.append({"id": sid, "name": name, "count": sum(1 for g in groups if test(g))})
         add("playing", _t("Continue playing"), lambda g: self.model.group_value(g, "lastPlayed") > 0)
+        because = self._because()
+        if because:
+            add("because", _t("Because you played %1").replace("%1", because["title"]), lambda g: self._because_has(g, because))
         add("news", _t("News from your games"), _has_news)
         add("s:playing", _t("Playing"), lambda g: shelves.meta(g, "status") == "playing")
         add("fav", _t("Favourites"), lambda g: shelves.in_group(g, shelves.FAV))
@@ -5096,6 +5126,7 @@ class AioLaunch(QObject):
             return
         self._launch_state(key, "start")
         self._vulkan_warning(g)  # warn, but still try: the check should never stop a game that would run
+        self._prelaunch(g)
         opts = self._options_for(g)
         sync = saves.enabled_for(g) and mode != "skip"
         if sync:
@@ -5889,6 +5920,233 @@ class AioLaunch(QObject):
         self.model.touch(key)
         self.gameChanged.emit(key)
         self.downloadsChanged.emit()
+
+    # --- "Because you played", price watch, space planner, pre-launch checks, pad batteries,
+    # --- sleep timer --------------------------------------------------------------------------
+    def _extras_start(self):
+        self._pad_low = set()      # controllers already warned about (until they charge again)
+        self._sleep_at = 0.0       # sleep timer: when the PC sleeps (0: off)
+        self._sleep_warned = False
+        t = QTimer(self)
+        t.setInterval(30000)
+        t.timeout.connect(self._extras_tick)
+        t.start()
+        self._extras_timer = t
+
+    def _extras_tick(self):
+        self._check_pad_batteries()
+        self._check_sleep_timer()
+
+    def _because(self):
+        """The game the "Because you played" row is about: the most played of the last three
+        played, with its genres; None without one (or without genres yet)."""
+        m = self.model
+        gen = (m.generation, len(self._playing))
+        cached = getattr(self, "_because_cache", None)
+        if cached and cached[0] == gen:
+            return cached[1]
+        played = [g for g in m.groups if not m.is_hidden(g) and m.group_value(g, "lastPlayed") > 0]
+        played.sort(key=lambda g: -m.group_value(g, "lastPlayed"))
+        best = None
+        for grp in sorted(played[:3], key=lambda g: -m.group_value(g, "playtime")):
+            genres = {x for g in grp for x in ((details.cached(g.key) or {}).get("genres") or [])}
+            genres.discard("Free to Play")
+            genres.discard("Early Access")
+            if genres:
+                best = {"key": m.rep(grp).key, "title": m.rep(grp).title, "genres": genres,
+                        "group": {g.key for g in grp}}
+                break
+        self._because_cache = (gen, best)
+        _BECAUSE["test"] = (lambda group, b=best: self._because_has(group, b)) if best else (lambda group: False)
+        return best
+
+    def _because_has(self, group, b):
+        """Owned, barely played (under an hour), not the game itself, and sharing two genres
+        with it (one when the game has only one)."""
+        if not b or any(g.key in b["group"] for g in group):
+            return False
+        if self.model.group_value(group, "playtime") >= 60:
+            return False
+        genres = {x for g in group for x in ((details.cached(g.key) or {}).get("genres") or [])}
+        return len(genres & b["genres"]) >= min(2, len(b["genres"]))
+
+    # Price watch: per wishlist game, the discount to wait for (1: any sale; 25, 50, 75 % off).
+    def _wishlist_all(self):
+        owned = {covers.norm(g.title) for g in self.model.games}
+        watch = settings.get("price_watch") or {}
+        out = []
+        for w in self._wishlist:
+            if covers.norm(w["title"]) in owned or w.get("soon"):
+                continue
+            cut = max(int(w.get("discount") or 0), int((w.get("best") or {}).get("cut") or 0))
+            out.append(dict(w, watch=int(watch.get(f"{w['store']}:{w['id']}") or 0), cut=cut))
+        out.sort(key=lambda w: (-w["watch"], w["title"].lower()))
+        return out
+
+    wishlistAll = Property("QVariantList", _wishlist_all, notify=wishlistChanged)
+
+    @Slot(str, str, int)
+    def setPriceWatch(self, store, gid, pct):
+        watch = dict(settings.get("price_watch") or {})
+        if pct in (1, 25, 50, 75, 90):
+            watch[f"{store}:{gid}"] = pct
+        else:
+            watch.pop(f"{store}:{gid}", None)
+        settings.set("price_watch", watch)
+        self.wishlistChanged.emit()
+        self._check_price_watch()
+
+    def _check_price_watch(self):
+        """A watched wishlist game reached its discount: say so once per discount."""
+        watch = settings.get("price_watch") or {}
+        if not watch:
+            return
+        seen = set(settings.get("price_watch_told") or [])
+        hits = []
+        for w in self._wishlist_all():
+            want = w["watch"]
+            if want and w["cut"] and w["cut"] >= want and f"{w['store']}:{w['id']}:{w['cut']}" not in seen:
+                hits.append(w)
+        if not hits:
+            return
+        settings.set("price_watch_told", sorted(seen | {f"{w['store']}:{w['id']}:{w['cut']}" for w in hits})[-500:])
+        for w in hits[:3]:
+            price = (w.get("best") or {}).get("price") if (w.get("best") or {}).get("cut", 0) >= int(w.get("discount") or 0) else w.get("price")
+            msg = _t("%1 is %2% off (%3): the price you were waiting for").replace("%1", w["title"]) \
+                .replace("%2", str(w["cut"])).replace("%3", price or "")
+            self.toast.emit(msg)
+            if shutil.which("notify-send"):
+                QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", _t("Price watch"), msg])
+
+    @Slot(str, float, result="QVariantList")
+    def spaceToFree(self, folder, need):
+        """Room for an install that does not fit: installed games on the same drive, not played
+        for two months (then the least played), biggest first, until enough is freed."""
+        probe = folder
+        while probe and not os.path.isdir(probe):
+            probe = os.path.dirname(probe)
+        d = storage.drive(probe or str(Path.home())) or {}
+        if not d:
+            return []
+        short = need - float(d.get("free") or 0) + 2e9  # and 2 GB to spare
+        if short <= 0:
+            return []
+        now, m = time.time(), self.model
+        cands = []
+        for g in m.games:
+            if not g.installed or not g.install_path or g.key in self.procs or g.key in self._playing:
+                continue
+            size = float(g.extra.get("size", 0) or 0)
+            if size < 1e9 or storage.mount_of(g.install_path) != d.get("mount"):
+                continue
+            last = m.group_value(m.group_of(g.key) or [g], "lastPlayed")
+            idle = now - last if last else 1e10
+            cands.append((idle < 60 * 86400, -size, g, last))
+        cands.sort(key=lambda c: (c[0], c[1]))
+        out, freed = [], 0.0
+        for _recent, neg, g, last in cands:
+            out.append({"key": g.key, "title": g.title, "size": -neg, "sizeText": storage.nice(-neg),
+                        "last": _short_date(last) if last else _t("never played")})
+            freed += -neg
+            if freed >= short:
+                break
+        return out
+
+    def _prelaunch(self, g):
+        """Before a game: what is worth knowing (Settings > Games: pre-launch checks). Never stops it."""
+        if self.demo or not settings.get("prelaunch_checks"):
+            return
+        notes = []
+        b = _battery()
+        if b and not b.get("charging") and b.get("level", 100) < 30:
+            notes.append(_t("Battery at %1%: plug in for a long session").replace("%1", str(b["level"])))
+        if any((self.model.jobs.get(k) or {}).get("kind") in self.DOWNLOADS for k in self.procs):
+            notes.append(_t("Downloads pause while you play") if settings.get("focus_downloads")
+                         else _t("A download is running: the game may stutter"))
+        pads = getattr(self, "gamepad", None)
+        if pads is not None and not getattr(pads, "_pads", None) and (details.cached(g.key) or {}).get("controller") == "full" \
+                and getattr(self, "_tv_active", False):
+            notes.append(_t("No controller connected: this game is made for one"))
+        try:
+            home = shutil.disk_usage(str(Path.home()))
+            if home.free < 2e9:
+                notes.append(_t("Your home drive is almost full: the game may not save"))
+        except OSError:
+            pass
+        for p in self._pad_list():
+            if not p.get("wired") and 0 <= p.get("battery", -1) <= 20:
+                notes.append(_t("%1 battery is low").replace("%1", p.get("name") or _t("Controller")))
+        if notes:
+            self.toast.emit("  ·  ".join(notes))
+
+    @Slot(bool)
+    def setTvActive(self, on):
+        """TV mode is on screen (Main.qml): a missing controller matters there."""
+        self._tv_active = bool(on)
+
+    def _pad_list(self):
+        pads = getattr(self, "gamepad", None)
+        try:
+            return pads._pads_info() if pads is not None else []
+        except Exception:
+            return []
+
+    def _check_pad_batteries(self):
+        """A wireless controller at 20 % or less: say so once (a toast, and a notification over a game)."""
+        if not settings.get("pad_battery_alerts"):
+            return
+        for p in self._pad_list():
+            pid, level = p.get("id"), p.get("battery", -1)
+            if p.get("wired") or level < 0:
+                continue
+            if level > 20:
+                self._pad_low.discard(pid)
+                continue
+            if pid in self._pad_low:
+                continue
+            self._pad_low.add(pid)
+            msg = _t("%1 battery is low (%2%)").replace("%1", p.get("name") or _t("Controller")).replace("%2", str(level))
+            self.toast.emit(msg)
+            if self._playing and shutil.which("notify-send"):  # over a full-screen game the toast is not seen
+                QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", "-u", "critical", _t("Controller battery"), msg])
+
+    # Sleep timer (TV mode's quick access): at the end, games close and the PC sleeps.
+    sleepTimerChanged = Signal()
+
+    @Slot(int)
+    def setSleepTimer(self, minutes):
+        self._sleep_at = time.time() + minutes * 60 if minutes > 0 else 0.0
+        self._sleep_warned = False
+        self.sleepTimerChanged.emit()
+        if minutes > 0:
+            self.toast.emit(_t("The PC sleeps in %1 min").replace("%1", str(minutes)))
+            self._extras_timer.setInterval(15000)
+        else:
+            self._extras_timer.setInterval(30000)
+
+    sleepTimerLeft = Property(int, lambda s: max(0, round((s._sleep_at - time.time()) / 60)) if s._sleep_at else 0,
+                              notify=sleepTimerChanged)
+
+    def _check_sleep_timer(self):
+        if not self._sleep_at:
+            return
+        left = self._sleep_at - time.time()
+        self.sleepTimerChanged.emit()
+        if left <= 0:
+            self._sleep_at = 0.0
+            self.sleepTimerChanged.emit()
+            self._extras_timer.setInterval(30000)
+            for p in list(self._now_playing()):
+                self.quitGame(p["key"], False)
+            # Give the games a moment to save and close, then sleep.
+            QTimer.singleShot(20000, lambda: self.power("suspend"))
+            self.toast.emit(_t("Sleep timer: closing games, then the PC sleeps"))
+        elif left <= 75 and not self._sleep_warned:
+            self._sleep_warned = True
+            msg = _t("Sleep timer: the PC sleeps in a minute. Save your game.")
+            self.toast.emit(msg)
+            if shutil.which("notify-send"):
+                QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", "-u", "critical", _t("Sleep timer"), msg])
 
     def _notify(self, title, body=""):
         """A desktop notification, only while Cornerplay is not in front (a game, another app)."""

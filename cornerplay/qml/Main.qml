@@ -22,7 +22,7 @@ ApplicationWindow {
     property bool tv: startTv
     property bool hiddenAtStart: startHidden  // started with the PC: in the tray until opened (tray.py)
     visibility: hiddenAtStart ? Window.Hidden : tv ? Window.FullScreen : Window.Windowed
-    onTvChanged: { if (tv) tvUsed = true; else grid.forceActiveFocus() }
+    onTvChanged: { app.setTvActive(tv); if (tv) tvUsed = true; else grid.forceActiveFocus() }
     property string selectedKey: ""
     property var selected: ({})
 
@@ -935,7 +935,8 @@ ApplicationWindow {
                 }
                 Repeater {
                     model: [{ t: "unplayed", l: qsTr("Never played"), i: "sparkles" }, { t: "linux", l: qsTr("Linux version"), i: "" },
-                            { t: "controller", l: qsTr("Full controller support"), i: "gamepad-2" }, { t: "couch", l: qsTr("Play together (same screen)"), i: "user-round" }, { t: "protondb", l: qsTr("Runs well (ProtonDB Gold+)"), i: "check" }]
+                            { t: "controller", l: qsTr("Full controller support"), i: "gamepad-2" }, { t: "couch", l: qsTr("Play together (same screen)"), i: "user-round" }, { t: "protondb", l: qsTr("Runs well (ProtonDB Gold+)"), i: "check" },
+                            { t: "dupes", l: qsTr("Owned on 2+ stores"), i: "copy" }]
                     Chip2 { required property var modelData; label: modelData.l; icon: modelData.i
                             on: ((library && library.tags) || []).indexOf(modelData.t) !== -1; onPicked: chips.toggle(modelData.t) }
                 }
@@ -6584,6 +6585,8 @@ ApplicationWindow {
                             Toggle { label: qsTr("Keep the screen on and the PC awake"); settingKey: "focus_awake" }
                             Toggle { label: qsTr("Performance power mode, back to yours after"); settingKey: "focus_power" }
                             Toggle { label: qsTr("Pause downloads, carry on after"); settingKey: "focus_downloads" }
+                            Toggle { label: qsTr("Checks before a game (low battery, a download running, a full drive)"); settingKey: "prelaunch_checks" }
+                            Toggle { label: qsTr("Tell me when a wireless controller's battery is low"); settingKey: "pad_battery_alerts" }
                             Row2 {
                                 label: qsTr("Controller layout for every game")
                                 hint: qsTr("Swaps buttons for games that read the controller through SDL (most Proton and native games). Each game can choose its own under Options. Steam games use Steam Input.")

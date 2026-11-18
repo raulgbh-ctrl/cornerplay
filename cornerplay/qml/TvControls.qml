@@ -115,6 +115,8 @@ QtObject {
         out.push(setting(w, qsTr("Keep awake"), "sun", "focus_awake", qsTr("No screen blanking or sleep mid-game")))
         out.push(setting(w, qsTr("Performance power mode"), "zap", "focus_power", qsTr("Back to yours when the game closes")))
         out.push(setting(w, qsTr("Pause downloads"), "download", "focus_downloads", qsTr("They carry on when the game closes")))
+        out.push(setting(w, qsTr("Checks before a game"), "info", "prelaunch_checks", qsTr("Low battery, a download, no controller, a full drive")))
+        out.push(setting(w, qsTr("Controller battery alerts"), "battery", "pad_battery_alerts", qsTr("At 20 %, also over a game")))
         if (app.hasGamescope && !g.active)
             out.push({ group: group, kind: "choice", label: qsTr("gamescope"), icon: "monitor", cur: st.gamescope || "",
                        options: [{ v: "", t: qsTr("Off") }, { v: "fullscreen", t: qsTr("Full screen") }, { v: "fsr", t: qsTr("FSR upscaling") }],
@@ -289,7 +291,16 @@ QtObject {
     function performance() {
         return [].concat(gamescope(qsTr("Display")), powerMode(qsTr("Power")), games(qsTr("Games you start here")))
     }
-    function tvQuick() { return tvMode(qsTr("TV mode")) }
+    function tvQuick() { return [sleepTimer(qsTr("Sleep timer"))].concat(tvMode(qsTr("TV mode"))) }
+    // Games close and the PC sleeps after this long (app.setSleepTimer): left / right to choose.
+    function sleepTimer(group) {
+        const left = app.sleepTimerLeft
+        const opts = [{ v: 0, t: left ? qsTr("Cancel") : qsTr("Off") }, { v: 15, t: qsTr("15 min") }, { v: 30, t: qsTr("30 min") },
+                      { v: 45, t: qsTr("45 min") }, { v: 60, t: qsTr("1 hour") }, { v: 90, t: qsTr("1 h 30 min") }, { v: 120, t: qsTr("2 hours") }]
+        if (left) opts.unshift({ v: -1, t: qsTr("%1 min left").arg(left) })
+        return { group: group, kind: "choice", label: qsTr("Sleep in"), icon: "moon", cur: left ? -1 : 0, options: opts,
+                 set: v => { if (v >= 0) app.setSleepTimer(v) } }
+    }
 
     // Settings: the sections down the left and what each one holds.
     readonly property var sections: [

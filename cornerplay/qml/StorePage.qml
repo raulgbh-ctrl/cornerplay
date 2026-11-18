@@ -155,6 +155,63 @@ Popup {
                 }
             }
 
+            // Price watch: each wishlist game can wait for its own discount (a toast and a
+            // notification when it gets there). A click on the chip steps through the choices.
+            Column {
+                visible: (app.wishlistAll || []).length > 0
+                width: parent.width
+                spacing: 10
+                Head { icon: "bell"; title: qsTr("Price watch"); note: qsTr("tell me when a wishlist game gets this cheap") }
+                Flow {
+                    width: parent.width
+                    spacing: 8
+                    Repeater {
+                        model: app.wishlistAll || []
+                        Rectangle {
+                            id: pw
+                            required property var modelData
+                            readonly property var steps: [0, 1, 25, 50, 75, 90]
+                            readonly property string want: ({ 0: qsTr("Off"), 1: qsTr("Any sale"), 25: qsTr("25% off"), 50: qsTr("50% off"),
+                                                             75: qsTr("75% off"), 90: qsTr("90% off") })[modelData.watch] || qsTr("Off")
+                            width: 300; height: 58; radius: 10
+                            color: store.theme.surfaceContainerHigh
+                            border.width: modelData.watch ? 1 : 0; border.color: store.theme.primary
+                            RoundedArt {
+                                x: 6; y: 6; width: 31; height: 46; radius: 6
+                                ArtImage { anchors.fill: parent; sources: [pw.modelData.tall, pw.modelData.wide].filter(u => !!u); sourceSize.width: 64 }
+                            }
+                            Column {
+                                anchors { left: parent.left; leftMargin: 46; right: chip.left; rightMargin: 8; verticalCenter: parent.verticalCenter }
+                                spacing: 2
+                                Text { width: parent.width; text: pw.modelData.title; color: store.theme.onSurface; font.pixelSize: 13
+                                       font.weight: Font.DemiBold; elide: Text.ElideRight }
+                                Text { width: parent.width; elide: Text.ElideRight; font.pixelSize: 12
+                                       text: (pw.modelData.price || "") + (pw.modelData.cut ? "  ·  -" + pw.modelData.cut + "%" : "")
+                                       color: pw.modelData.cut ? store.theme.primary : store.theme.outline }
+                            }
+                            Rectangle {
+                                id: chip
+                                anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
+                                height: 28; radius: 14; width: chipT.implicitWidth + 20
+                                color: pw.modelData.watch ? store.theme.primary : chipHover.hovered ? store.theme.surfaceContainerHighest : "transparent"
+                                border.width: pw.modelData.watch ? 0 : 1; border.color: store.theme.outlineVariant
+                                Text { id: chipT; anchors.centerIn: parent; text: pw.want; font.pixelSize: 12; font.weight: Font.DemiBold
+                                       color: pw.modelData.watch ? store.theme.onPrimary : store.theme.onSurfaceVariant }
+                                HoverHandler { id: chipHover; cursorShape: Qt.PointingHandCursor }
+                                ToolTip.visible: chipHover.hovered
+                                ToolTip.text: qsTr("Click to choose when to be told")
+                                TapHandler {
+                                    onTapped: {
+                                        const i = pw.steps.indexOf(pw.modelData.watch)
+                                        app.setPriceWatch(pw.modelData.store, pw.modelData.id, pw.steps[(i + 1) % pw.steps.length])
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Release calendar: wishlist games not out yet, by month (and the ones just out).
             Column {
                 visible: store.coming.length > 0

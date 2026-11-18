@@ -105,6 +105,12 @@ DEFAULTS = {
     "screenshot_dirs": [],      # more folders to find your screenshots in (screenshots.py)
     "wishlist_sales": True,
     "itad_key": "",             # IsThereAnyDeal API key: the best price on any store for the wishlist (itad.py)
+    "price_watch": {},          # wishlist "store:id" -> the discount to wait for (1: any sale, 25/50/75/90 % off)
+    "price_watch_told": [],
+    "prelaunch_checks": True,   # before a game: battery, downloads, a missing controller, a full drive (toasts)
+    "pad_battery_alerts": True, # a wireless controller at 20 % or less: say so (also over a game)
+    "tv_library_view": "grid",  # TV mode's Library page: "grid" (covers) or "list"
+    "tv_library_sort": "name",  # TV mode's Library page's own order
     "deal_alert_cut": 50,       # announce a wishlist deal at least this much off (or a new lowest price)
     "store_country": "",        # two letters for store prices (AU, RO, ...); empty: your GOG account's, else the system's     # "On sale from your wishlist" on the home page (Steam and GOG wishlists)
     "discord_presence": False,  # "Playing <game>" on Discord for Epic / GOG / Amazon games (discord.py)

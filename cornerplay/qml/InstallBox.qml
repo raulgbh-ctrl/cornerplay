@@ -138,6 +138,40 @@ KDialog {
                                     + (box.tight ? "  " + qsTr("That is nearly full.") : ""))
                       : qsTr("%1 free on %2.").arg(app.niceSize(box.space.free)).arg(box.space.label)
             }
+            // Not enough room: games on that drive you have not played for a while, biggest
+            // first, enough of them to make room. Uninstall asks twice.
+            ColumnLayout {
+                id: room
+                Layout.fillWidth: true
+                visible: box.full && suggest.length > 0
+                spacing: 6
+                property string armed: ""
+                readonly property var suggest: box.full ? app.spaceToFree(box.folder, box.need) : []
+                Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 12; color: theme.onSurfaceVariant
+                       text: qsTr("To make room, you could uninstall:") }
+                Repeater {
+                    model: room.suggest
+                    RowLayout {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        spacing: 10
+                        Text { Layout.fillWidth: true; elide: Text.ElideRight; font.pixelSize: 13; color: theme.onSurface
+                               text: modelData.title + "  ·  " + modelData.sizeText + "  ·  " + qsTr("last played %1").arg(modelData.last) }
+                        KButton {
+                            theme: box.theme; danger: true
+                            text: room.armed === modelData.key ? qsTr("Sure? Uninstall") : qsTr("Uninstall")
+                            onClicked: {
+                                if (room.armed !== modelData.key) { room.armed = modelData.key; return }
+                                room.armed = ""
+                                app.uninstall(modelData.key)
+                                spaceAgain.restart()
+                            }
+                        }
+                    }
+                }
+                // The drive's free space once the uninstall has had a moment.
+                Timer { id: spaceAgain; interval: 4000; repeat: false; onTriggered: box.refreshSpace() }
+            }
         }
 
         // GOG: which version and which language.
