@@ -47,6 +47,7 @@ FocusScope {
     // A menu or the keyboard covers the screen: what moves behind it can rest.
     readonly property bool frosted: searching || (typeof mainMenu !== "undefined" && (mainMenu.open || quickMenu.open)) || panel.visible
                                     || (typeof tvSettings !== "undefined" && tvSettings.visible)
+                                    || (typeof libraryPage !== "undefined" && libraryPage.visible)
     // Steam-style status icons (top bar, quick access): Wi-Fi or wired, Bluetooth in use, volume.
     readonly property var statusIcons: {
         const s = app.system, n = s.network || {}, b = s.bluetooth || {}, a = s.audio || {}
@@ -138,7 +139,8 @@ FocusScope {
         grid.currentIndex = 0; sync()
     }
 
-    function sync() { cur = app.game(tvLibrary.keyAt(grid.currentIndex)); wake() }
+    // The focused game: the Library page's while it is open, else the home shelf's.
+    function sync() { cur = app.game(libraryPage.visible ? libraryPage.currentKey : tvLibrary.keyAt(grid.currentIndex)); wake() }
 
     // Calm: after 30 s without input the moving art and the trailer stop (they redraw the
     // whole screen 60 times a second: a drained Steam Deck battery while you look at a menu).
@@ -461,6 +463,40 @@ FocusScope {
             readonly property bool compact: tabsBox.width < tv.storeIds.length * 172 + 240
             spacing: 12
             WordMark { size: 30; Layout.rightMargin: 20 }
+            // Every game lives on the Library page, not on Home: up from the top shelf, then A.
+            Rectangle {
+                id: libBtn
+                objectName: "tvLibraryButton"
+                implicitWidth: libRow.implicitWidth + 36
+                implicitHeight: 46
+                radius: 23
+                Layout.rightMargin: 8
+                color: activeFocus ? tv.tint.primary : libHover.hovered ? Qt.alpha(theme.onSurface, 0.1) : Qt.alpha(theme.background, 0.35)
+                border.width: activeFocus ? 0 : 1
+                border.color: Qt.alpha(theme.onSurface, 0.2)
+                scale: activeFocus && !app.still ? 1.06 : 1
+                Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+                Row {
+                    id: libRow
+                    anchors.centerIn: parent
+                    spacing: 9
+                    Icon { anchors.verticalCenter: parent.verticalCenter; name: "library"; size: 22; color: libBtn.activeFocus ? tv.tint.onPrimary : theme.onSurface }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Library"); font.pixelSize: 18; font.weight: Font.DemiBold
+                           color: libBtn.activeFocus ? tv.tint.onPrimary : theme.onSurface }
+                }
+                onActiveFocusChanged: if (activeFocus) { app.uiSound("move"); app.say(qsTr("Library")) }
+                HoverHandler { id: libHover; cursorShape: Qt.PointingHandCursor }
+                TapHandler { onTapped: libraryPage.show() }
+                Keys.onReturnPressed: libraryPage.show()
+                Keys.onEnterPressed: libraryPage.show()
+                Keys.onDownPressed: grid.forceActiveFocus()
+                Keys.onEscapePressed: { app.uiSound("back"); grid.forceActiveFocus() }
+                Keys.onPressed: event => {
+                    if (event.key === Qt.Key_F10) { mainMenu.show(); event.accepted = true }
+                    else if (event.key === Qt.Key_F9) { quickMenu.show(); event.accepted = true }
+                    else event.accepted = true  // nothing else to do up here
+                }
+            }
             Repeater {
                 model: tv.storeIds
                 Rectangle {
@@ -884,7 +920,7 @@ FocusScope {
                 else if (tv.shelfAt > 0) tv.stepShelf(-tv.shelfAt)  // back to the top shelf, like Home
                 else mainMenu.show()                              // home already: the menu (Exit TV mode is there)
             }
-            Keys.onUpPressed: tv.stepShelf(-1)
+            Keys.onUpPressed: { if (tv.shelfAt === 0 || tvLibrary.search !== "") libBtn.forceActiveFocus(); else tv.stepShelf(-1) }
             Keys.onDownPressed: tv.stepShelf(1)
             Keys.onPressed: event => {
                 tv.wake()
@@ -1284,6 +1320,19 @@ FocusScope {
         onClosed: grid.forceActiveFocus()
         onPlay: key => { const t = app.launchTarget(key); if (t) app.play(t); else { tv.cur = app.game(key); panel.show() } }
     }
+    TvLibrary {
+        id: libraryPage
+        anchors.fill: parent
+        z: 38   // under the game's page and the action panel, which open from it
+        theme: tv.theme
+        tint: tv.tint
+        storeIds: tv.storeIds
+        onCurrentKeyChanged: if (visible) tv.sync()
+        onVisibleChanged: tv.sync()
+        onClosed: grid.forceActiveFocus()
+        onPlay: key => { tv.cur = app.game(key); tv.accept() }
+        onMore: key => { tv.cur = app.game(key); tv.openPage() }
+    }
     TvPage {
         id: gamePage
         anchors.fill: parent
@@ -1291,7 +1340,7 @@ FocusScope {
         theme: tv.theme
         tint: tv.tint
         onOptions: panel.show()
-        onClosed: grid.forceActiveFocus()
+        onClosed: tv.refocus(null)
     }
 
     // Action panel: every choice for the focused game, one press each.
@@ -1316,7 +1365,7 @@ FocusScope {
         property var rows: []
         property int armed: -1
         function show() { if (!tv.cur.key) return; app.uiSound("select"); rows = tv.buildActions(); armed = -1; list.currentIndex = 0; visible = true; list.forceActiveFocus() }
-        function hide() { app.uiSound("back"); visible = false; if (gamePage.visible) gamePage.forceActiveFocus(); else grid.forceActiveFocus() }
+        function hide() { app.uiSound("back"); visible = false; tv.refocus(null) }
         // Swallow clicks and hover on the panel's empty parts too (its rows sit on top of this).
         MouseArea {
             anchors.fill: parent
@@ -1520,7 +1569,7 @@ FocusScope {
         Text {
             anchors { left: parent.left; bottom: parent.bottom; margins: 30 }
             visible: tv.width >= 900
-            text: pad.connected ? qsTr("Also:  \u2195 shelves   \u00B7   LT / RT jump   \u00B7   LB / RB store   \u00B7   Y installed only   \u00B7   \u29C9 search   \u00B7   Guide + A quick access")
+            text: pad.connected ? qsTr("Also:  \u2191 on the top shelf: Library   \u00B7   \u2195 shelves   \u00B7   LT / RT jump   \u00B7   LB / RB store   \u00B7   Y installed only   \u00B7   \u29C9 search   \u00B7   Guide + A quick access")
                                 : qsTr("Also:  \u2191\u2193 shelves   \u00B7   Shift+\u2190/\u2192 jump   \u00B7   PgUp/PgDn store   \u00B7   F3 installed only   \u00B7   F9 quick access")
             color: theme.outline; font.pixelSize: 14
         }
@@ -1541,7 +1590,8 @@ FocusScope {
     // right, in tabs like Steam's: quick settings, performance, now playing, TV mode.
     function mainRows() {
         return [
-            { label: qsTr("Home"), icon: "library", act: "home" },
+            { label: qsTr("Home"), icon: "house", act: "home" },
+            { label: qsTr("Library"), icon: "library", act: "library", value: String(app.totalCount || "") },
             { label: qsTr("Search"), icon: "search", act: "search" },
             { label: qsTr("Installed only"), icon: "filter", act: "installed", on: tvLibrary.installedOnly },
             { label: qsTr("Next store"), icon: "layout-grid", act: "store",
@@ -1585,7 +1635,8 @@ FocusScope {
         title: qsTr("Cornerplay")
         rowsFn: tab => tv.mainRows()
         onPicked: (row) => {
-            if (row.act === "home") { hide(); if (tvLibrary.search !== "") tv.clearSearch(); if (tv.shelfAt > 0) tv.stepShelf(-tv.shelfAt) }
+            if (row.act === "home") { hide(); libraryPage.visible = false; if (tvLibrary.search !== "") tv.clearSearch(); if (tv.shelfAt > 0) tv.stepShelf(-tv.shelfAt); grid.forceActiveFocus() }
+            else if (row.act === "library") { hide(); if (!libraryPage.visible) libraryPage.show() }
             else if (row.act === "search") { hide(); tv.openSearch("") }
             else if (row.act === "installed") { tvLibrary.installedOnly = !tvLibrary.installedOnly; refresh() }
             else if (row.act === "store") { tv.cycleStore(1); refresh() }
@@ -1663,6 +1714,7 @@ FocusScope {
         if (item && item.visible) item.forceActiveFocus()
         else if (tvSettings.visible) tvSettings.forceActiveFocus()
         else if (gamePage.visible) gamePage.forceActiveFocus()
+        else if (libraryPage.visible) libraryPage.forceActiveFocus()
         else grid.forceActiveFocus()
     }
     // The menus, Settings and the keyboard show the PC as it is: read again when one opens.

@@ -614,6 +614,7 @@ class AioLaunch(QObject):
         self.proxy = LibraryProxy(self.model)
         self.tvProxy = LibraryProxy(self.model)  # TV mode's own list: its shelves leave the main view alone
         self.tvNextProxy = LibraryProxy(self.model)  # the shelf below, shown as a preview under TV mode's row
+        self.tvAllProxy = LibraryProxy(self.model)  # TV mode's Library page: every game, off the home screen
         self.pool = ThreadPoolExecutor(min(4, os.cpu_count() or 2))
         # TV mode's system controls (syscontrol.py): one worker, so presses apply in order.
         self._sys_pool = ThreadPoolExecutor(1)
@@ -2901,7 +2902,7 @@ class AioLaunch(QObject):
         def work():
             couch.load(st.root())
             return lambda: (self.proxy.invalidate(), self.tvProxy.invalidate(), self.tvNextProxy.invalidate(),
-                            self.storesChanged.emit())
+                            self.tvAllProxy.invalidate(), self.storesChanged.emit())
         self._bg(work)
 
     def _on_fetched(self, store_id, games, error):
@@ -3743,6 +3744,7 @@ class AioLaunch(QObject):
     def _refilter_all(self, key=None):
         self.proxy.refilter()
         self.tvProxy.refilter()
+        self.tvAllProxy.refilter()
         self.model.touch(key)
         self.collectionsChanged.emit()
         self.storesChanged.emit()  # the sidebar's counts
@@ -3835,7 +3837,8 @@ class AioLaunch(QObject):
 
     @Slot(result="QVariantList")
     def shelfList(self):
-        """TV mode's rows, in order; empty ones are left out. Library is always there."""
+        """TV mode's home rows, in order; empty ones are left out. Every game is on the Library
+        page (TvLibrary.qml), not here; Library is a home row only while there is no other row."""
         groups = [g for g in self.model.groups if not self.model.is_hidden(g)]
         out = []
 
@@ -3853,7 +3856,8 @@ class AioLaunch(QObject):
         add("s:finished", _t("Finished"), lambda g: shelves.meta(g, "status") == "finished")
         add("together", _t("Play together"), lambda g: any(couch.local(_appid(x)) for x in g))
         add("away", _t("Put away"), _put_away)
-        out.append({"id": "", "name": _t("Library"), "count": len(groups)})
+        if not out:
+            out.append({"id": "", "name": _t("Library"), "count": len(groups)})
         # Two or more controllers: friends are on the sofa, so games to play together come first.
         pads = len(getattr(getattr(self, "gamepad", None), "_pads", None) or {})
         if pads >= 2:

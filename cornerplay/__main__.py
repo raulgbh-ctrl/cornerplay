@@ -440,6 +440,7 @@ def main():
     ctx.setContextProperty("library", cornerplay.proxy)
     ctx.setContextProperty("tvLibrary", cornerplay.tvProxy)
     ctx.setContextProperty("tvNextLibrary", cornerplay.tvNextProxy)
+    ctx.setContextProperty("tvAllLibrary", cornerplay.tvAllProxy)
     gamepad = Gamepad(app)
     ctx.setContextProperty("pad", gamepad)
     gamepad.overlay.connect(cornerplay.overlayRequested)
