@@ -189,7 +189,6 @@ FocusScope {
                                act: "tonight", key: c.key })
             }
         }
-        for (const c of removable) out.push({ label: qsTr("Uninstall from ") + c.storeName, act: "uninstall", key: c.key })
         if (app.nowPlaying.some(p => p.key === cur.key)) {
             out.unshift({ label: qsTr("Force close (if it hangs)"), act: "kill", key: cur.key })
             out.unshift({ label: qsTr("Quit game"), act: "quit", key: cur.key })
@@ -211,7 +210,8 @@ FocusScope {
             out.push({ label: qsTr("Controller: ") + name + "  \u25B8", act: "padlayout", key: cur.key })
         }
         out.push({ label: cur.hidden ? qsTr("Unhide game") : qsTr("Hide game"), act: cur.hidden ? "unhide" : "hide", key: cur.key })
-        out.push({ label: qsTr("Close"), act: "close", key: "" })
+        // Last, away from Play: removing a game is never one press below starting it.
+        for (const c of removable) out.push({ label: qsTr("Uninstall from ") + c.storeName, act: "uninstall", key: c.key })
         return out
     }
 
@@ -758,7 +758,7 @@ FocusScope {
                 showProtonDb: false
                 showTitle: false
                 dim: app.settingsMap.dim_uninstalled
-                current: GridView.isCurrentItem
+                current: GridView.isCurrentItem && !libBtn.activeFocus
                 // Pointing at a cover focuses it, so its artwork fills the screen.
                 onHoveredChanged: if (hovered && grid.currentIndex !== index) grid.currentIndex = index
                 onOpened: { grid.currentIndex = index; tv.sync(); tv.openPage() }
@@ -1358,7 +1358,9 @@ FocusScope {
             anchors.fill: parent
             anchors.margins: Math.round(Math.min(64, tv.width * 0.04))
             spacing: Math.round(Math.min(56, tv.width * 0.035))
+        Item { Layout.fillWidth: true }  // the game's own page shows behind: no second copy of it here
         ColumnLayout {
+            visible: false
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 14
@@ -1416,14 +1418,19 @@ FocusScope {
             }
         }
         ColumnLayout {
-            Layout.preferredWidth: Math.min(480, tv.width * 0.36)
+            Layout.preferredWidth: Math.min(520, tv.width * 0.38)
+            Layout.maximumWidth: Math.min(520, tv.width * 0.38)
+            Layout.fillWidth: false  // (it would take its list's fill and cover the whole page)
             Layout.fillHeight: true
             spacing: 18
-            Text {  // the game's name is on the left already: here, what this column is for
+            Text {  // which game, small: the actions are the point
                 Layout.fillWidth: true
-                text: qsTr("What would you like to do?")
-                color: theme.onSurfaceVariant
-                font.pixelSize: 18
+                Layout.topMargin: 8
+                text: tv.cur.title || ""
+                color: theme.onSurface
+                font.pixelSize: 24
+                font.weight: Font.DemiBold
+                elide: Text.ElideRight
             }
             Text {
                 Layout.fillWidth: true
@@ -1480,14 +1487,6 @@ FocusScope {
             }
         }
         }
-        // The other controls (the home screen only shows four), listed on the page.
-        Text {
-            anchors { left: parent.left; bottom: parent.bottom; margins: 30 }
-            visible: tv.width >= 900
-            text: pad.connected ? qsTr("Also:  \u2191 on the top shelf: Library   \u00B7   \u2195 shelves   \u00B7   LT / RT jump   \u00B7   LB / RB store   \u00B7   Y installed only   \u00B7   \u29C9 search   \u00B7   Guide + A quick access")
-                                : qsTr("Also:  \u2191\u2193 shelves   \u00B7   Shift+\u2190/\u2192 jump   \u00B7   PgUp/PgDn store   \u00B7   F3 installed only   \u00B7   F9 quick access")
-            color: theme.outline; font.pixelSize: 14
-        }
         // The page's own hints: only what works here.
         Row {
             anchors { right: parent.right; bottom: parent.bottom; margins: 28 }
@@ -1503,23 +1502,47 @@ FocusScope {
     // ------------------------------------------------------------ side menus (SteamOS style)
     // Guide: the main menu slides in from the left. Guide + A (or Share): quick access from the
     // right, in tabs like Steam's: quick settings, performance, now playing, TV mode.
+    // The Guide menu: a short list; the rest is one step away in More and Power.
     function mainRows() {
         return [
             { label: qsTr("Home"), icon: "house", act: "home" },
             { label: qsTr("Library"), icon: "library", act: "library", value: String(app.totalCount || "") },
-            { label: qsTr("Edit Home"), icon: "layout-grid", act: "edithome" },
-            { label: qsTr("Downloads"), icon: "download", act: "downloads", value: app.downloads.length ? String(app.downloads.length) : "" },
+            ...(app.downloads.length ? [{ label: qsTr("Downloads"), icon: "download", act: "downloads", value: String(app.downloads.length) }] : []),
+            { label: qsTr("More"), icon: "ellipsis", act: "more", value: "\u203A" },
+            { label: qsTr("Settings"), icon: "settings-2", act: "settings" },
+            { label: qsTr("Power"), icon: "power", act: "powermenu", value: "\u203A" }
+        ]
+    }
+    function moreRows() {
+        return [
             { label: qsTr("Can't decide?"), icon: "sparkles", act: "roulette" },
+            { label: qsTr("Game night"), icon: "user-round", act: "night" },
+            ...(app.settingsMap.stream_pc ? [{ label: qsTr("Play on ") + app.settingsMap.stream_pc, icon: "tv", act: "stream" }] : []),
             { label: qsTr("Your stats"), icon: "trophy", act: "stats" },
             { label: qsTr("Challenges"), icon: "zap", act: "challenges" },
-            { label: qsTr("Game night"), icon: "user-round", act: "night" },
+            { label: qsTr("Edit Home"), icon: "layout-grid", act: "edithome" },
             { label: qsTr("Phone remote"), icon: "link", act: "phone", value: app.settingsMap.phone_remote ? qsTr("On") : "" },
-            ...app.pluginActions.map(a => ({ group: qsTr("Plugins"), label: a.label, icon: "puzzle", act: "plugin", id: a.id })),
-            ...(app.settingsMap.stream_pc ? [{ label: qsTr("Play on ") + app.settingsMap.stream_pc, icon: "tv", act: "stream" }] : []),
-            { label: qsTr("Settings"), icon: "settings-2", act: "settings" },
-            ...controls.powerRows(qsTr("Power")),
-            ...controls.leaveRows(qsTr("Power"))
+            ...app.pluginActions.map(a => ({ label: a.label, icon: "puzzle", act: "plugin", id: a.id }))
         ]
+    }
+    function powerMenuRows() { return [...controls.powerRows(""), ...controls.leaveRows("")] }
+    // What a row in any of those menus does.
+    function menuPick(sheet, row) {
+        if (row.act === "home") { sheet.hide(); libraryPage.visible = false; if (tvLibrary.search !== "") tv.clearSearch(); if (tv.shelfAt > 0) tv.stepShelf(-tv.shelfAt); grid.forceActiveFocus() }
+        else if (row.act === "library") { sheet.hide(); if (!libraryPage.visible) libraryPage.show() }
+        else if (row.act === "more") { sheet.open = false; moreMenu.show(); moreMenu.back = sheet.back }
+        else if (row.act === "powermenu") { sheet.open = false; powerMenu.show(); powerMenu.back = sheet.back }
+        else if (row.act === "edithome") { sheet.hide(); homeSheet.show() }
+        else if (row.act === "settings") { sheet.hide(); tvSettings.show("") }
+        else if (row.act === "downloads") { sheet.hide(); tvDownloads.show() }
+        else if (row.act === "stats") { sheet.hide(); tvStats.show() }
+        else if (row.act === "challenges") { sheet.hide(); goalSheet.show() }
+        else if (row.act === "night") { sheet.hide(); gameNight.show() }
+        else if (row.act === "phone") { sheet.hide(); phonePage.show() }
+        else if (row.act === "plugin") { sheet.hide(); app.runPluginAction(row.id) }
+        else if (row.act === "roulette") { sheet.hide(); roulette.show() }
+        else if (row.act === "stream") { sheet.hide(); app.streamFromPc() }
+        else controls.run(row)
     }
     readonly property var quickTabs: [
         { id: "quick", label: qsTr("Quick settings"), icon: "sliders-horizontal" },
@@ -1551,25 +1574,23 @@ FocusScope {
         side: "left"
         title: qsTr("Cornerplay")
         rowsFn: tab => tv.mainRows()
-        onPicked: (row) => {
-            if (row.act === "home") { hide(); libraryPage.visible = false; if (tvLibrary.search !== "") tv.clearSearch(); if (tv.shelfAt > 0) tv.stepShelf(-tv.shelfAt); grid.forceActiveFocus() }
-            else if (row.act === "library") { hide(); if (!libraryPage.visible) libraryPage.show() }
-            else if (row.act === "edithome") { hide(); homeSheet.show() }
-            else if (row.act === "search") { hide(); tv.openSearch("") }
-            else if (row.act === "installed") { tvLibrary.installedOnly = !tvLibrary.installedOnly; refresh() }
-            else if (row.act === "store") { tv.cycleStore(1); refresh() }
-            else if (row.act === "quick") { hide(); quickMenu.show() }
-            else if (row.act === "settings") { hide(); tvSettings.show("") }
-            else if (row.act === "downloads") { hide(); tvDownloads.show() }
-            else if (row.act === "stats") { hide(); tvStats.show() }
-            else if (row.act === "challenges") { hide(); goalSheet.show() }
-            else if (row.act === "night") { hide(); gameNight.show() }
-            else if (row.act === "phone") { hide(); phonePage.show() }
-            else if (row.act === "plugin") { hide(); app.runPluginAction(row.id) }
-            else if (row.act === "roulette") { hide(); roulette.show() }
-            else if (row.act === "stream") { hide(); app.streamFromPc() }
-            else controls.run(row)
-        }
+        onPicked: row => tv.menuPick(mainMenu, row)
+    }
+    SideSheet {
+        id: moreMenu
+        objectName: "tvMoreMenu"
+        side: "left"
+        title: qsTr("More")
+        rowsFn: tab => tv.moreRows()
+        onPicked: row => tv.menuPick(moreMenu, row)
+    }
+    SideSheet {
+        id: powerMenu
+        objectName: "tvPowerMenu"
+        side: "left"
+        title: qsTr("Power")
+        rowsFn: tab => tv.powerMenuRows()
+        onPicked: row => tv.menuPick(powerMenu, row)
     }
     SideSheet {
         id: quickMenu
@@ -1757,7 +1778,7 @@ FocusScope {
     }
     Connections {
         target: controls
-        function onArmedChanged() { if (quickMenu.open) quickMenu.refresh(); if (mainMenu.open) mainMenu.refresh() }
+        function onArmedChanged() { if (quickMenu.open) quickMenu.refresh(); if (mainMenu.open) mainMenu.refresh(); if (powerMenu.open) powerMenu.refresh() }
     }
 
     // A menu that slides in from one side over a dimmed screen. A chooses, B (or the way it came
@@ -1848,8 +1869,8 @@ FocusScope {
                 Item {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 40
-                    WordMark { visible: sheet.side === "left"; anchors.verticalCenter: parent.verticalCenter; size: 28 }
-                    Text { visible: sheet.side !== "left"; anchors.verticalCenter: parent.verticalCenter
+                    WordMark { visible: sheet === mainMenu; anchors.verticalCenter: parent.verticalCenter; size: 28 }
+                    Text { visible: sheet !== mainMenu; anchors.verticalCenter: parent.verticalCenter
                            text: sheet.title; color: theme.onSurface; font.pixelSize: 24; font.weight: Font.Medium }
                     // Steam-style status at a glance: Wi-Fi, Bluetooth, volume.
                     Row {

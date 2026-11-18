@@ -543,8 +543,6 @@ ApplicationWindow {
                         x: win.rail ? Math.round((parent.width - size) / 2) : 10; anchors.verticalCenter: parent.verticalCenter
                         size: 22
                         store: nav.store
-                        plain: true
-                        ink: nav.active ? theme.primary : theme.onSurfaceVariant
                         opacity: nav.dim ? 0.35 : 1
                     }
                     Icon {
