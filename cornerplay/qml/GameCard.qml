@@ -400,7 +400,9 @@ Item {
 
         // Not-installed marker.
         Rectangle {
-            visible: !card.installed && card.job === ""
+            visible: !card.installed && card.job === "" && opacity > 0
+            opacity: card.lit ? 1 : 0   // the dimmed cover says it already; the marker on hover only
+            Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 140 } }
             anchors { right: parent.right; top: parent.top; margins: 10 }
             width: 22; height: 22; radius: 11
             color: Qt.alpha("black", 0.58)
@@ -424,7 +426,9 @@ Item {
 
         // Favourite marker, top right (moves left of the update marker when both show).
         Rectangle {
-            visible: card.favourite
+            visible: card.favourite && opacity > 0
+            opacity: card.lit ? 1 : 0
+            Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 140 } }
             anchors { right: parent.right; top: parent.top; margins: 10; rightMargin: card.installed && card.update && card.job === "" ? 38 : 10 }
             width: 22; height: 22; radius: 11
             color: Qt.alpha("black", 0.58)

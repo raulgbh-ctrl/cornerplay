@@ -78,7 +78,7 @@ ApplicationWindow {
         interval: 1200  // only when you linger: passing over the grid shows nothing extra
         onTriggered: {
             const card = grid.itemAtIndex(grid.hoverIndex)
-            if (!card || popupOpen || !win.cardsLive) return
+            if (!card || popupOpen || !win.cardsLive || !app.settingsMap.hover_preview) return
             preview.g = app.game(win.hoverKey)
             const right = card.mapToItem(win.contentItem, card.width - 4, 18)
             const left = card.mapToItem(win.contentItem, 4, 18)
@@ -541,13 +541,11 @@ ApplicationWindow {
                         glyph: nav.glyph
                         tint: nav.tint
                         x: win.rail ? Math.round((parent.width - size) / 2) : 10; anchors.verticalCenter: parent.verticalCenter
-                        anchors.verticalCenterOffset: navHover.hovered && !app.light ? -1 : 0
                         size: 22
                         store: nav.store
+                        plain: true
+                        ink: nav.active ? theme.primary : theme.onSurfaceVariant
                         opacity: nav.dim ? 0.35 : 1
-                        scale: navHover.hovered && !app.still ? 1.12 : 1
-                        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutBack } }
-                        Behavior on anchors.verticalCenterOffset { NumberAnimation { duration: 140 } }
                     }
                     Icon {
                         visible: nav.dot === "" && nav.glyph === "" && nav.icon !== ""
@@ -785,7 +783,7 @@ ApplicationWindow {
                 Item { Layout.fillWidth: true }
                 // Filters: the chip row shows while this is on, or while a filter is set.
                 TopButton {
-                    icon: "filter"; label: qsTr("Filters")
+                    icon: "filter"; tip: qsTr("Filters")
                     badge: ((library && library.tags) || []).length
                     on: win.showFilters || ((library && library.tags) || []).length > 0
                     onPicked: win.showFilters = !win.showFilters
@@ -793,7 +791,7 @@ ApplicationWindow {
                 // View: covers or list, sort, installed only, cover size.
                 TopButton {
                     id: viewButton
-                    icon: ({ list: "list", logos: "tv", boxes: "library", shelves: "bookmark" })[app.settingsMap.view] || "layout-grid"; label: qsTr("View")
+                    icon: ({ list: "list", logos: "tv", boxes: "library", shelves: "bookmark" })[app.settingsMap.view] || "layout-grid"; tip: qsTr("View")
                     badge: library.installedOnly ? 1 : 0
                     onPicked: viewMenu.opened ? viewMenu.close() : viewMenu.open()
                     Popup {
@@ -840,12 +838,7 @@ ApplicationWindow {
                         }
                     }
                 }
-                KButton {
-                    theme: win.theme
-                    text: qsTr("Add")
-                    iconName: "plus"
-                    onClicked: addBox.show()
-                }
+                TopButton { icon: "plus"; tip: qsTr("Add a game"); onPicked: addBox.show() }
                 // Downloads: only while something downloads, waits or is paused.
                 // While one runs it shows how far it is, with a thin bar along the bottom (as Heroic does).
                 Rectangle {
@@ -1258,7 +1251,7 @@ ApplicationWindow {
                                     Item {
                                         id: heroThumbBox
                                         width: heroThumb.width; height: heroThumb.height
-                                        visible: hero.width >= 620
+                                        visible: false  // the art behind already shows the game; one picture is enough
                                         RectangularShadow {
                                             anchors.fill: parent
                                             visible: !app.light
@@ -5943,17 +5936,22 @@ ApplicationWindow {
         id: tb
         property string icon
         property string label
+        property string tip: ""      // icon-only buttons: the name shows on hover
         property int badge: 0
         property bool on: false
         signal picked()
-        implicitWidth: tbRow.implicitWidth + 24; implicitHeight: 38; radius: 10
+        implicitWidth: tb.label ? tbRow.implicitWidth + 24 : Math.max(38, tbRow.implicitWidth + 22); implicitHeight: 38; radius: 10
+        ToolTip.visible: tb.tip !== "" && tbHover.hovered
+        ToolTip.text: tb.tip
+        ToolTip.delay: 500
+        Accessible.name: tb.label || tb.tip
         color: on ? app.theme.primaryContainer : tbHover.hovered ? app.theme.surfaceContainerHigh : "transparent"
         Row {
             id: tbRow
             anchors.centerIn: parent
             spacing: 7
             Icon { anchors.verticalCenter: parent.verticalCenter; name: tb.icon; size: 16; color: tb.on ? app.theme.onPrimaryContainer : app.theme.onSurfaceVariant }
-            Text { anchors.verticalCenter: parent.verticalCenter; text: tb.label; font.pixelSize: 13; color: tb.on ? app.theme.onPrimaryContainer : app.theme.onSurface }
+            Text { visible: tb.label !== ""; anchors.verticalCenter: parent.verticalCenter; text: tb.label; font.pixelSize: 13; color: tb.on ? app.theme.onPrimaryContainer : app.theme.onSurface }
             Rectangle { visible: tb.badge > 0; anchors.verticalCenter: parent.verticalCenter; width: 18; height: 18; radius: 9; color: app.theme.primary
                         Text { anchors.centerIn: parent; text: tb.badge; color: app.theme.onPrimary; font.pixelSize: 10; font.weight: Font.Bold } }
         }
@@ -6384,6 +6382,7 @@ ApplicationWindow {
                             Toggle { label: qsTr("Play a game's trailer inside its cover while pointed at"); settingKey: "hover_trailers" }
                             Toggle { label: qsTr("Warmer colours in the evening and at night"); settingKey: "evening_warmth" }
                             Toggle { label: qsTr("TV mode: covers reflected on the shelf"); settingKey: "tv_reflection" }
+                            Toggle { label: qsTr("A card with the game's details when the pointer rests on a cover"); settingKey: "hover_preview" }
                             Toggle { label: qsTr("TV mode: start-up animation and chime"); settingKey: "tv_intro" }
                             KButton {
                                 theme: win.theme
