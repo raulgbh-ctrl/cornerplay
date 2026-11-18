@@ -526,18 +526,9 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     height: 40
                     radius: 12
-                    // Selected: a soft wash of the accent with a faint glow, not a solid block.
-                    color: active ? Qt.alpha(theme.primary, 0.16) : navHover.hovered ? Qt.alpha(theme.surfaceContainerHigh, 0.9) : "transparent"
-                    border.width: active ? 1 : 0
-                    border.color: Qt.alpha(theme.primary, 0.28)
+                    // Selected: a soft wash of the accent and the bar on its edge.
+                    color: active ? Qt.alpha(theme.primary, 0.14) : navHover.hovered ? Qt.alpha(theme.surfaceContainerHigh, 0.9) : "transparent"
                     Behavior on color { enabled: !app.still; ColorAnimation { duration: 120 } }
-                    RectangularShadow {
-                        z: -1
-                        anchors.fill: parent
-                        visible: nav.active && !app.light && GraphicsInfo.api !== GraphicsInfo.Software
-                        radius: parent.radius; blur: 18
-                        color: Qt.alpha(theme.primary, 0.18)
-                    }
                     // Accent bar on the selected item.
                     Rectangle {
                         visible: nav.active
@@ -1237,9 +1228,6 @@ ApplicationWindow {
                                     TapHandler { onTapped: win.toggleHome("banner") }
                                 }
                                 HoverHandler { id: heroHover }
-                                // Corner brackets, the icon's corner, framing the banner.
-                                CornerMark { anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 18; rotation: 180; tone: hero.tint.primary; opacity: 0.6; size: 26; thick: 3.5 }
-                                CornerMark { anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 18; rotation: -90; tone: hero.tint.primary; opacity: 0.6; size: 26; thick: 3.5 }
                                 Rectangle {
                                     anchors.fill: parent; radius: 18; color: "transparent"
                                     border.width: 1; border.color: theme.dark === false ? Qt.alpha("black", 0.08) : Qt.alpha("white", 0.07)
@@ -1304,11 +1292,6 @@ ApplicationWindow {
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: Math.min(560, hero.width - (heroThumbBox.visible ? heroThumb.width + 26 : 0) - 56)
                                         spacing: 10
-                                        Text {
-                                            text: qsTr("BACK IN YOUR CORNER")
-                                            color: hero.tint.primary
-                                            font.pixelSize: 12; font.weight: Font.Bold; font.letterSpacing: 2
-                                        }
                                         LogoTitle {
                                             logos: hero.info.logos || []
                                             title: hero.info.title || ""
@@ -5938,32 +5921,6 @@ ApplicationWindow {
         HoverHandler { id: rbHover; cursorShape: Qt.PointingHandCursor }
         TapHandler { onTapped: rb.tapped() }
     }
-    // An L-shaped corner mark (the icon's corner); rotate it to frame any corner.
-    // A soft L: one stroke with a rounded bend and round ends, like the logo's letters.
-    // Drawn as the bottom-left corner; rotate it for the others.
-    component CornerMark: Item {
-        id: cm
-        property color tone: "white"
-        property int size: 30
-        property real thick: 4
-        readonly property real bend: size * 0.5
-        width: size; height: size
-        Shape {
-            anchors.fill: parent
-            preferredRendererType: Shape.CurveRenderer
-            ShapePath {
-                strokeColor: cm.tone
-                strokeWidth: cm.thick
-                fillColor: "transparent"
-                capStyle: ShapePath.RoundCap
-                joinStyle: ShapePath.RoundJoin
-                startX: cm.thick / 2; startY: cm.thick / 2
-                PathLine { x: cm.thick / 2; y: cm.size - cm.bend }
-                PathArc { x: cm.bend; y: cm.size - cm.thick / 2; radiusX: cm.bend - cm.thick / 2; radiusY: cm.bend - cm.thick / 2; direction: PathArc.Counterclockwise }
-                PathLine { x: cm.size - cm.thick / 2; y: cm.size - cm.thick / 2 }
-            }
-        }
-    }
 
     // A small rounded label: optional store logo, text, optional accent colour.
     // One row of a small menu.
@@ -6419,7 +6376,7 @@ ApplicationWindow {
                                 KCombo {
                                     theme: win.theme; Layout.fillWidth: true
                                     model: [{ label: qsTr("None (flat)"), value: "none" }, { label: qsTr("Soft"), value: "soft" }, { label: qsTr("Deep"), value: "deep" }]
-                                    Component.onCompleted: select(app.settingsMap.card_shadow || "soft")
+                                    Component.onCompleted: select(app.settingsMap.card_shadow || "none")
                                     onActivated: app.setSetting("card_shadow", currentValue)
                                 }
                             }

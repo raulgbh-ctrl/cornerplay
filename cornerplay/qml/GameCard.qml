@@ -48,47 +48,11 @@ Item {
 
     readonly property bool hovered: hover.hovered
     readonly property bool lit: hover.hovered || current
-    // Tilt: the cover tips toward the pointer, like a game case held in the hand (-1..1 each way).
-    readonly property bool tilting: hover.hovered && !app.light && GraphicsInfo.api !== GraphicsInfo.Software
-    readonly property real tiltX: tilting ? Math.max(-1, Math.min(1, hover.point.position.x / Math.max(1, width) * 2 - 1)) : 0
-    readonly property real tiltY: tilting ? Math.max(-1, Math.min(1, hover.point.position.y / Math.max(1, height) * 2 - 1)) : 0
-
-    // Accent glow around the pointed-at card: a soft, blurred light that sits a little low.
-    RectangularShadow {
-        anchors.fill: frame
-        visible: card.lit && !app.light && GraphicsInfo.api !== GraphicsInfo.Software
-        radius: frame.radius
-        scale: frame.scale
-        blur: 30
-        spread: 2
-        offset.y: 6
-        color: Qt.alpha(card.theme.primary, 0.42)
-    }
-    // Light mode (or no GPU): a few fading outlines instead, cheap on anything.
-    Item {
-        anchors.fill: frame
-        scale: frame.scale
-        visible: card.lit && (app.light || GraphicsInfo.api === GraphicsInfo.Software)
-        opacity: card.lit ? 1 : 0
-        Repeater {
-            model: 5
-            Rectangle {
-                required property int index
-                anchors.fill: parent
-                anchors.margins: -(index + 1) * 2
-                anchors.topMargin: -(index + 1) * 2 + 4  // sits a little low, like a shadow
-                radius: card.cornerRadius + (index + 1) * 2
-                color: "transparent"
-                border.width: 2
-                border.color: Qt.alpha(card.theme.primary, 0.30 - index * 0.055)
-            }
-        }
-    }
 
     // The cover's shadow (Settings > Appearance: none, soft or deep).
     RectangularShadow {
         anchors.fill: frame
-        visible: !app.light && !card.lit && (app.settingsMap.card_shadow || "soft") !== "none"
+        visible: !app.light && !card.lit && (app.settingsMap.card_shadow || "none") !== "none"
         readonly property bool deep: app.settingsMap.card_shadow === "deep"
         radius: frame.radius
         scale: frame.scale
@@ -125,20 +89,6 @@ Item {
         color: theme.surfaceContainerHigh
         scale: card.lit && !app.still ? 1.03 : 1.0
         Behavior on scale { enabled: !app.still; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-        transform: [
-            Rotation {
-                origin.x: frame.width / 2; origin.y: frame.height / 2
-                axis { x: 0; y: 1; z: 0 }
-                angle: card.tiltX * 7
-                Behavior on angle { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-            },
-            Rotation {
-                origin.x: frame.width / 2; origin.y: frame.height / 2
-                axis { x: 1; y: 0; z: 0 }
-                angle: -card.tiltY * 6
-                Behavior on angle { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-            }
-        ]
 
         // Box view: the case's spine, with the title running up it.
         Rectangle {
@@ -292,47 +242,6 @@ Item {
                 active: card.trailer !== "" && typeof canPlayVideo !== "undefined" && canPlayVideo
                 source: "TvTrailer.qml"
                 onLoaded: item.source = Qt.binding(() => card.trailer)
-            }
-
-            // A soft light that follows the pointer across the cover while it tilts.
-            RectangularShadow {
-                visible: card.tilting && img.status === Image.Ready
-                width: parent.width * 0.9; height: width
-                x: (card.tiltX + 1) / 2 * parent.width - width / 2
-                y: (card.tiltY + 1) / 2 * parent.height - height / 2
-                radius: width / 2
-                blur: width * 0.45
-                color: Qt.alpha("white", 0.13)
-                Behavior on x { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-                Behavior on y { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-            }
-
-            // A soft streak of light sweeps across the cover when it is pointed at.
-            Rectangle {
-                id: shine
-                visible: false
-                y: -parent.height * 0.3
-                width: parent.width * 0.45
-                height: parent.height * 1.6
-                rotation: 18
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0; color: "transparent" }
-                    GradientStop { position: 0.5; color: Qt.alpha("white", 0.16) }
-                    GradientStop { position: 1.0; color: "transparent" }
-                }
-                NumberAnimation on x {
-                    id: sweep
-                    running: false
-                    from: -shine.width * 1.4; to: card.width + shine.width * 0.4
-                    duration: 700; easing.type: Easing.OutCubic
-                    onStarted: shine.visible = true
-                    onFinished: shine.visible = false
-                }
-            }
-            Connections {
-                target: hover
-                function onHoveredChanged() { if (hover.hovered && !app.light && img.status === Image.Ready) sweep.restart() }
             }
 
             // Title strip, on hover or when there is no art to read.

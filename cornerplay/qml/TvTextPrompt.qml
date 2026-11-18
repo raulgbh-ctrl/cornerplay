@@ -172,13 +172,6 @@ Item {
                                 color: lit ? tp.tint.primary : on ? Qt.alpha(tp.tint.primary, 0.35)
                                      : k === "done" ? Qt.alpha(tp.tint.primary, 0.22)
                                      : special ? Qt.alpha(tp.theme.surfaceContainerHighest, 0.95) : Qt.alpha(tp.theme.surfaceContainerHighest, 0.7)
-                                RectangularShadow {
-                                    z: -1
-                                    anchors.fill: parent
-                                    visible: key.lit && !app.light && GraphicsInfo.api !== GraphicsInfo.Software
-                                    radius: parent.radius; blur: 22
-                                    color: Qt.alpha(tp.tint.primary, 0.55)
-                                }
                                 Row {
                                     anchors.centerIn: parent
                                     spacing: 6

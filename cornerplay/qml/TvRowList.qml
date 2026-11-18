@@ -128,13 +128,6 @@ ListView {
             color: cell.lit ? rl.tint.primary : cell.row.kind === "slider" ? Qt.alpha(rl.theme.onSurface, 0.05) : "transparent"
             Behavior on color { enabled: !app.still; ColorAnimation { duration: 100 } }
             opacity: rl.pickable(cell.row) ? 1 : 0.72
-            RectangularShadow {
-                z: -1
-                anchors.fill: parent
-                visible: cell.lit && !app.light && GraphicsInfo.api !== GraphicsInfo.Software
-                radius: parent.radius; blur: 24
-                color: Qt.alpha(rl.tint.primary, 0.45)
-            }
             readonly property color ink: cell.lit ? rl.tint.onPrimary : cell.row.danger ? rl.theme.error : rl.theme.onSurface
             readonly property color soft: cell.lit ? Qt.alpha(rl.tint.onPrimary, 0.8) : rl.theme.onSurfaceVariant
 

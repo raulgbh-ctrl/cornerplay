@@ -1,24 +1,26 @@
 import QtQuick
 
-// The Cornerplay name, from the logo artwork: "Corner" in the text colour, "Play" in the
-// accent, both following the theme (and so the wallpaper). The mark sits before it.
+// The Cornerplay name: lowercase, one weight, one colour, after the mark. It follows the
+// theme (and so the wallpaper) like everything else.
 Row {
     id: wm
     property int size: 22                    // roughly the letters' height in pixels
     property bool showIcon: true
     property color ink: app.theme.onSurface
-    property color accent: app.theme.primary  // the wallpaper's accent, grey included
-    spacing: Math.round(size * 0.42)
+    property color accent: app.theme.primary  // kept for callers; the name itself is one colour now
+    spacing: Math.round(size * 0.45)
     BrandMark {
         visible: wm.showIcon
         anchors.verticalCenter: parent.verticalCenter
-        size: Math.round(wm.size * 1.6)
+        size: Math.round(wm.size * 1.5)
     }
-    Item {
+    Text {
         anchors.verticalCenter: parent.verticalCenter
-        height: Math.round(wm.size * 1.3)
-        width: Math.round(height * 5.0756)   // the artwork's aspect
-        BrandLayer { anchors.fill: parent; name: "wm-corner"; tint: wm.ink }
-        BrandLayer { anchors.fill: parent; name: "wm-play"; tint: wm.accent }
+        text: "cornerplay"
+        color: wm.ink
+        font.family: "Nunito"
+        font.weight: Font.ExtraBold
+        font.pixelSize: Math.round(wm.size * 1.25)
+        font.letterSpacing: -wm.size * 0.02
     }
 }

@@ -1,87 +1,68 @@
 import QtQuick
+import QtQuick.Shapes
 
-// The Cornerplay mark: the C with a play button in a rounded square, in the theme's colours.
-// play() animates it in (splash, TV intro): the C swings round, the play button pops, the
-// sparks flick on. Animators, which run on Qt's render thread: the start-up animation stays
-// smooth while the app is still busy loading the library on the main thread.
+// The Cornerplay mark: a C around a play button, flat, in the theme's colours (the same
+// shapes as cornerplay.svg, on a 512 grid). play() animates it in (splash, TV intro): the C
+// turns into place, then the play button grows. Animators run on Qt's render thread, so the
+// start-up animation stays smooth while the library loads.
 Item {
     id: bm
     property int size: 36
     property var theme: app.theme
     readonly property color accent: theme.primary  // the wallpaper's accent, grey included
+    readonly property real u: size / 512
     width: size; height: size
 
     readonly property alias playing: intro.running
     function play() {
         if (app.light) return
         intro.stop()
-        cLayer.rotation = -70; cLayer.opacity = 0
-        tri.scale = 0; spark.opacity = 0; sparkPivot.scale = 0.6
+        cLayer.rotation = -90; cLayer.opacity = 0; tri.scale = 0
         intro.start()
     }
 
     Rectangle {
-        id: tile
         anchors.fill: parent
-        radius: bm.size * 0.23
-        // Dark themes: a lifted surface. Light themes: a deep tile, so the cream C still reads.
-        readonly property color base: bm.theme.dark === false ? Qt.darker(bm.accent, 3.2) : bm.theme.surfaceContainerHighest
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: Qt.lighter(tile.base, 1.18) }
-            GradientStop { position: 1.0; color: Qt.tint(tile.base, Qt.alpha(bm.accent, 0.14)) }
-        }
-        border.width: Math.max(1, Math.round(bm.size / 64))
-        border.color: Qt.alpha("white", 0.08)
+        radius: bm.size * 0.227
+        // Dark themes: a lifted surface. Light themes: a deep tile, so the light C still reads.
+        color: bm.theme.dark === false ? Qt.darker(bm.accent, 3.2) : bm.theme.surfaceContainerHighest
     }
-    Item {
-        anchors.centerIn: parent
-        width: bm.size * 0.9; height: width
-        BrandLayer {
-            id: cLayer
-            objectName: "markC"
-            anchors.fill: parent
-            name: "mark-c"
-            tint: bm.theme.dark === false ? "#f4ede4" : bm.theme.onSurface
+    Shape {
+        id: cLayer
+        anchors.fill: parent
+        preferredRendererType: Shape.CurveRenderer
+        ShapePath {
+            fillColor: "transparent"
+            strokeColor: bm.theme.dark === false ? "#f4ede4" : bm.theme.onSurface
+            strokeWidth: 56 * bm.u
+            capStyle: ShapePath.RoundCap
+            PathAngleArc { centerX: 256 * bm.u; centerY: 256 * bm.u; radiusX: 128 * bm.u; radiusY: 128 * bm.u
+                           startAngle: 45; sweepAngle: 270 }
         }
-        BrandLayer {
-            id: tri
-            anchors.fill: parent
-            name: "mark-tri"
-            tint: bm.accent
-            transformOrigin: Item.Center
-        }
-        // The sparks grow out from the C's top right (70 %, 32 %): this item is centred there,
-        // so scaling it (a ScaleAnimator scales about the centre) scales the sparks from there.
-        Item {
-            id: sparkPivot
-            width: parent.width * 1.4; height: parent.height * 0.64
-            BrandLayer {
-                id: spark
-                width: sparkPivot.width / 1.4; height: sparkPivot.height / 0.64
-                name: "mark-spark"
-                tint: bm.accent
-            }
+    }
+    Shape {
+        id: tri
+        anchors.fill: parent
+        preferredRendererType: Shape.CurveRenderer
+        transformOrigin: Item.Center
+        ShapePath {
+            fillColor: bm.accent
+            strokeColor: bm.accent
+            strokeWidth: 22 * bm.u
+            joinStyle: ShapePath.RoundJoin
+            startX: 238 * bm.u; startY: 206 * bm.u
+            PathLine { x: 238 * bm.u; y: 306 * bm.u }
+            PathLine { x: 318 * bm.u; y: 256 * bm.u }
+            PathLine { x: 238 * bm.u; y: 206 * bm.u }
         }
     }
 
     SequentialAnimation {
         id: intro
         ParallelAnimation {
-            RotationAnimator { target: cLayer; from: -70; to: 0; duration: 620; easing.type: Easing.OutBack; easing.overshoot: 1.4 }
-            OpacityAnimator { target: cLayer; from: 0; to: 1; duration: 300 }
-            SequentialAnimation {
-                PauseAnimation { duration: 260 }
-                ScaleAnimator { target: tri; from: 0; to: 1; duration: 420; easing.type: Easing.OutBack; easing.overshoot: 2.2 }
-            }
+            RotationAnimator { target: cLayer; from: -90; to: 0; duration: 520; easing.type: Easing.OutCubic }
+            OpacityAnimator { target: cLayer; from: 0; to: 1; duration: 260 }
         }
-        // The sparks: on, a flicker, on for good.
-        ParallelAnimation {
-            ScaleAnimator { target: sparkPivot; from: 0.6; to: 1; duration: 260; easing.type: Easing.OutBack }
-            SequentialAnimation {
-                OpacityAnimator { target: spark; from: 0; to: 1; duration: 90 }
-                OpacityAnimator { target: spark; from: 1; to: 0.25; duration: 70 }
-                OpacityAnimator { target: spark; from: 0.25; to: 1; duration: 110 }
-            }
-        }
+        ScaleAnimator { target: tri; from: 0; to: 1; duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.6 }
     }
 }

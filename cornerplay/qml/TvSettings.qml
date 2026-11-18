@@ -102,13 +102,6 @@ Rectangle {
                     radius: 18
                     color: lit ? ts.tint.primary : cur ? Qt.alpha(ts.tint.primary, 0.16) : navHover.hovered ? Qt.alpha(ts.theme.onSurface, 0.06) : "transparent"
                     Behavior on color { enabled: !app.still; ColorAnimation { duration: 110 } }
-                    RectangularShadow {
-                        z: -1
-                        anchors.fill: parent
-                        visible: navRow.lit && !app.light && GraphicsInfo.api !== GraphicsInfo.Software
-                        radius: parent.radius; blur: 24
-                        color: Qt.alpha(ts.tint.primary, 0.45)
-                    }
                     Rectangle {  // the open section's mark, while you are in its rows
                         visible: navRow.cur && !navRow.lit
                         anchors { left: parent.left; leftMargin: 4; verticalCenter: parent.verticalCenter }

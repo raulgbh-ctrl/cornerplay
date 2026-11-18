@@ -1318,13 +1318,6 @@ FocusScope {
                                 color: lit ? tv.tint.primary
                                      : special ? Qt.alpha(theme.surfaceContainerHighest, 0.95)
                                      : Qt.alpha(theme.surfaceContainerHighest, 0.7)
-                                RectangularShadow {
-                                    z: -1
-                                    anchors.fill: parent
-                                    visible: key.lit && !app.light && GraphicsInfo.api !== GraphicsInfo.Software
-                                    radius: parent.radius; blur: 22
-                                    color: Qt.alpha(tv.tint.primary, 0.55)
-                                }
                                 Row {
                                     anchors.centerIn: parent
                                     spacing: 8
@@ -1637,13 +1630,6 @@ FocusScope {
                     border.width: lit ? 0 : 1
                     border.color: Qt.alpha("white", 0.07)
                     Behavior on color { enabled: !app.still; ColorAnimation { duration: 120 } }
-                    RectangularShadow {
-                        z: -1
-                        anchors.fill: parent
-                        visible: parent.lit && !app.light && GraphicsInfo.api !== GraphicsInfo.Software
-                        radius: parent.radius; blur: 28; offset.y: 6
-                        color: Qt.alpha(tv.tint.primary, 0.45)
-                    }
                     Icon {
                         anchors { verticalCenter: parent.verticalCenter; left: parent.left; leftMargin: 22 }
                         size: 22

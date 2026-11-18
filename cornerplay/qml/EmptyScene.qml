@@ -17,14 +17,6 @@ Item {
 
     // The season's small touch (Seasonal.qml): snow, leaves, petals or fireflies.
     Seasonal { anchors.fill: parent; anchors.margins: -30; theme: es.theme; count: 10; z: 5 }
-    // A soft pool of accent light behind the drawing.
-    RectangularShadow {
-        visible: !app.light && GraphicsInfo.api !== GraphicsInfo.Software
-        anchors.centerIn: parent
-        width: 120; height: 80; radius: 40
-        blur: 60
-        color: Qt.alpha(es.accent, 0.16)
-    }
     // The floor line all three scenes stand on.
     Shape {
         anchors.fill: parent
