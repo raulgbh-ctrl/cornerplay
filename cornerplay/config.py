@@ -112,6 +112,7 @@ DEFAULTS = {
     "clips": False,             # keep the last 30 s of a game to save on demand (gpu-screen-recorder, clips.py)
     "family": {},               # family limits per person (family.py)
     "family_pin": "",
+    "phone_remote": False,      # the phone remote and web library on the home network (remote.py), off by default
     "prelaunch_checks": True,   # before a game: battery, downloads, a missing controller, a full drive (toasts)
     "pad_battery_alerts": True, # a wireless controller at 20 % or less: say so (also over a game)
     "tv_library_view": "grid",  # TV mode's Library page: "grid" (covers) or "list"

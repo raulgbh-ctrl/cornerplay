@@ -256,6 +256,7 @@ QtObject {
             setting(group, qsTr("Reflections"), "eye", "tv_reflection"),
             setting(group, qsTr("Start-up animation"), "sparkles", "tv_intro"),
             setting(group, qsTr("Who's playing?"), "user-round", "tv_who", qsTr("Ask at start when several people use this PC")),
+            setting(group, qsTr("Phone remote"), "link", "phone_remote", qsTr("A phone on your Wi-Fi as a remote (Guide menu shows the code)")),
             { group: group, kind: "choice", label: qsTr("Screensaver"), icon: "moon", cur: st.tv_screensaver || 0,
               options: [0, 1, 3, 5, 10, 20, 30].map(m => ({ v: m, t: m ? m + qsTr(" min") : qsTr("Never") })),
               set: v => app.setSetting("tv_screensaver", v) }

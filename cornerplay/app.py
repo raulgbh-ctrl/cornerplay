@@ -6124,6 +6124,7 @@ class AioLaunch(QObject):
     # --- "Because you played", price watch, space planner, pre-launch checks, pad batteries,
     # --- sleep timer --------------------------------------------------------------------------
     def _extras_start(self):
+        QTimer.singleShot(1500, self._remote_apply)
         _FAMILY["only"] = family.rules(personal.current())["only"]
         self._pad_low = set()      # controllers already warned about (until they charge again)
         self._sleep_at = 0.0       # sleep timer: when the PC sleeps (0: off)
@@ -6350,6 +6351,138 @@ class AioLaunch(QObject):
             if shutil.which("notify-send"):
                 QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", "-u", "critical", _t("Sleep timer"), msg])
 
+    # --- phone remote and game night (remote.py) ---------------------------------------------
+    remoteChanged = Signal()
+    gameNightChanged = Signal()
+    _remote = None
+    _remote_error = ""
+    _gamenight = {"open": False, "keys": [], "votes": {}}
+
+    PAD_KEYS = {"up": Qt.Key_Up, "down": Qt.Key_Down, "left": Qt.Key_Left, "right": Qt.Key_Right,
+                "a": Qt.Key_Return, "b": Qt.Key_Escape, "x": Qt.Key_F2, "y": Qt.Key_F3, "view": Qt.Key_F4,
+                "guide": Qt.Key_F10, "qa": Qt.Key_F9, "lb": Qt.Key_PageUp, "rb": Qt.Key_PageDown}
+
+    def _remote_apply(self):
+        """Start or stop the phone remote's server to match the setting."""
+        from . import remote
+        want = bool(settings.get("phone_remote")) and not self.demo
+        if want and not self._remote:
+            srv = remote.Server({
+                "key": lambda k: self._after.emit(lambda: self._inject_key(k)),
+                "text": lambda t: self._after.emit(lambda: self._inject_text(t)),
+                "state": self._remote_state,
+                "night": self._gamenight_for,
+                "vote": lambda phone, key: self._vote(phone, key),
+                "routes": self._web_routes() if hasattr(self, "_web_routes") else {},
+            })
+            self._remote_error = srv.start()
+            self._remote = None if self._remote_error else srv
+        elif not want and self._remote:
+            self._remote.stop()
+            self._remote = None
+            self._remote_error = ""
+        self.remoteChanged.emit()
+
+    def _remote_info(self):
+        from . import remote
+        if not self._remote:
+            return {"on": False, "error": self._remote_error}
+        url = self._remote.url
+        link = f"{url}?c={self._remote.code}"
+        svg = remote.qr_svg(link)
+        return {"on": True, "url": url, "code": self._remote.code, "link": link, "error": "",
+                "qr": ("data:image/svg+xml;utf8," + QUrl.toPercentEncoding(svg).data().decode()) if svg else ""}
+
+    remoteInfo = Property("QVariantMap", _remote_info, notify=remoteChanged)
+
+    def _inject_key(self, name):
+        if name in ("lt", "rt"):
+            self._post_key(Qt.Key_Left if name == "lt" else Qt.Key_Right, Qt.ShiftModifier)
+        elif name in self.PAD_KEYS:
+            self._post_key(self.PAD_KEYS[name])
+
+    def _inject_text(self, text):
+        for ch in text:
+            if ch == "\b":
+                self._post_key(Qt.Key_Backspace)
+            elif ch.isprintable():
+                key = Qt.Key_Space if ch == " " else (ord(ch.upper()) if ch.isascii() and ch.isalnum() else 0)
+                self._post_key(key, Qt.NoModifier, ch.lower())
+
+    def _post_key(self, key, mods=Qt.NoModifier, text=""):
+        from PySide6.QtGui import QKeyEvent
+        from PySide6.QtCore import QEvent
+        win = QGuiApplication.focusWindow() or next(iter(QGuiApplication.topLevelWindows()), None)
+        if win is None:
+            return
+        for kind in (QEvent.KeyPress, QEvent.KeyRelease):
+            QGuiApplication.postEvent(win, QKeyEvent(kind, key, mods, text))
+        pads = getattr(self, "gamepad", None)
+        if pads is not None and hasattr(pads, "activity"):
+            pads.activity.emit()  # counts as someone using the TV (screensaver)
+
+    def _remote_state(self):
+        playing = self._now_playing()
+        return {"playing": playing[0]["title"] if playing else "", "focus": ""}
+
+    @Slot()
+    def startGameNight(self):
+        """Up to six games to vote on: ones to play together on this screen first (installed,
+        most played first), then installed multiplayer games, then the ones played last."""
+        m = self.model
+        groups = [g for g in m.groups if not m.is_hidden(g)]
+        inst = [g for g in groups if any(x.installed for x in g)]
+
+        def by_play(gs):
+            return sorted(gs, key=lambda g: -m.group_value(g, "lastPlayed"))
+        picks = []
+        for pool in (by_play([g for g in inst if any(couch.local(_appid(x)) for x in g)]),
+                     by_play([g for g in inst if any(couch.online(_appid(x)) for x in g)]),
+                     by_play(inst)):
+            for g in pool:
+                k = m.rep(g).key
+                if k not in picks:
+                    picks.append(k)
+                if len(picks) >= 6:
+                    break
+            if len(picks) >= 6:
+                break
+        self._gamenight = {"open": True, "keys": picks, "votes": {}}
+        self.gameNightChanged.emit()
+
+    @Slot()
+    def closeGameNight(self):
+        self._gamenight = {"open": False, "keys": [], "votes": {}}
+        self.gameNightChanged.emit()
+
+    def _gamenight_for(self, phone=""):
+        n = self._gamenight
+        tally = {}
+        for v in n["votes"].values():
+            tally[v] = tally.get(v, 0) + 1
+        games = []
+        for k in n["keys"]:
+            g = self.model.find(k)
+            if not g:
+                continue
+            games.append({"key": k, "title": g.title, "cover": (_covers(g) or [""])[0], "votes": tally.get(k, 0)})
+        return {"open": n["open"], "games": games, "mine": n["votes"].get(phone, "")}
+
+    gameNightInfo = Property("QVariantMap", lambda s: s._gamenight_for(), notify=gameNightChanged)
+
+    def _vote(self, phone, key):
+        if not self._gamenight["open"] or key not in self._gamenight["keys"]:
+            return False
+        self._gamenight["votes"][phone] = key
+        self._after.emit(self.gameNightChanged.emit)
+        return True
+
+    @Slot(str)
+    def voteOnTv(self, key):
+        """A vote from the TV's own controller: each press is one more person in the room."""
+        n = len([p for p in self._gamenight["votes"] if p.startswith("tv:")])
+        self._vote(f"tv:{n}", key)
+
     def _notify(self, title, body=""):
         """A desktop notification, only while Cornerplay is not in front (a game, another app)."""
         if QGuiApplication.applicationState() == Qt.ApplicationActive:
@@ -6406,6 +6539,8 @@ class AioLaunch(QObject):
             if key == "merge_duplicates":
                 self.model.set_games(self.model.games)
                 self.storesChanged.emit()
+            if key == "phone_remote":
+                self._remote_apply()
             if key == "wishlist_sales":
                 if value:
                     self._load_wishlist(True)

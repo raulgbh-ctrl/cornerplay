@@ -1324,6 +1324,14 @@ FocusScope {
     // The game's own page (X / More): TvPage.qml. Its Options opens the action panel below, on top of it.
     function openPage() { if (!cur.key) return; app.uiSound("select"); gamePage.show(cur, app.gameDetails(cur.key), app.achievements(cur.key)) }
     TvDownloads { id: tvDownloads; anchors.fill: parent; z: 42; theme: tv.theme; tint: tv.tint; onClosed: grid.forceActiveFocus() }
+    TvPhone { id: phonePage; anchors.fill: parent; z: 42; theme: tv.theme; tint: tv.tint; onClosed: tv.refocus(null) }
+    TvGameNight {
+        id: gameNight
+        anchors.fill: parent; z: 42
+        theme: tv.theme; tint: tv.tint
+        onClosed: tv.refocus(null)
+        onPlay: key => { tv.cur = app.game(key); tv.accept() }
+    }
     TvStats { id: tvStats; anchors.fill: parent; z: 42; theme: tv.theme; tint: tv.tint; onClosed: grid.forceActiveFocus() }
     TvRoulette {
         id: roulette
@@ -1640,6 +1648,8 @@ FocusScope {
             { label: qsTr("Can't decide?"), icon: "sparkles", act: "roulette" },
             { label: qsTr("Your stats"), icon: "trophy", act: "stats" },
             { label: qsTr("Challenges"), icon: "zap", act: "challenges" },
+            { label: qsTr("Game night"), icon: "user-round", act: "night" },
+            { label: qsTr("Phone remote"), icon: "link", act: "phone", value: app.settingsMap.phone_remote ? qsTr("On") : "" },
             ...(app.settingsMap.stream_pc ? [{ label: qsTr("Play on ") + app.settingsMap.stream_pc, icon: "tv", act: "stream" }] : []),
             { label: qsTr("Quick access"), icon: "sliders-horizontal", act: "quick" },
             { label: qsTr("Settings"), icon: "settings-2", act: "settings" },
@@ -1689,6 +1699,8 @@ FocusScope {
             else if (row.act === "downloads") { hide(); tvDownloads.show() }
             else if (row.act === "stats") { hide(); tvStats.show() }
             else if (row.act === "challenges") { hide(); goalSheet.show() }
+            else if (row.act === "night") { hide(); gameNight.show() }
+            else if (row.act === "phone") { hide(); phonePage.show() }
             else if (row.act === "roulette") { hide(); roulette.show() }
             else if (row.act === "stream") { hide(); app.streamFromPc() }
             else controls.run(row)

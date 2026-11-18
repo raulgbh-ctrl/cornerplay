@@ -6438,6 +6438,13 @@ ApplicationWindow {
                         Toggle { label: qsTr("TV mode: the controller buzzes lightly when moving and choosing"); settingKey: "tv_rumble" }
                         Toggle { visible: typeof canPlayVideo !== "undefined" && canPlayVideo; label: qsTr("TV mode: calm background music (quiet during trailers and games)"); settingKey: "tv_music" }
                         Toggle { label: qsTr("TV mode: ask \"Who's playing?\" at start (when several people use this PC)"); settingKey: "tv_who" }
+                        Toggle { label: qsTr("Phone remote and web library on your home network (a code keeps others out)"); settingKey: "phone_remote" }
+                        Text {
+                            visible: !!app.remoteInfo.on || !!app.remoteInfo.error
+                            Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 12
+                            color: app.remoteInfo.error ? theme.error : theme.onSurfaceVariant
+                            text: app.remoteInfo.error || qsTr("On a phone or another PC: %1  ·  code %2  (the web library is at %1web)").arg(app.remoteInfo.url).arg(app.remoteInfo.code)
+                        }
                         Row2 {
                             label: qsTr("TV mode screensaver")
                             hint: qsTr("Your recently played games' art drifts by with the clock after a few quiet minutes. Any button wakes it.")
