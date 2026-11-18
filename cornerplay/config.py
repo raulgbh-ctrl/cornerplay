@@ -107,6 +107,9 @@ DEFAULTS = {
     "itad_key": "",             # IsThereAnyDeal API key: the best price on any store for the wishlist (itad.py)
     "price_watch": {},          # wishlist "store:id" -> the discount to wait for (1: any sale, 25/50/75/90 % off)
     "price_watch_told": [],
+    "fps_cap": 0,               # frames per second cap for every game (each can set its own), 0 = none
+    "tdp": 0,                   # power limit in watts for every game (AMD + ryzenadj, tdp.py), 0 = leave alone
+    "clips": False,             # keep the last 30 s of a game to save on demand (gpu-screen-recorder, clips.py)
     "prelaunch_checks": True,   # before a game: battery, downloads, a missing controller, a full drive (toasts)
     "pad_battery_alerts": True, # a wireless controller at 20 % or less: say so (also over a game)
     "tv_library_view": "grid",  # TV mode's Library page: "grid" (covers) or "list"
@@ -290,7 +293,7 @@ class GameOptions:
     """Per-game overrides, keyed "store:id". A missing key means "use the default"."""
     KEYS = ("proton", "mangohud", "gamemode", "env", "args", "cover", "prefer", "cloud_saves", "hidden", "collections",
             "status", "rating", "note", "perf", "show_fps", "platform", "gamescope", "gamescope_hdr",
-            "before", "after", "pad_layout", "put_away", "pad_keys", "gog_lang")
+            "before", "after", "pad_layout", "put_away", "pad_keys", "gog_lang", "fps_cap", "tdp")
 
     def __init__(self):
         self.path = CONFIG_DIR / "games.json"

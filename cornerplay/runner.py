@@ -137,6 +137,9 @@ PROFILES = {
 def perf_env(store: str, game_id: str) -> dict:
     env = {}
     prof = PROFILES.get(opt("perf") or "")  # "none" (a game set to No change) matches nothing
+    cap = _fps_cap()
+    if cap:  # the game's own frame cap wins over the profile's
+        prof = dict(prof or {"fsr": False}, fps=cap)
     if prof:
         if prof["fps"]:
             env["DXVK_FRAME_RATE"] = str(prof["fps"])
@@ -279,9 +282,16 @@ def gamescope_argv(mangoapp: bool = False) -> list:
     return [*argv, "--"]
 
 
+def _fps_cap() -> int:
+    try:
+        return max(0, int(opt("fps_cap") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
 def _wants_hud() -> bool:
     return bool(opt("mangohud") or opt("show_fps") or (opt("perf_log") and shutil.which("mangohud"))
-                or (PROFILES.get(opt("perf") or "") or {}).get("fps"))
+                or (PROFILES.get(opt("perf") or "") or {}).get("fps") or _fps_cap())
 
 
 def extras(gamescope: bool = True) -> list:

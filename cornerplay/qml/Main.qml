@@ -6626,6 +6626,34 @@ ApplicationWindow {
                                     onActivated: app.setSetting("perf", currentValue)
                                 }
                             }
+                            Row2 {
+                                label: qsTr("Frame cap for every game")
+                                hint: qsTr("Steadier and cooler, and longer on battery. Each game can choose its own under Options. Works through DXVK, VKD3D-Proton and MangoHud.")
+                                KCombo {
+                                    theme: win.theme; Layout.fillWidth: true
+                                    model: [{ label: qsTr("No cap"), value: 0 }, { label: "30 fps", value: 30 }, { label: "40 fps", value: 40 }, { label: "45 fps", value: 45 },
+                                            { label: "60 fps", value: 60 }, { label: "90 fps", value: 90 }, { label: "120 fps", value: 120 }]
+                                    Component.onCompleted: select(app.settingsMap.fps_cap || 0)
+                                    onActivated: app.setSetting("fps_cap", currentValue)
+                                }
+                            }
+                            Row2 {
+                                visible: app.tdpAvailable
+                                label: qsTr("Power limit for every game (TDP)")
+                                hint: qsTr("AMD handhelds and laptops, through ryzenadj (it needs root once: the first game tells you how). Each game can choose its own under Options; it goes back when the game closes.")
+                                KCombo {
+                                    theme: win.theme; Layout.fillWidth: true
+                                    model: [{ label: qsTr("Leave it to the PC"), value: 0 }, { label: "5 W", value: 5 }, { label: "8 W", value: 8 }, { label: "10 W", value: 10 },
+                                            { label: "12 W", value: 12 }, { label: "15 W", value: 15 }, { label: "18 W", value: 18 }, { label: "20 W", value: 20 },
+                                            { label: "25 W", value: 25 }, { label: "30 W", value: 30 }]
+                                    Component.onCompleted: select(app.settingsMap.tdp || 0)
+                                    onActivated: app.setSetting("tdp", currentValue)
+                                }
+                            }
+                            Toggle { label: qsTr("Clips: keep the last 30 seconds of a game, saved from quick access (Guide + A)"); settingKey: "clips"
+                                     enabled: app.clipsAvailable }
+                            Text { visible: !app.clipsAvailable; text: qsTr("Clips need gpu-screen-recorder (install it from your distribution's packages).")
+                                   color: theme.outline; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
                         }
 
                         // ---- People & sync
@@ -7133,6 +7161,8 @@ ApplicationWindow {
             optPerf.select(opts.perf === undefined ? "default" : opts.perf)
             optPlatform.select(opts.platform === undefined ? "default" : opts.platform)
             optFps.select(opts.show_fps === undefined ? "default" : opts.show_fps)
+            optCap.select(opts.fps_cap === undefined ? "default" : opts.fps_cap)
+            optTdp.select(opts.tdp === undefined ? "default" : opts.tdp)
             optPad.select(opts.pad_layout === undefined ? "default" : opts.pad_layout)
             optKeys.select(opts.pad_keys === undefined ? "default" : opts.pad_keys)
             optScope.select(opts.gamescope === undefined ? "default" : opts.gamescope)
@@ -7257,6 +7287,25 @@ ApplicationWindow {
                         label: qsTr("FPS counter")
                         KCombo { id: optFps; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
                                  onActivated: app.setGameOption(gameOpts.key, "show_fps", currentValue) }
+                    }
+                }
+                RowLayout {
+                    visible: gameOpts.compat && gameOpts.game.store !== "battlenet"
+                    spacing: 14
+                    Row2 {
+                        Layout.fillHeight: true; Layout.preferredWidth: 1
+                        label: qsTr("Frame cap")
+                        KCombo { id: optCap; theme: win.theme; Layout.fillWidth: true
+                                 model: [{ label: qsTr("Use default"), value: "default" }].concat([{ label: qsTr("No cap"), value: 0 }, { label: "30 fps", value: 30 }, { label: "40 fps", value: 40 }, { label: "45 fps", value: 45 }, { label: "60 fps", value: 60 }, { label: "90 fps", value: 90 }, { label: "120 fps", value: 120 }])
+                                 onActivated: app.setGameOption(gameOpts.key, "fps_cap", currentValue) }
+                    }
+                    Row2 {
+                        Layout.fillHeight: true; Layout.preferredWidth: 1
+                        visible: app.tdpAvailable
+                        label: qsTr("Power limit (TDP)")
+                        KCombo { id: optTdp; theme: win.theme; Layout.fillWidth: true
+                                 model: [{ label: qsTr("Use default"), value: "default" }].concat([{ label: qsTr("Leave it to the PC"), value: 0 }, { label: "5 W", value: 5 }, { label: "8 W", value: 8 }, { label: "10 W", value: 10 }, { label: "12 W", value: 12 }, { label: "15 W", value: 15 }, { label: "18 W", value: 18 }, { label: "20 W", value: 20 }, { label: "25 W", value: 25 }, { label: "30 W", value: 30 }])
+                                 onActivated: app.setGameOption(gameOpts.key, "tdp", currentValue) }
                     }
                 }
                 Row2 {

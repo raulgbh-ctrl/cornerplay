@@ -107,6 +107,9 @@ QtObject {
               options: [{ v: "", t: qsTr("No change") }, { v: "battery", t: qsTr("Battery saver") }, { v: "balanced", t: qsTr("Balanced") }, { v: "quality", t: qsTr("Max quality") }],
               set: v => app.setSetting("perf", v) },
             setting(group, qsTr("FPS counter"), "gauge", "show_fps"),
+            { group: group, kind: "choice", label: qsTr("Frame cap"), icon: "gauge", cur: st.fps_cap || 0,
+              options: [0, 30, 40, 45, 60, 90, 120].map(v => ({ v: v, t: v ? v + " fps" : qsTr("No cap") })),
+              set: v => app.setSetting("fps_cap", v) },
             setting(group, qsTr("MangoHud overlay"), "cpu", "mangohud"),
             setting(group, qsTr("GameMode"), "zap", "gamemode", qsTr("Feral's CPU and GPU boost while you play"))
         ]
@@ -115,6 +118,12 @@ QtObject {
         out.push(setting(w, qsTr("Keep awake"), "sun", "focus_awake", qsTr("No screen blanking or sleep mid-game")))
         out.push(setting(w, qsTr("Performance power mode"), "zap", "focus_power", qsTr("Back to yours when the game closes")))
         out.push(setting(w, qsTr("Pause downloads"), "download", "focus_downloads", qsTr("They carry on when the game closes")))
+        if (app.tdpAvailable)
+            out.push({ group: group, kind: "choice", label: qsTr("Power limit (TDP)"), icon: "zap", cur: st.tdp || 0,
+                       options: [0, 5, 8, 10, 12, 15, 18, 20, 25, 30].map(v => ({ v: v, t: v ? v + " W" : qsTr("Leave it to the PC") })),
+                       set: v => app.setSetting("tdp", v) })
+        if (app.clipsAvailable)
+            out.push(setting(group, qsTr("Clips"), "images", "clips", qsTr("The last 30 seconds, saved from quick access")))
         out.push(setting(w, qsTr("Checks before a game"), "info", "prelaunch_checks", qsTr("Low battery, a download, no controller, a full drive")))
         out.push(setting(w, qsTr("Controller battery alerts"), "battery", "pad_battery_alerts", qsTr("At 20 %, also over a game")))
         if (app.hasGamescope && !g.active)

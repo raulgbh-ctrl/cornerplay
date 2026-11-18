@@ -76,6 +76,7 @@ Window {
         const g = qsTr("This game")
         return [
             { group: g, label: qsTr("Back to the game"), icon: "play", act: "back" },
+            ...(app.settingsMap.clips ? [{ group: g, label: qsTr("Save a clip"), icon: "images", sub: qsTr("The last 30 seconds"), act: "clip" }] : []),
             { group: g, label: controls.armed === "quit" ? qsTr("Press again to quit") : qsTr("Quit the game"), icon: "x", act: "quit", danger: controls.armed === "quit" },
             { group: g, label: controls.armed === "kill" ? qsTr("Press again to force close") : qsTr("Force close (if it hangs)"), icon: "x", act: "kill", danger: true },
             { group: qsTr("Cornerplay"), label: qsTr("Open Cornerplay"), icon: "layout-grid", act: "open" },
@@ -99,6 +100,7 @@ Window {
         if (row.act === "back") hide()
         else if (row.act === "open") { hide(); openCornerplay() }
         else if (row.act === "panel") { hide(); app.overlayRequested() }
+        else if (row.act === "clip") { hide(); app.saveClip() }
         else if (row.act === "quit") { if (controls.arm("quit")) { app.quitGame(info.key, false); hide() } }
         else if (row.act === "kill") { if (controls.arm("kill")) { app.quitGame(info.key, true); hide() } }
         else controls.run(row)

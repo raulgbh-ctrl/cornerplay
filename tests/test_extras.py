@@ -13,3 +13,11 @@ def test_dupes_tag_needs_two_stores():
 
 def test_because_row_is_empty_without_a_game():
     assert appmod._BECAUSE["test"]([]) is False
+
+
+def test_fps_cap_wins_over_the_profile(monkeypatch):
+    from cornerplay import runner
+    monkeypatch.setattr(runner, "_overrides", {"perf": "balanced", "fps_cap": 40, "perf_log": False, "show_fps": False})
+    env = runner.perf_env("epic", "x")
+    assert env["DXVK_FRAME_RATE"] == "40" and "fps_limit=40" in env["MANGOHUD_CONFIG"]
+    assert env.get("WINE_FULLSCREEN_FSR") == "1"  # Balanced's upscaling stays

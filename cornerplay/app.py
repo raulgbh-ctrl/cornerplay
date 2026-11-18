@@ -5285,6 +5285,11 @@ class AioLaunch(QObject):
         playing = bool(self._now_playing())
         if playing and self._focus is None and not self.demo:
             want = {k: bool(settings.get("focus_" + k)) for k in ("dnd", "awake", "power")}
+            first = self._now_playing()[0]
+            own = game_options.get(first["key"])
+            want["tdp"] = int((own["tdp"] if "tdp" in own else settings.get("tdp")) or 0)
+            if settings.get("clips"):
+                want["clips"] = first.get("title") or "Game"
             self._focus = {}
             if settings.get("focus_downloads"):
                 self._focus_paused = [k for k, j in list(self.model.jobs.items()) if j.get("kind") in self.PAUSABLE]
@@ -5308,6 +5313,26 @@ class AioLaunch(QObject):
             self._sys_pool.submit(lambda: focus.end(undo))
             return
         self._focus = undo
+        if undo.get("tdp_error"):
+            self.toast.emit(_t("Power limit not set: ") + undo["tdp_error"])
+        if settings.get("clips") and undo.get("clips") is None:
+            self.toast.emit(_t("Clips need gpu-screen-recorder"))
+
+    @Slot()
+    def saveClip(self):
+        """The last 30 seconds of the game being played, to ~/Videos/Cornerplay/<game>/ (clips.py)."""
+        from . import clips
+        proc = (self._focus or {}).get("clips")
+        if clips.save(proc):
+            self.toast.emit(_t("Clip saved: the last %1 seconds").replace("%1", str(clips.CLIP_SECONDS)))
+            self._notify(_t("Clip saved"), str(clips.folder((self._now_playing() or [{}])[0].get("title", ""))))
+        elif not settings.get("clips"):
+            self.toast.emit(_t("Clips are off: Settings > Games > Clips"))
+        else:
+            self.toast.emit(_t("No game is recording right now"))
+
+    clipsAvailable = Property(bool, lambda s: bool(shutil.which("gpu-screen-recorder")), constant=True)
+    tdpAvailable = Property(bool, lambda s: __import__("cornerplay.tdp", fromlist=["available"]).available(), constant=True)
 
     def _focus_stop(self):
         undo, self._focus = self._focus or {}, None

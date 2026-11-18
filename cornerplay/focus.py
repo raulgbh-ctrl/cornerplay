@@ -115,6 +115,17 @@ def begin(want: dict) -> dict:
         if p.get("profile") and p["profile"] != "performance" and "performance" in p.get("profiles", []):
             if syscontrol.set_power_profile("performance"):
                 undo["power"] = p["profile"]
+    if want.get("tdp"):  # the game's own power limit (tdp.py)
+        from . import tdp
+        before = tdp.current()
+        err = tdp.apply(int(want["tdp"]))
+        if err:
+            undo["tdp_error"] = err
+        elif before:
+            undo["tdp"] = before
+    if want.get("clips"):  # the replay buffer for "Save a clip" (clips.py)
+        from . import clips
+        undo["clips"] = clips.start(want["clips"])
     return undo
 
 
@@ -130,3 +141,9 @@ def end(undo: dict):
             pass
     if undo.get("power"):
         syscontrol.set_power_profile(undo["power"])
+    if undo.get("tdp"):
+        from . import tdp
+        tdp.apply(undo["tdp"])
+    if undo.get("clips") is not None:
+        from . import clips
+        clips.stop(undo["clips"])

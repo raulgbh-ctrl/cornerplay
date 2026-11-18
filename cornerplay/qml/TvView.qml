@@ -1644,6 +1644,8 @@ FocusScope {
         const out = []
         for (const p of app.nowPlaying) {
             out.push({ group: qsTr("Now playing"), label: p.title, icon: "play", sub: qsTr("Running") })
+            if (app.settingsMap.clips)
+                out.push({ group: qsTr("Now playing"), label: qsTr("Save a clip"), icon: "images", sub: qsTr("The last 30 seconds"), act: "clip" })
             out.push({ group: qsTr("Now playing"), label: controls.armed === "kill:" + p.key ? qsTr("Press again to force close") : qsTr("Quit game"),
                        icon: "x", act: "quitgame", key: p.key, alt: qsTr("Force close"), danger: controls.armed === "kill:" + p.key })
         }
@@ -1686,6 +1688,7 @@ FocusScope {
         Timer { interval: 1000; repeat: true; running: quickMenu.open && quickMenu.tabId === "playing"; onTriggered: quickMenu.refresh() }
         onPicked: (row) => {
             if (row.act === "quitgame") { app.quitGame(row.key, false); hide() }
+            else if (row.act === "clip") { hide(); app.saveClip() }
             else if (row.act === "downloads") { hide(); tvDownloads.show() }
             else controls.run(row)
         }
