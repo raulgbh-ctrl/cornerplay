@@ -494,7 +494,7 @@ FocusScope {
             // Only the active tab keeps its name when the names would not all fit (about 172 px a tab).
             readonly property bool compact: tabsBox.width < tv.storeIds.length * 172 + 240
             spacing: 12
-            WordMark { size: 30; Layout.rightMargin: 20 }
+            BrandMark { size: 34; Layout.rightMargin: 14; opacity: 0.9 }
             // Every game lives on the Library page, not on Home: up from the top shelf, then A.
             Rectangle {
                 id: libBtn
@@ -503,9 +503,7 @@ FocusScope {
                 implicitHeight: 46
                 radius: 23
                 Layout.rightMargin: 8
-                color: activeFocus ? tv.tint.primary : libHover.hovered ? Qt.alpha(theme.onSurface, 0.1) : Qt.alpha(theme.background, 0.35)
-                border.width: activeFocus ? 0 : 1
-                border.color: Qt.alpha(theme.onSurface, 0.2)
+                color: activeFocus ? tv.tint.primary : libHover.hovered ? Qt.alpha(theme.onSurface, 0.1) : "transparent"
                 scale: activeFocus && !app.still ? 1.06 : 1
                 Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
                 Row {
@@ -529,40 +527,12 @@ FocusScope {
                     else event.accepted = true  // nothing else to do up here
                 }
             }
-            Repeater {
-                model: tv.storeIds
-                Rectangle {
-                    required property string modelData
-                    readonly property bool active: tvLibrary.storeFilter === modelData
-                    readonly property var info: app.storesInfo.find(s => s.id === modelData) || ({ name: qsTr("All games"), color: "" })
-                    implicitWidth: tabRow.implicitWidth + 36
-                    implicitHeight: 46
-                    radius: 23
-                    color: active ? tv.tint.primary : tabHover.hovered ? Qt.alpha(theme.onSurface, 0.1) : Qt.alpha(theme.background, 0.35)
-                    HoverHandler { id: tabHover; cursorShape: Qt.PointingHandCursor }
-                    border.width: 0
-                    border.color: theme.outlineVariant
-                    Row {
-                        id: tabRow
-                        anchors.centerIn: parent
-                        spacing: 9
-                        StoreTile {
-                            visible: parent.parent.modelData !== ""
-                            anchors.verticalCenter: parent.verticalCenter
-                            size: 26
-                            store: parent.parent.modelData
-                        }
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            visible: !parent.parent.parent.compact || parent.parent.active || parent.parent.modelData === ""
-                            text: parent.parent.info.name
-                            color: parent.parent.active ? tv.tint.onPrimary : theme.onSurfaceVariant
-                            font.pixelSize: 18
-                            font.weight: parent.parent.active ? Font.DemiBold : Font.Normal
-                        }
-                    }
-                    TapHandler { onTapped: { tvLibrary.storeFilter = parent.modelData; grid.currentIndex = 0; tv.sync() } }
-                }
+            // The store, only when one is picked (LB / RB): one quiet word instead of a row of tabs.
+            Text {
+                visible: tvLibrary.storeFilter !== ""
+                text: (app.storesInfo.find(x => x.id === tvLibrary.storeFilter) || { name: "" }).name
+                color: theme.onSurfaceVariant
+                font.pixelSize: 18
             }
           }
           }
@@ -577,14 +547,6 @@ FocusScope {
                     batt = app.battery()
                 }
                 Timer { interval: 20000; running: tv.visible; repeat: true; triggeredOnStart: true; onTriggered: topStatus.tick() }
-                Row {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 14
-                    Repeater {
-                        model: tv.statusIcons
-                        Icon { required property var modelData; anchors.verticalCenter: parent.verticalCenter; name: modelData; size: 22; color: theme.onSurfaceVariant }
-                    }
-                }
                 Row {  // the sleep timer, while it runs
                     visible: app.sleepTimerLeft > 0
                     anchors.verticalCenter: parent.verticalCenter
@@ -615,7 +577,8 @@ FocusScope {
                     Text { id: playingText; x: 34; anchors.verticalCenter: parent.verticalCenter
                            text: app.nowPlaying.length ? app.nowPlaying[0].title : ""; color: theme.onSurface; font.pixelSize: 16 }
                 }
-                Row {  // who is playing: initial in a circle (and the name when there are several people)
+                Row {  // who is playing, when several people use this PC
+                    visible: app.profiles.length > 1
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 10
                     Rectangle {
@@ -630,9 +593,8 @@ FocusScope {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: topStatus.clock
-                    color: theme.onSurface
-                    font.pixelSize: 24
-                    font.weight: Font.Medium
+                    color: theme.onSurfaceVariant
+                    font.pixelSize: 22
                 }
             }
         }
@@ -643,9 +605,6 @@ FocusScope {
             id: infoArea
             Layout.fillWidth: true
             Layout.fillHeight: true
-            readonly property real core: titleBlock.height + metaRow.height + playedLine.height + actionsRow.height + 60
-            readonly property bool roomForGenres: height >= core + 40
-            readonly property bool roomForText: height >= core + 40 + 110
             ColumnLayout {
                 anchors { left: parent.left; bottom: parent.bottom; bottomMargin: 6 }
                 width: Math.min(parent.width * 0.62, 980)
@@ -664,91 +623,19 @@ FocusScope {
                     logoHeight: Math.round(Math.min(170, Math.max(80, Math.min(tv.height * 0.15, infoArea.height * 0.3))))
                     maxWidth: Math.min(width, 640)
                 }
-                Row {
+                // One quiet line: where it is and how much you played it.
+                Text {
                     id: metaRow
-                    spacing: 14
-                    Repeater {
-                        model: tv.cur.key ? (tv.cur.copies.length ? tv.cur.copies : [{ key: tv.cur.key, storeColor: tv.cur.storeColor }]) : []
-                        StoreIcon {
-                            required property var modelData
-                            anchors.verticalCenter: parent.verticalCenter
-                            size: 24
-                            store: modelData.key.split(":")[0]
-                            color: modelData.storeColor || "white"
-                        }
-                    }
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        color: theme.onSurface
-                        opacity: 0.85
-                        font.pixelSize: 19
-                        text: {
-                            if (!tv.cur.key) return ""
-                            const stores = tv.cur.copies.length ? tv.cur.copies.map(c => c.storeName).join(", ") : tv.cur.storeName
-                            const pct = Math.max(0, Math.floor(tv.cur.progress)) + "%"
-                            const state = tv.cur.job === "install" ? qsTr("Installing ") + pct
-                                        : tv.cur.job === "update" ? qsTr("Updating ") + pct
-                                        : tv.cur.job === "dlc" ? qsTr("Installing DLC ") + pct
-                                        : tv.cur.job === "move" ? qsTr("Moving ") + pct
-                                        : tv.cur.job ? qsTr("Removing…")
-                                        : tv.cur.installed ? (tv.cur.update ? qsTr("Update available") : qsTr("Installed")) : qsTr("Not installed")
-                            return stores + "  ·  " + state
-                        }
-                    }
-                    Rectangle {  // ProtonDB rating
-                        visible: !!tv.cur.protondb
-                        anchors.verticalCenter: parent.verticalCenter
-                        height: 30; radius: 15
-                        width: tvPdb.implicitWidth + 40
-                        color: Qt.alpha(theme.background, 0.5)
-                        border.width: 1
-                        border.color: ProtonDB.color(tv.cur.protondb || "")
-                        StoreIcon { x: 11; anchors.verticalCenter: parent.verticalCenter; size: 16; store: "protondb"; color: ProtonDB.color(tv.cur.protondb || "") }
-                        Text { id: tvPdb; x: 33; anchors.verticalCenter: parent.verticalCenter; text: qsTr("ProtonDB ") + ProtonDB.label(tv.cur.protondb || ""); color: theme.onSurface; font.pixelSize: 14; font.weight: Font.DemiBold }
-                    }
-                }
-                Text {
-                    id: playedLine
-                    readonly property string played: tv.cur.key ? app.playedText(tv.cur.playtime, tv.cur.lastPlayed) : ""
-                    readonly property string trophies: tv.ach.total ? "\u{1F3C6} " + tv.ach.done + " / " + tv.ach.total : ""
                     visible: text !== ""
-                    readonly property string pad: tv.info.controller === "partial" ? qsTr("\u{1F3AE} Partial controller support")
-                                                  : tv.info.controller === "" && !!tv.cur.steamAppId
-                                                    ? qsTr("\u2328 Mouse and keyboard") + (app.gameOptions(tv.cur.key).pad_keys ? qsTr(" (controller set up as keyboard)") : qsTr(" (More > Options: controller as keyboard)")) : ""
-                    readonly property string stars: tv.cur.rating ? "\u2605".repeat(tv.cur.rating) + "\u2606".repeat(5 - tv.cur.rating) : ""
-                    text: [played, trophies, stars, pad].filter(t => !!t).join("   \u00B7   ")
                     color: theme.onSurfaceVariant
-                    font.pixelSize: 17
-                }
-                Row {
-                    spacing: 8
-                    visible: (tv.info.genres || []).length > 0 && infoArea.roomForGenres
-                    Repeater {
-                        model: tv.info.genres || []
-                        Rectangle {
-                            required property string modelData
-                            height: 28; radius: 14
-                            width: tvGenre.implicitWidth + 24
-                            color: Qt.alpha(theme.background, 0.45)
-                            border.width: 1
-                            border.color: tv.tint.primary
-                            Text { id: tvGenre; anchors.centerIn: parent; text: modelData; color: theme.onSurface; font.pixelSize: 13; font.weight: Font.DemiBold }
-                        }
+                    font.pixelSize: 19
+                    text: {
+                        if (!tv.cur.key) return ""
+                        const stores = tv.cur.copies.length ? tv.cur.copies.map(c => c.storeName).join(", ") : tv.cur.storeName
+                        const state = tv.cur.job ? "" : !tv.cur.installed ? qsTr("Not installed") : tv.cur.update ? qsTr("Update available") : ""
+                        const played = app.playedText(tv.cur.playtime, tv.cur.lastPlayed)
+                        return [stores, state, tv.cur.playtime ? played : ""].filter(t => !!t).join("   \u00B7   ")
                     }
-                }
-                Text {
-                    Layout.fillWidth: true
-                    Layout.maximumWidth: Math.min(680, tv.width * 0.42)
-                    visible: text !== "" && infoArea.roomForText
-                    text: tv.info.description || ""; textFormat: Text.PlainText
-                    style: Text.Raised; styleColor: Qt.alpha("black", 0.55)  // stays readable over bright art
-                    color: theme.onSurface
-                    opacity: 0.82
-                    font.pixelSize: 16
-                    lineHeight: 1.25
-                    wrapMode: Text.WordWrap
-                    maximumLineCount: 3
-                    elide: Text.ElideRight
                 }
                 // The two things you can do, with the button that does them.
                 Row {
@@ -810,50 +697,14 @@ FocusScope {
             }
         }
 
-        // Shelf label: which list this is, and where you are in it.
-        RowLayout {
-            Layout.fillWidth: true
+        // Shelf label: just which list this is.
+        Text {
             Layout.bottomMargin: -6
-            spacing: 12
-            Icon {
-                name: tvLibrary.search !== "" ? "search" : ({ playing: "history", fav: "star", added: "gift", away: "download", news: "bell", because: "sparkles", "": "library" })[tv.shelf.id] || "bookmark"
-                size: 20
-                color: tv.tint.primary
-            }
-            Text {
-                text: tvLibrary.search !== "" ? qsTr("Results for \u201c") + tvLibrary.search + "\u201d" : tv.shelf.name
-                color: theme.onSurface
-                font.pixelSize: 20
-                font.weight: Font.DemiBold
-            }
-            Rectangle {
-                visible: tvLibrary.installedOnly
-                height: 26; radius: 13
-                width: instText.implicitWidth + 22
-                color: Qt.alpha(tv.tint.primary, 0.2)
-                border.width: 1; border.color: tv.tint.primary
-                Text { id: instText; anchors.centerIn: parent; text: qsTr("Installed only"); color: theme.onSurface; font.pixelSize: 13; font.weight: Font.DemiBold }
-            }
-            Text {
-                visible: grid.count > 0
-                text: (grid.currentIndex + 1) + qsTr(" of ") + grid.count
-                color: theme.onSurfaceVariant
-                font.pixelSize: 17
-            }
-            Item { Layout.fillWidth: true }
-            // The shelves above and below: up / down goes there.
-            Text {
-                visible: tvLibrary.search === "" && tv.shelfAt > 0
-                text: "\u25B2  " + (tv.shelfList[tv.shelfAt - 1] || {}).name
-                color: theme.onSurfaceVariant; opacity: 0.7
-                font.pixelSize: 15
-            }
-            Text {
-                visible: tvLibrary.search === "" && tv.shelfAt < tv.shelfList.length - 1
-                text: qsTr("\u25BC  ") + (tv.shelfList[tv.shelfAt + 1] || {}).name
-                color: theme.onSurfaceVariant; opacity: 0.7
-                font.pixelSize: 15
-            }
+            text: (tvLibrary.search !== "" ? qsTr("Results for \u201c") + tvLibrary.search + "\u201d" : tv.shelf.name)
+                  + (tvLibrary.installedOnly ? "  \u00B7  " + qsTr("Installed only") : "")
+            color: theme.onSurfaceVariant
+            font.pixelSize: 20
+            font.weight: Font.DemiBold
         }
 
         // One row of covers along the bottom; left / right to browse.
@@ -1010,36 +861,7 @@ FocusScope {
             }
         }
 
-        // The shelf below, previewed: smaller covers, dimmed. Down goes there.
-        ColumnLayout {
-            id: peek
-            visible: !!tv.nextShelf && tv.height >= 900  // the Steam Deck (800 tall) keeps the room for the game
-            Layout.fillWidth: true
-            spacing: 8
-            opacity: 0.55
-            Text {
-                text: qsTr("\u25BC  ") + (tv.nextShelf ? tv.nextShelf.name : "")
-                color: theme.onSurfaceVariant
-                font.pixelSize: 16
-                font.weight: Font.DemiBold
-            }
-            ListView {
-                Layout.fillWidth: true
-                Layout.preferredHeight: Math.round(Math.max(70, tv.height * 0.1))
-                orientation: ListView.Horizontal
-                interactive: false
-                spacing: 10
-                clip: true
-                model: tvNextLibrary
-                delegate: RoundedArt {
-                    required property var covers
-                    height: ListView.view.height
-                    width: Math.round(height / 1.46)
-                    radius: 8
-                    ArtImage { anchors.fill: parent; sources: covers || []; sourceSize.width: 160 }
-                }
-            }
-        }
+        Item { id: peek; visible: false }  // (the next shelf's preview is gone: Home stays one row)
 
         // Button hints: the connected controller's own glyphs, or keyboard keys; only the ones
         // that do something right now (no Jump in a short row, no Store with one store...).
@@ -1062,10 +884,10 @@ FocusScope {
                            shelves ? { k: "\u2191 \u2193", t: qsTr("Shelf") } : null, jump ? { k: qsTr("Shift \u2190/\u2192"), t: qsTr("Jump") } : null,
                            stores ? { k: qsTr("PgUp / PgDn"), t: qsTr("Store") } : null, { k: qsTr("Type"), t: qsTr("Search") },
                            { k: qsTr("Esc"), t: tvLibrary.search ? qsTr("Clear search") : qsTr("Back") }]
-                    // Four at most: the rest are listed on a game's page (More).
+                    // Two at most (play, menu): everything else is in the menu and on a game's page.
                     // No game in view (an empty shelf, nothing found): nothing to play or open.
                     const needGame = [qsTr("Play"), qsTr("Install"), qsTr("Options"), qsTr("More")]
-                    return all.filter(h => h && !h.pad && [qsTr("Play"), qsTr("Install"), qsTr("Options"), qsTr("More"), qsTr("Menu"), qsTr("Back"), qsTr("Clear search")].indexOf(h.t) !== -1
+                    return all.filter(h => h && !h.pad && [qsTr("Play"), qsTr("Install"), qsTr("Menu"), qsTr("Clear search")].indexOf(h.t) !== -1
                                            && (tv.cur.key || needGame.indexOf(h.t) === -1))
                 }
                 Hint { required property var modelData; hint: modelData }
@@ -1685,11 +1507,7 @@ FocusScope {
         return [
             { label: qsTr("Home"), icon: "house", act: "home" },
             { label: qsTr("Library"), icon: "library", act: "library", value: String(app.totalCount || "") },
-            { label: qsTr("Search"), icon: "search", act: "search" },
             { label: qsTr("Edit Home"), icon: "layout-grid", act: "edithome" },
-            { label: qsTr("Installed only"), icon: "filter", act: "installed", on: tvLibrary.installedOnly },
-            { label: qsTr("Next store"), icon: "layout-grid", act: "store",
-              value: (app.storesInfo.find(x => x.id === tvLibrary.storeFilter) || { name: qsTr("All games") }).name },
             { label: qsTr("Downloads"), icon: "download", act: "downloads", value: app.downloads.length ? String(app.downloads.length) : "" },
             { label: qsTr("Can't decide?"), icon: "sparkles", act: "roulette" },
             { label: qsTr("Your stats"), icon: "trophy", act: "stats" },
@@ -1698,7 +1516,6 @@ FocusScope {
             { label: qsTr("Phone remote"), icon: "link", act: "phone", value: app.settingsMap.phone_remote ? qsTr("On") : "" },
             ...app.pluginActions.map(a => ({ group: qsTr("Plugins"), label: a.label, icon: "puzzle", act: "plugin", id: a.id })),
             ...(app.settingsMap.stream_pc ? [{ label: qsTr("Play on ") + app.settingsMap.stream_pc, icon: "tv", act: "stream" }] : []),
-            { label: qsTr("Quick access"), icon: "sliders-horizontal", act: "quick" },
             { label: qsTr("Settings"), icon: "settings-2", act: "settings" },
             ...controls.powerRows(qsTr("Power")),
             ...controls.leaveRows(qsTr("Power"))
