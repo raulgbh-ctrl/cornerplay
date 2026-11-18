@@ -152,6 +152,7 @@ def _translatable_names():
             QCoreApplication.translate("app", "Clip saved"),
             QCoreApplication.translate("app", "Clips are off: Settings > Games > Clips"),
             QCoreApplication.translate("app", "No game is recording right now"),
+            QCoreApplication.translate("app", "No such game"),
             QCoreApplication.translate("app", "That PIN is not right"),
             QCoreApplication.translate("app", "A PIN is 4 or more digits"),
             QCoreApplication.translate("app", "PIN saved"),
@@ -6373,7 +6374,7 @@ class AioLaunch(QObject):
                 "state": self._remote_state,
                 "night": self._gamenight_for,
                 "vote": lambda phone, key: self._vote(phone, key),
-                "routes": self._web_routes() if hasattr(self, "_web_routes") else {},
+                "routes": self._web_routes(),
             })
             self._remote_error = srv.start()
             self._remote = None if self._remote_error else srv
@@ -6420,6 +6421,56 @@ class AioLaunch(QObject):
         pads = getattr(self, "gamepad", None)
         if pads is not None and hasattr(pads, "activity"):
             pads.activity.emit()  # counts as someone using the TV (screensaver)
+
+    # The web library (webui.py): its handlers run on the server's thread, so each one asks the
+    # UI thread for the answer and waits for it (a second at most).
+    def _on_ui(self, fn, default):
+        import threading
+        box, done = {}, threading.Event()
+
+        def run():
+            try:
+                box["v"] = fn()
+            finally:
+                done.set()
+        self._after.emit(run)
+        return box.get("v", default) if done.wait(2) else default
+
+    def _web_routes(self):
+        from . import webui
+        return webui.routes(lambda: self._on_ui(self._web_snapshot, {"games": [], "downloads": []}),
+                            lambda what, key: self._on_ui(lambda: self._web_act(what, key), "busy"))
+
+    def _web_snapshot(self):
+        m, night = self.model, set(settings.get("night_queue") or [])
+        games = []
+        for grp in m.groups:
+            if m.is_hidden(grp):
+                continue
+            g = m.rep(grp)
+            job = m.jobs.get(g.key) or {}
+            store = self.stores.get(g.store)
+            games.append({"key": g.key, "title": g.title, "store": store.name if store else g.store,
+                          "cover": (_covers(g) or [""])[0], "installed": any(x.installed for x in grp),
+                          "update": bool(g.extra.get("update")), "job": job.get("kind", ""),
+                          "progress": float(job.get("progress", 0) or 0), "tonight": g.key in night,
+                          "canInstall": store is not None and not g.installed and not store.external_installs})
+        games.sort(key=lambda x: x["title"].lower())
+        return {"games": games, "downloads": self.jobList()}
+
+    def _web_act(self, what, key):
+        g = self.model.find(key)
+        if not g:
+            return _t("No such game")
+        if what == "install":
+            self.install(key)
+        elif what == "update":
+            self.update(key)
+        elif what == "tonight":
+            self.installTonight(key, key not in (settings.get("night_queue") or []))
+        elif what == "cancel":
+            self.cancel(key)
+        return ""
 
     def _remote_state(self):
         playing = self._now_playing()

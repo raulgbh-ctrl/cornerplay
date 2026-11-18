@@ -80,3 +80,16 @@ def test_keys_from_the_phone_reach_the_window():
     qapp.processEvents()
     assert got == [(Qt.Key_Return, "", False), (Qt.Key_Right, "", True), (Qt.Key_H, "h", False),
                    (Qt.Key_I, "i", False), (Qt.Key_Backspace, "", False)]
+
+
+def test_web_library_lists_and_acts():
+    from cornerplay import webui
+    did = []
+    r = webui.routes(lambda: {"games": [{"key": "gog:1", "title": "A"}], "downloads": []},
+                     lambda what, key: did.append((what, key)) or "")
+    status, ctype, body = r["/web/api/games"]("GET", {}, {})
+    assert status == 200 and json.loads(body)["games"][0]["key"] == "gog:1"
+    assert r["/web/api/act"]("POST", {}, {"action": "install", "key": "gog:1"})[0] == 200
+    assert r["/web/api/act"]("POST", {}, {"action": "uninstall", "key": "gog:1"})[0] == 400  # not offered on the web
+    assert r["/web/api/act"]("GET", {}, {})[0] == 405
+    assert did == [("install", "gog:1")]
