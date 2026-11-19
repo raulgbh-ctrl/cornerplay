@@ -52,11 +52,34 @@ Item {
     // Tilt: the cover tips toward the pointer, like a game case held in the hand (-1..1 each way).
     // The desktop library only (TV mode sets tilt: false); Settings > Appearance turns it off.
     property bool tilt: true
+    // Looks (Settings > Appearance > Look): the title and a line under the cover; games not
+    // installed in grey until pointed at; a soft shadow in the cover's own colour.
+    property bool caption: false
+    property string captionSub: ""
+    property bool greyWhenOff: false
+    property bool glow: false
+    property string glowColour: glow ? app.gameColour(key) : ""
+    Connections { target: app; enabled: card.glow && card.glowColour === ""
+                  function onGameColourReady(k, c) { if (k === card.key) card.glowColour = c } }
+    property real enterY: 0   // Look > Motion: where it comes in from
+    transform: Translate { y: card.enterY }
     readonly property bool tilting: tilt && hover.hovered && app.settingsMap.card_tilt !== false && !app.still
                                     && !app.light && GraphicsInfo.api !== GraphicsInfo.Software
     readonly property real tiltX: tilting ? Math.max(-1, Math.min(1, hover.point.position.x / Math.max(1, width) * 2 - 1)) : 0
     readonly property real tiltY: tilting ? Math.max(-1, Math.min(1, hover.point.position.y / Math.max(1, height) * 2 - 1)) : 0
 
+    // The cover's own colour, glowing softly under it (brighter when pointed at).
+    RectangularShadow {
+        anchors.fill: frame
+        visible: card.glow && card.glowColour !== "" && !app.light
+        radius: frame.radius
+        scale: frame.scale
+        blur: card.lit ? 36 : 24
+        spread: -4
+        offset.y: card.lit ? 14 : 10
+        color: Qt.alpha(card.glowColour, card.lit ? 0.7 : 0.38)
+        Behavior on color { ColorAnimation { duration: 160 } }
+    }
     // The cover's shadow (Settings > Appearance: none, soft or deep).
     RectangularShadow {
         anchors.fill: frame
@@ -92,7 +115,7 @@ Item {
         id: frame
         anchors.fill: parent
         anchors.margins: card.gap
-        anchors.bottomMargin: card.style === "box" ? card.gap + 18 : card.gap
+        anchors.bottomMargin: card.style === "box" ? card.gap + 18 : card.caption ? card.gap + 46 : card.gap
         radius: card.cornerRadius
         color: theme.surfaceContainerHigh
         scale: card.lit && !app.still ? 1.03 : 1.0
@@ -214,6 +237,10 @@ Item {
                 sourceSize.width: Math.min(app.light ? 280 : 600, Math.max(160, Math.ceil(width * Screen.devicePixelRatio / 40) * 40))
                 opacity: status === Image.Ready ? (card.installed || !card.dim ? 1 : 0.78) : 0
                 Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 200 } }
+                // Not installed: grey, coming into colour while pointed at.
+                readonly property bool grey: card.greyWhenOff && !card.installed && card.job === "" && GraphicsInfo.api !== GraphicsInfo.Software
+                layer.enabled: grey
+                layer.effect: MultiEffect { saturation: card.lit ? 0 : -1; Behavior on saturation { NumberAnimation { duration: 250 } } }
             }
 
             // Logo wall: the game's logo over its wide art (its title when there is no logo).
@@ -308,6 +335,13 @@ Item {
                 visible: card.job !== ""
                 anchors.fill: parent
                 Rectangle { anchors.fill: parent; color: Qt.alpha("black", 0.22) }
+                Rectangle {  // Look > Rich covers: the cover fills up from the bottom as it installs
+                    visible: card.caption && card.progress >= 0
+                    anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                    height: parent.height * Math.max(0, Math.min(1, card.progress / 100))
+                    color: Qt.alpha(card.theme.primary, 0.28)
+                    Behavior on height { enabled: !app.still; NumberAnimation { duration: 400 } }
+                }
                 Rectangle {
                     anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
                     height: 64
@@ -494,6 +528,17 @@ Item {
     // pop-up never reaches the card underneath.
     property bool interactive: true
     property bool quickAction: true   // the Play / Install button on the cover while pointed at
+    // Look > Rich covers: the title and how long you played, under the cover.
+    Column {
+        visible: card.caption
+        anchors { left: frame.left; right: frame.right; top: frame.bottom; topMargin: 8 }
+        spacing: 2
+        Text { width: parent.width; text: card.title; elide: Text.ElideRight; color: card.theme.onSurface
+               font.pixelSize: 13; font.weight: Font.DemiBold; font.family: app.titleFamily }
+        Text { width: parent.width; text: card.job !== "" ? (card.progress >= 0 ? Math.floor(card.progress) + "%" : qsTr("Starting…"))
+                                                           : card.installed ? (card.captionSub || qsTr("Not played yet")) : qsTr("Not installed")
+               elide: Text.ElideRight; color: card.job !== "" ? card.theme.primary : card.theme.onSurfaceVariant; font.pixelSize: 11 }
+    }
     HoverHandler { id: hover; enabled: card.interactive; cursorShape: Qt.PointingHandCursor }
     TapHandler {
         enabled: card.interactive

@@ -204,7 +204,12 @@ ApplicationWindow {
     // The banner shows one of the last few games played, turning to the next every 9 s.
     property int heroAt: 0
     // The banner shows the last game you played (still: the others are in Continue playing below).
-    readonly property int heroCount: Math.min(1, app.recentGames.length)
+    // Look > Showcase: the banner turns between the last three games.
+    readonly property bool showcase: !!app.settingsMap.look_showcase
+    readonly property bool bigTitles: !!app.settingsMap.look_titles
+    readonly property bool richCovers: !!app.settingsMap.look_rich
+    readonly property bool motion: !!app.settingsMap.look_motion && !app.still
+    readonly property int heroCount: Math.min(showcase ? 3 : 1, app.recentGames.length)
     readonly property var heroInfo: heroCount ? app.recentGames[heroAt % heroCount] : ({})
     property bool heroPaused: false
     Timer {
@@ -277,7 +282,10 @@ ApplicationWindow {
     readonly property string shelfPicture: (app.settingsMap.shelf_backgrounds || {})[library.shelf] || ""
     readonly property string bgPicture: shelfPicture || (bgMode === "picture" ? (app.settingsMap.bg_picture || "")
                                                          : bgMode === "game" ? ((win.heroInfo.heroes || [])[0] || "") : "")
-    readonly property bool bgOn: bgPicture !== "" || bgMode === "gradient"
+    // Look > Frosted glass: the last game's art behind everything, the sidebar and toolbar frosted over it.
+    readonly property bool glass: !!app.settingsMap.look_glass && !app.light
+    readonly property string glassPicture: glass && bgPicture === "" ? ((win.heroInfo.heroes || [])[0] || "") : ""  // over the wallpaper too
+    readonly property bool bgOn: bgPicture !== "" || bgMode === "gradient" || glassPicture !== ""
     readonly property bool backdropOn: wallOn || bgOn
     function fileUrl(path) { return path.startsWith("http") || path.startsWith("file:") ? path : "file://" + path.split("/").map(encodeURIComponent).join("/") }
     Item {
@@ -297,7 +305,7 @@ ApplicationWindow {
         Image {
             id: bgImage
             anchors.fill: parent
-            source: win.bgPicture !== "" ? win.fileUrl(win.bgPicture) : ""
+            source: win.bgPicture !== "" ? win.fileUrl(win.bgPicture) : win.glassPicture !== "" ? win.fileUrl(win.glassPicture) : ""
             sourceSize.width: 96   // tiny, then stretched smoothly: soft as a blur, at no cost
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
@@ -330,7 +338,7 @@ ApplicationWindow {
         }
         ShaderEffectSource {
             id: bgGradient
-            visible: win.bgMode === "gradient" && win.bgPicture === ""
+            visible: win.bgMode === "gradient" && win.bgPicture === "" && win.glassPicture === ""
             sourceItem: visible ? bgCanvas : null
             width: parent.width * 1.4; height: parent.height * 1.4
             smooth: true
@@ -346,7 +354,33 @@ ApplicationWindow {
                 NumberAnimation { from: -backdrop.height * 0.3; to: 0; duration: 47000; easing.type: Easing.InOutSine }
             }
         }
-        Rectangle { anchors.fill: parent; color: Qt.alpha(theme.background, win.bgOn ? (win.bgMode === "gradient" && win.bgPicture === "" ? 0.35 : 0.72) : 0.78) }
+        Rectangle { anchors.fill: parent; color: Qt.alpha(theme.background, win.bgOn ? (win.bgMode === "gradient" && win.bgPicture === "" && win.glassPicture === "" ? 0.35 : (win.glass ? 0.55 : 0.72)) : 0.78) }
+    }
+
+    // Look > The game's colour: two soft pools of light in the colour of the game under the pointer
+    // (or the banner's), drifting over to the next one as you move around the library.
+    readonly property bool ambientOn: !!app.settingsMap.look_ambient && !app.light && !win.tv && GraphicsInfo.api !== GraphicsInfo.Software
+    readonly property string ambientColour: win.hoverAccent || win.heroAccent || theme.primary
+    property string heroAccent: win.heroInfo.key ? app.gameColour(win.heroInfo.key) : ""
+    Connections { target: app; function onGameColourReady(key, colour) { if (key === win.heroInfo.key) win.heroAccent = colour } }
+    Item {
+        id: ambientGlow
+        anchors.fill: parent
+        visible: win.ambientOn
+        property color c: win.ambientColour
+        Behavior on c { ColorAnimation { duration: 900; easing.type: Easing.InOutQuad } }
+        RectangularShadow {
+            width: parent.width * 0.55; height: width * 0.6
+            x: parent.width * 0.55; y: -height * 0.25
+            radius: height / 2; blur: Math.min(260, width * 0.3)
+            color: Qt.alpha(ambientGlow.c, 0.55)
+        }
+        RectangularShadow {
+            width: parent.width * 0.5; height: width * 0.55
+            x: -width * 0.15; y: parent.height - height * 0.7
+            radius: height / 2; blur: Math.min(260, width * 0.3)
+            color: Qt.alpha(ambientGlow.c, 0.4)
+        }
     }
 
     // What pop-ups blur behind them (KDialog).
@@ -367,7 +401,12 @@ ApplicationWindow {
             Layout.preferredWidth: win.rail ? 68 : 236
             Behavior on Layout.preferredWidth { enabled: !app.still; NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
             clip: true
-            color: win.backdropOn ? Qt.alpha(theme.surfaceContainerLow, 0.55) : theme.surfaceContainerLow
+            color: win.glass ? Qt.alpha(theme.surfaceContainerLow, 0.38) : win.backdropOn ? Qt.alpha(theme.surfaceContainerLow, 0.55) : theme.surfaceContainerLow
+            Rectangle {  // glass: a fine light edge where the sidebar meets the library
+                visible: win.glass
+                anchors { right: parent.right; top: parent.top; bottom: parent.bottom }
+                width: 1; color: Qt.alpha("white", 0.09)
+            }
             // Lamplight: a warm glow pooling in the sidebar's bottom corner, like the icon.
             Rectangle {
                 anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
@@ -1076,6 +1115,17 @@ ApplicationWindow {
                     Keys.onPressed: (event) => { keyed = true; event.accepted = false }
                     cellWidth: Math.floor(width / columns)
                     cellHeight: cardStyle === "logo" ? Math.round(cellWidth * 0.52) : Math.round(cellWidth * 1.46) + (cardStyle === "box" ? 18 : 0)
+                                + (win.richCovers && cardStyle === "cover" ? 46 : 0)
+                    // Look > Motion: covers made in this window come in one after another (the first
+                    // load, a new store or list); covers scrolled into view later just appear.
+                    property double waveUntil: 0
+                    function wave() { if (win.motion) waveUntil = Date.now() + 900 }
+                    Connections { target: library; function onFilterChanged() { grid.wave(); if (win.motion) libGlide.restart() } }
+                    Component.onCompleted: wave()
+                    ParallelAnimation {
+                        id: libGlide
+                        NumberAnimation { target: grid; property: "opacity"; from: 0.25; to: 1; duration: 320; easing.type: Easing.OutCubic }
+                    }
                     cacheBuffer: app.light ? 0 : cellHeight * 2
                     // The hover card belongs to the cover under the pointer: it goes when the grid
                     // scrolls, is searched or filtered, or the view changes.
@@ -1122,6 +1172,14 @@ ApplicationWindow {
                     // Humble Bundle page, Humble's shop window: part of the header, so they scroll away.
                     header: Column {
                         width: grid.width
+                        // Look > Big titles: a greeting for the time of day.
+                        Text {
+                            visible: win.bigTitles && !library.search && !library.storeFilter && !library.shelf
+                            x: 10; bottomPadding: 14; topPadding: 6
+                            text: { const h = new Date().getHours(); return h < 5 ? qsTr("Good night") : h < 12 ? qsTr("Good morning") : h < 18 ? qsTr("Good afternoon") : qsTr("Good evening") }
+                            color: theme.onSurface
+                            font.pixelSize: 34; font.weight: Font.Bold; font.family: app.titleFamily
+                        }
                         Column {
                             width: grid.width
                             readonly property bool shown: app.recentGames.length > 0 && !library.search
@@ -1166,7 +1224,9 @@ ApplicationWindow {
                                 x: 8
                                 width: parent.width - 16
                                 // A short window (a laptop) keeps the banner low, so the library still shows under it.
-                                height: Math.round(Math.max(210, Math.min(340, width * 0.28, win.height * 0.36)))
+                                height: win.showcase ? Math.round(Math.max(260, Math.min(470, width * 0.36, win.height * 0.48)))
+                                                     : Math.round(Math.max(210, Math.min(340, width * 0.28, win.height * 0.36)))
+                                Behavior on height { enabled: !app.still; NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
 
                                 Item {
                                     id: heroArt
@@ -1200,6 +1260,14 @@ ApplicationWindow {
                                         sourceSize.width: Math.min(3840, Math.max(640, Math.ceil(width * Screen.devicePixelRatio / 40) * 40))
                                         opacity: status === Image.Ready ? 1 : 0
                                         Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 350 } }
+                                        // Showcase: the art drifts and slowly comes closer, then back (Ken Burns).
+                                        transformOrigin: Item.Right
+                                        SequentialAnimation on scale {
+                                            running: win.showcase && !app.still && !win.tv && win.active
+                                            loops: Animation.Infinite
+                                            NumberAnimation { from: 1.0; to: 1.09; duration: 22000; easing.type: Easing.InOutSine }
+                                            NumberAnimation { from: 1.09; to: 1.0; duration: 22000; easing.type: Easing.InOutSine }
+                                        }
                                     }
                                     // Shade the left side so the text always reads, whatever the art.
                                     Rectangle {
@@ -1319,6 +1387,34 @@ ApplicationWindow {
                                                 text: app.playedText(hero.game.playtime, hero.game.lastPlayed)
                                                 color: theme.onSurfaceVariant
                                                 font.pixelSize: 13
+                                            }
+                                        }
+                                        // Showcase: the facts, as chips.
+                                        Row {
+                                            visible: win.showcase
+                                            spacing: 8
+                                            Repeater {
+                                                model: {
+                                                    const g = hero.game, out = []
+                                                    if (g.achieved > 0) out.push({ i: "trophy", t: qsTr("%1% of achievements").arg(Math.round(g.achieved * 100)) })
+                                                    if (g.protondb) out.push({ i: "check", t: "ProtonDB " + g.protondb.charAt(0).toUpperCase() + g.protondb.slice(1) })
+                                                    if (g.sizeText) out.push({ i: "hard-drive", t: g.sizeText })
+                                                    return out
+                                                }
+                                                Rectangle {
+                                                    required property var modelData
+                                                    height: 26; radius: 13
+                                                    width: chipRow.implicitWidth + 22
+                                                    color: Qt.alpha(hero.tint.primary, 0.16)
+                                                    border.width: 1; border.color: Qt.alpha(hero.tint.primary, 0.35)
+                                                    Row {
+                                                        id: chipRow
+                                                        anchors.centerIn: parent
+                                                        spacing: 6
+                                                        Icon { anchors.verticalCenter: parent.verticalCenter; name: parent.parent.modelData.i; size: 13; color: hero.tint.primary }
+                                                        Text { anchors.verticalCenter: parent.verticalCenter; text: parent.parent.modelData.t; color: theme.onSurface; font.pixelSize: 12 }
+                                                    }
+                                                }
                                             }
                                         }
                                         Item { width: 1; height: 6 }
@@ -1475,7 +1571,8 @@ ApplicationWindow {
                                       : library.shelf.startsWith("s:") ? ((app.statusNames.find(s => "s:" + s.id === library.shelf) || {}).name || "")
                                       : library.shelf.replace(/^c:/, ""))
                                 color: theme.onSurface
-                                font.pixelSize: 15; font.weight: Font.DemiBold
+                                font.pixelSize: win.bigTitles ? 22 : 15; font.weight: win.bigTitles ? Font.Bold : Font.DemiBold
+                                font.family: win.bigTitles ? app.titleFamily : Qt.application.font.family
                             }
                         }
                         HumbleShop {
@@ -1502,6 +1599,26 @@ ApplicationWindow {
                         dim: app.settingsMap.dim_uninstalled
                         gap: ({ compact: 4, roomy: 14 })[app.settingsMap.density] || 8
                         style: grid.cardStyle
+                        caption: win.richCovers && grid.cardStyle === "cover"
+                        captionSub: caption ? app.playedText(app.game(key).playtime || 0, app.game(key).lastPlayed || 0) : ""
+                        greyWhenOff: win.richCovers
+                        glow: win.ambientOn
+                        Component.onCompleted: {
+                            if (Date.now() > grid.waveUntil) return
+                            const col = index % grid.columns, row = Math.floor(index / grid.columns)
+                            enterAnim.delay = Math.min(450, (col + row) * 40)
+                            enterAnim.start()
+                        }
+                        SequentialAnimation {
+                            id: enterAnim
+                            property int delay: 0
+                            ScriptAction { script: { gridCard.opacity = 0; gridCard.enterY = 26 } }
+                            PauseAnimation { duration: enterAnim.delay }
+                            ParallelAnimation {
+                                NumberAnimation { target: gridCard; property: "opacity"; to: 1; duration: 380; easing.type: Easing.OutCubic }
+                                NumberAnimation { target: gridCard; property: "enterY"; to: 0; duration: 460; easing.type: Easing.OutCubic }
+                            }
+                        }
                         // One highlight at a time: while the pointer is over a card, the keyboard
                         // selection steps back.
                         interactive: win.cardsLive
@@ -2450,7 +2567,9 @@ ApplicationWindow {
         Overlay.modal: Item { }
         padding: Math.max(28, Math.round((width - 1100) / 2))
         // The game's wide art runs across the top; the cover and title start inside its faded lower part.
-        readonly property int bannerH: Math.round(Math.min(height * 0.5, width * 0.4))
+        // Look > Game page: a taller banner that drifts, washed in the game's colour.
+        readonly property bool rich: !!app.settingsMap.look_page && !app.light
+        readonly property int bannerH: rich ? Math.round(Math.min(height * 0.66, width * 0.5)) : Math.round(Math.min(height * 0.5, width * 0.4))
         topPadding: bannerH - 150
         bottomPadding: 0
         property var similar: []
@@ -2489,6 +2608,12 @@ ApplicationWindow {
                     sourceSize.width: Math.min(3840, Math.max(640, Math.ceil(width * Screen.devicePixelRatio / 40) * 40))
                     opacity: status === Image.Ready ? 1 : 0
                     Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 250 } }
+                    SequentialAnimation on scale {
+                        running: detail.rich && detail.visible && !app.still
+                        loops: Animation.Infinite
+                        NumberAnimation { from: 1.0; to: 1.08; duration: 24000; easing.type: Easing.InOutSine }
+                        NumberAnimation { from: 1.08; to: 1.0; duration: 24000; easing.type: Easing.InOutSine }
+                    }
                 }
                 Rectangle {
                     anchors.fill: parent
@@ -2500,6 +2625,17 @@ ApplicationWindow {
                 }
             }
             Rectangle { id: detailMask; anchors.fill: detailBanner; radius: 0; layer.enabled: true; visible: false }
+            // The game's colour, washed down the page from under the banner.
+            Rectangle {
+                visible: detail.rich && detail.accent !== ""
+                anchors { left: parent.left; right: parent.right; top: detailBanner.bottom; topMargin: -detail.bannerH * 0.4 }
+                height: parent.height * 0.6
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: "transparent" }
+                    GradientStop { position: 0.3; color: Qt.alpha(detail.accent || "black", 0.14) }
+                    GradientStop { position: 1.0; color: "transparent" }
+                }
+            }
             Rectangle {  // Back to the library (Esc too)
                 anchors { left: parent.left; top: parent.top; margins: 18 }
                 width: backRow.implicitWidth + 28; height: 36; radius: 18
@@ -2535,8 +2671,8 @@ ApplicationWindow {
                 RectangularShadow {
                     anchors.fill: parent
                     visible: !app.light
-                    radius: 14; blur: 34; offset.y: 14
-                    color: Qt.alpha("black", 0.55)
+                    radius: 14; blur: detail.rich ? 48 : 34; offset.y: 14
+                    color: detail.rich && detail.accent ? Qt.alpha(detail.accent, 0.6) : Qt.alpha("black", 0.55)
                 }
                 RoundedArt {
                 anchors.fill: parent
@@ -6007,7 +6143,8 @@ ApplicationWindow {
         width: parent ? parent.width : 0
         spacing: 8
         Icon { visible: sh.icon !== ""; name: sh.icon; size: 15; color: app.theme.primary }
-        Text { text: sh.title; color: app.theme.onSurface; font.pixelSize: 15; font.weight: Font.DemiBold }
+        Text { text: sh.title; color: app.theme.onSurface; font.pixelSize: win.bigTitles ? 22 : 15; font.weight: win.bigTitles ? Font.Bold : Font.DemiBold
+               font.family: win.bigTitles ? app.titleFamily : Qt.application.font.family }
         Text { visible: sh.folded !== "" && win.homeFolded(sh.sid); text: "\u00B7  " + sh.folded; color: app.theme.outline; font.pixelSize: 13 }
         Icon { name: win.homeFolded(sh.sid) ? "chevron-right" : "chevron-down"; size: 14; color: app.theme.outline }
         Item { Layout.fillWidth: true }
@@ -6396,6 +6533,14 @@ ApplicationWindow {
                             Toggle { label: qsTr("TV mode: covers reflected on the shelf"); settingKey: "tv_reflection" }
                             Toggle { label: qsTr("A card with the game's details when the pointer rests on a cover"); settingKey: "hover_preview" }
                             Toggle { label: qsTr("Covers tilt toward the pointer"); settingKey: "card_tilt" }
+                            Text { text: qsTr("Look"); color: theme.onSurface; font.pixelSize: 15; font.weight: Font.DemiBold; Layout.topMargin: 8 }
+                            Toggle { label: qsTr("The game's colour: a soft glow behind the library and coloured shadows under covers"); settingKey: "look_ambient" }
+                            Toggle { label: qsTr("Frosted glass: the sidebar over the last game's art"); settingKey: "look_glass" }
+                            Toggle { label: qsTr("Showcase banner: taller, drifting, turns between your last three games"); settingKey: "look_showcase" }
+                            Toggle { label: qsTr("Rich covers: title and time played under them, grey until pointed at when not installed"); settingKey: "look_rich" }
+                            Toggle { label: qsTr("Big titles and a greeting"); settingKey: "look_titles" }
+                            Toggle { label: qsTr("Motion: covers come in one after another"); settingKey: "look_motion" }
+                            Toggle { label: qsTr("Game page: tall drifting art in the game's colour"); settingKey: "look_page" }
                             Toggle { label: qsTr("TV mode: start-up animation and chime"); settingKey: "tv_intro" }
                             KButton {
                                 theme: win.theme

@@ -84,6 +84,14 @@ DEFAULTS = {
     "tv_reflection": False,  # TV mode: covers reflected on the shelf below
     "hover_preview": True,   # a details card after the pointer rests on a cover (Settings > Appearance)
     "card_tilt": True,       # desktop covers tip toward the pointer, with a soft light (Settings > Appearance)
+    # Looks for the desktop library (Settings > Appearance > Look), each on its own:
+    "look_ambient": False,   # the game's colour: a soft glow behind the library, coloured shadows under covers
+    "look_glass": False,     # frosted sidebar and toolbar over the last game's art
+    "look_showcase": False,  # a taller banner that drifts, turns between the last three games, with facts
+    "look_rich": False,      # covers: title and playtime under them, colour on hover for games not installed
+    "look_titles": False,    # bigger section titles and a greeting
+    "look_motion": False,    # covers come in one after another; the library glides when it changes
+    "look_page": False,      # a game's panel opens on its full art with the logo and facts
     "tv_intro": False,       # TV mode: a short start-up animation and chime
     "tv_animated": True,   # animated covers and banners in TV mode (SteamGridDB key; only when plugged in)
     "peer_reports": True,  # ProtonDB's monthly open data: what players with a PC like this one did (pdbreports.py)
