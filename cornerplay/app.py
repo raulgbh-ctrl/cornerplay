@@ -5659,6 +5659,7 @@ class AioLaunch(QObject):
     # --- the in-game panel (Guide + Y on a controller, or `cornerplay --overlay`) ------------
     overlayRequested = Signal()
     quickAccessRequested = Signal()  # Guide + A (or Share) while a game is in front, or `cornerplay --quick`
+    launcherRequested = Signal()     # `cornerplay --launcher`: the small search-and-play window (QuickLauncher.qml)
 
     @Slot(QObject)
     def markOverlay(self, window):

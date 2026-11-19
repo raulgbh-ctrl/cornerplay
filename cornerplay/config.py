@@ -101,6 +101,11 @@ DEFAULTS = {
     "look_playring": False,  # Play turns into a ring while the game starts, then a tick
     "look_aurora": False,    # three colours from the game's cover drift behind the library like an aurora
     "look_pagetabs": True,   # a game's page: section tabs, a slim header that stays when you scroll, a playtime chart
+    "home_layout": "",       # Home's shape: "" (covers), "bento", "console", "magazine", "coverflow" (DeskHome.qml)
+    "look_fullart": False,   # the whole window is the art of the game under the pointer, the rest frosted over it
+    "look_island": False,    # a pill at the top that turns into the download, the game running, or the time
+    "desk_skin": "",         # the TV skins on the desktop too: "phosphor", "gallery", "arcade"
+    "quick_launcher": True,  # `cornerplay --launcher` (bind it to a key): a small search-and-play window
     "tv_intro": False,       # TV mode: a short start-up animation and chime
     "tv_animated": True,   # animated covers and banners in TV mode (SteamGridDB key; only when plugged in)
     "peer_reports": True,  # ProtonDB's monthly open data: what players with a PC like this one did (pdbreports.py)

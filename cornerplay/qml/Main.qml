@@ -281,6 +281,10 @@ ApplicationWindow {
     // store or a list, the matching games show as covers, and the shelves come back after.
     readonly property string libView: {
         let v = app.settingsMap.view || "grid"
+        // Home layout (Bento, Console, Magazine, Cover Flow): Home only, while nothing is searched,
+        // filtered or picked; anything else shows the covers.
+        if (app.settingsMap.home_layout && library.search === "" && !((library && library.tags) || []).length && library.storeFilter === ""
+            && library.shelf === "" && !library.installedOnly && !library.showHidden) return "home"
         if (v === "grid" && win.lkShelves) v = "shelves"  // Look > Home as rows
         if (v === "shelves" && (library.search !== "" || ((library && library.tags) || []).length || library.storeFilter !== ""
                                 || library.shelf !== "" || library.installedOnly || library.showHidden)) return "grid"
@@ -297,7 +301,13 @@ ApplicationWindow {
     // Look > Frosted glass: the last game's art behind everything, the sidebar and toolbar frosted over it.
     readonly property bool glass: !!app.settingsMap.look_glass && !app.light
     readonly property string glassPicture: glass && bgPicture === "" ? ((win.heroInfo.heroes || [])[0] || "") : ""  // over the wallpaper too
-    readonly property bool bgOn: bgPicture !== "" || bgMode === "gradient" || glassPicture !== ""
+    // Look > The window as art: the art of the game under the pointer (or the banner's) fills the
+    // whole window, sharp; the sidebar and panels are frosted over it.
+    readonly property bool fullart: !!app.settingsMap.look_fullart && !app.light
+    readonly property string fullartPicture: fullart ? (((win.hoverKey ? app.game(win.hoverKey).heroes : win.heroInfo.heroes) || [])[0] || "") : ""
+    property string fullartShown: ""
+    onFullartPictureChanged: if (fullartPicture) fullartShown = fullartPicture
+    readonly property bool bgOn: bgPicture !== "" || bgMode === "gradient" || glassPicture !== "" || (fullart && fullartShown !== "")
     readonly property bool backdropOn: wallOn || bgOn
     function fileUrl(path) { return path.startsWith("http") || path.startsWith("file:") ? path : "file://" + path.split("/").map(encodeURIComponent).join("/") }
     Item {
@@ -317,8 +327,9 @@ ApplicationWindow {
         Image {
             id: bgImage
             anchors.fill: parent
-            source: win.bgPicture !== "" ? win.fileUrl(win.bgPicture) : win.glassPicture !== "" ? win.fileUrl(win.glassPicture) : ""
-            sourceSize.width: 96   // tiny, then stretched smoothly: soft as a blur, at no cost
+            source: win.fullart && win.fullartShown ? win.fileUrl(win.fullartShown)
+                    : win.bgPicture !== "" ? win.fileUrl(win.bgPicture) : win.glassPicture !== "" ? win.fileUrl(win.glassPicture) : ""
+            sourceSize.width: win.fullart ? 1920 : 96   // tiny, then stretched smoothly: soft as a blur, at no cost (sharp for the window as art)
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             smooth: true
@@ -350,7 +361,7 @@ ApplicationWindow {
         }
         ShaderEffectSource {
             id: bgGradient
-            visible: win.bgMode === "gradient" && win.bgPicture === "" && win.glassPicture === ""
+            visible: win.bgMode === "gradient" && win.bgPicture === "" && win.glassPicture === "" && !(win.fullart && win.fullartShown)
             sourceItem: visible ? bgCanvas : null
             width: parent.width * 1.4; height: parent.height * 1.4
             smooth: true
@@ -366,7 +377,7 @@ ApplicationWindow {
                 NumberAnimation { from: -backdrop.height * 0.3; to: 0; duration: 47000; easing.type: Easing.InOutSine }
             }
         }
-        Rectangle { anchors.fill: parent; color: Qt.alpha(theme.background, win.bgOn ? (win.bgMode === "gradient" && win.bgPicture === "" && win.glassPicture === "" ? 0.35 : (win.glass ? 0.55 : 0.72)) : 0.78) }
+        Rectangle { anchors.fill: parent; color: Qt.alpha(theme.background, win.fullart && win.fullartShown ? 0.42 : win.bgOn ? (win.bgMode === "gradient" && win.bgPicture === "" && win.glassPicture === "" ? 0.35 : (win.glass ? 0.55 : 0.72)) : 0.78) }
     }
 
     // Look > The game's colour: two soft pools of light in the colour of the game under the pointer
@@ -451,7 +462,7 @@ ApplicationWindow {
             Layout.preferredWidth: win.rail ? 68 : 236
             Behavior on Layout.preferredWidth { enabled: !app.still; NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
             clip: true
-            color: win.glass ? Qt.alpha(theme.surfaceContainerLow, 0.38) : win.backdropOn ? Qt.alpha(theme.surfaceContainerLow, 0.55) : theme.surfaceContainerLow
+            color: win.glass || win.fullart ? Qt.alpha(theme.surfaceContainerLow, win.fullart ? 0.55 : 0.38) : win.backdropOn ? Qt.alpha(theme.surfaceContainerLow, 0.55) : theme.surfaceContainerLow
             Rectangle {  // glass: a fine light edge where the sidebar meets the library
                 visible: win.glass
                 anchors { right: parent.right; top: parent.top; bottom: parent.bottom }
@@ -1761,7 +1772,7 @@ ApplicationWindow {
                         greyWhenOff: win.richCovers
                         shimmer: win.lkSkeleton
                         playRing: win.lkPlayring
-                        glow: win.ambientOn
+                        glow: win.ambientOn || win.deskSkin === "arcade"
                         Component.onCompleted: {
                             if (Date.now() > grid.waveUntil) return
                             const col = index % grid.columns, row = Math.floor(index / grid.columns)
@@ -1844,6 +1855,17 @@ ApplicationWindow {
                                       ToolTip.visible: hovered; ToolTip.text: qsTr("Clear (Esc)"); onClicked: win.picked = ({}) }
                         }
                     }
+                }
+
+                // Home layout (Settings > Appearance): DeskHome.qml.
+                DeskHome {
+                    visible: win.libView === "home"
+                    anchors.fill: parent
+                    theme: win.theme
+                    mode: app.settingsMap.home_layout || "bento"
+                    onPlay: key => { if (win.pointerOk()) win.activate(key) }
+                    onOpen: key => { if (win.pointerOk()) win.select(key) }
+                    onInstall: key => { if (win.pointerOk()) win.install(key) }
                 }
 
                 // Shelves: rows like TV mode's (Continue playing, your lists, Play together, your
@@ -6687,6 +6709,43 @@ ApplicationWindow {
                                     }
                                 }
                             }
+                            Row2 {
+                                label: qsTr("Home layout")
+                                Flow {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Repeater {
+                                        model: [{ id: "", name: qsTr("Covers") }, { id: "bento", name: qsTr("Bento") }, { id: "console", name: qsTr("Console") },
+                                                { id: "magazine", name: qsTr("Magazine") }, { id: "coverflow", name: qsTr("Cover Flow") }]
+                                        Chip { required property var modelData; label: modelData.name
+                                               active: (app.settingsMap.home_layout || "") === modelData.id
+                                               onPicked: app.setSetting("home_layout", modelData.id) }
+                                    }
+                                }
+                            }
+                            Row2 {
+                                label: qsTr("Desktop skin")
+                                Flow {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Repeater {
+                                        model: [{ id: "", name: qsTr("None") },
+                                                { id: "phosphor", name: qsTr("Phosphor"), theme: "Phosphor", font: "pixel", radius: 2 },
+                                                { id: "gallery", name: qsTr("Gallery"), theme: "Gallery", font: "serif", radius: 4 },
+                                                { id: "arcade", name: qsTr("Arcade Night"), theme: "Arcade", font: "condensed", radius: 8 }]
+                                        Chip { required property var modelData; label: modelData.name
+                                               active: (app.settingsMap.desk_skin || "") === modelData.id
+                                               onPicked: {
+                                                   app.setSetting("desk_skin", modelData.id)
+                                                   if (modelData.theme) {
+                                                       app.setSetting("card_radius", modelData.radius)
+                                                       app.setSetting("title_font", modelData.font)
+                                                       app.setSetting("theme_mode", modelData.theme)
+                                                   }
+                                               } }
+                                    }
+                                }
+                            }
                             // Look > Complete themes: colours, corners and the title font, set together.
                             Row2 {
                                 label: qsTr("Complete themes")
@@ -6841,6 +6900,8 @@ ApplicationWindow {
                             Toggle { label: qsTr("Play turns into a ring while the game starts"); settingKey: "look_playring" }
                             Toggle { label: qsTr("Aurora: three colours from the game's cover drift behind the library"); settingKey: "look_aurora" }
                             Toggle { label: qsTr("Game page: section tabs, a header that stays, achievements as a ring"); settingKey: "look_pagetabs" }
+                            Toggle { label: qsTr("The window as art: the game under the pointer fills the whole window"); settingKey: "look_fullart" }
+                            Toggle { label: qsTr("Island: a pill at the top for the download, the game running, or the time"); settingKey: "look_island" }
                             Toggle { label: qsTr("TV mode: start-up animation and chime"); settingKey: "tv_intro" }
                             KButton {
                                 theme: win.theme
@@ -8249,6 +8310,96 @@ ApplicationWindow {
             Rectangle { anchors.fill: parent; color: theme.surfaceContainerHigh }
             ArtImage { anchors.fill: parent; sources: flyer.covers; sourceSize.width: 400 }
         }
+    }
+
+    // `cornerplay --launcher`: the small search-and-play window.
+    QuickLauncher {
+        id: quickLauncher
+        objectName: "quickLauncher"
+        theme: win.theme
+        onOpenGame: key => { win.show(); win.raise(); win.requestActivate(); win.select(key) }
+    }
+    Connections { target: app; function onLauncherRequested() { quickLauncher.toggle() } }
+
+    // -------------------------------------------------------------------- desktop skins
+    // Settings > Appearance > Desktop skin: TV mode's skins on the desktop. Phosphor draws an old
+    // CRT's scanlines and a soft glow over everything; Arcade Night gives covers a neon glow;
+    // Gallery is calm and flat (its colours and serif type come from its theme).
+    readonly property string deskSkin: app.settingsMap.desk_skin || ""
+    Canvas {
+        id: scanlines
+        anchors.fill: parent
+        z: 800
+        enabled: false   // never takes a click
+        visible: win.deskSkin === "phosphor" && !win.tv
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        onVisibleChanged: requestPaint()
+        onPaint: {
+            const x = getContext("2d"); x.reset()
+            x.fillStyle = "rgba(0,0,0,0.22)"
+            for (let y = 0; y < height; y += 3) x.fillRect(0, y, width, 1)
+            const g = x.createRadialGradient(width / 2, height / 2, Math.min(width, height) * 0.35, width / 2, height / 2, Math.max(width, height) * 0.75)
+            g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,0.45)")
+            x.fillStyle = g; x.fillRect(0, 0, width, height)
+        }
+    }
+    Rectangle {  // the phosphor's faint green glow
+        anchors.fill: parent; z: 799; enabled: false
+        visible: scanlines.visible
+        color: Qt.alpha("#4dff88", 0.035)
+    }
+
+    // -------------------------------------------------------------------- dynamic island
+    // Look > Island: a pill at the top of the library that turns into what is happening: the
+    // download running (with its progress), the game being played (with the session's time), or
+    // the time and date. It grows to fit and opens the downloads or the game on a click.
+    Rectangle {
+        id: island
+        visible: !!app.settingsMap.look_island && !win.tv && !detail.visible
+        z: 45
+        readonly property var dl: (app.downloads || []).find(d => d.state === "running") || null
+        readonly property var playing: (app.nowPlaying || [])[0] || null
+        readonly property string kind: playing ? "play" : dl ? "dl" : "clock"
+        readonly property var g: kind === "play" ? app.game(playing.key) : kind === "dl" ? app.game(dl.key) : ({})
+        property string now: ""
+        Timer { interval: 1000; repeat: true; running: island.visible; triggeredOnStart: true
+                onTriggered: island.now = Qt.formatTime(new Date(), "HH:mm") + "  ·  " + Qt.formatDate(new Date(), "ddd d MMM") }
+        x: sidebar.width + (win.width - sidebar.width - width) / 2
+        y: 20
+        height: 40
+        width: islandRow.implicitWidth + 30
+        Behavior on width { enabled: !app.still; NumberAnimation { duration: 320; easing.type: Easing.OutBack } }
+        radius: 20
+        color: Qt.alpha("black", islandHover.hovered ? 0.82 : 0.72)
+        border.width: 1; border.color: Qt.alpha("white", 0.08)
+        Row {
+            id: islandRow
+            anchors.centerIn: parent
+            spacing: 10
+            RoundedArt {
+                visible: island.kind !== "clock"
+                width: 22; height: 30; radius: 5; anchors.verticalCenter: parent.verticalCenter
+                ArtImage { anchors.fill: parent; sources: island.g.covers || []; sourceSize.width: 60 }
+            }
+            Rectangle { visible: island.kind === "play"; width: 8; height: 8; radius: 4; color: "#6dc04b"; anchors.verticalCenter: parent.verticalCenter }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: island.kind === "clock" ? island.now : (island.g.title || "")
+                color: "white"; font.pixelSize: 13; font.weight: Font.DemiBold
+                font.features: { "tnum": 1 }
+            }
+            Item {  // the download's progress, as a short bar and its percentage
+                visible: island.kind === "dl"
+                width: 110; height: 20; anchors.verticalCenter: parent.verticalCenter
+                Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 66; height: 4; radius: 2; color: Qt.alpha("white", 0.2)
+                    Rectangle { width: parent.width * Math.max(0, (island.dl ? island.dl.progress : 0) / 100); height: 4; radius: 2; color: theme.primary } }
+                Text { x: 74; anchors.verticalCenter: parent.verticalCenter; text: island.dl && island.dl.progress >= 0 ? Math.floor(island.dl.progress) + "%" : "…"
+                       color: Qt.alpha("white", 0.8); font.pixelSize: 12; font.features: { "tnum": 1 } }
+            }
+        }
+        HoverHandler { id: islandHover; cursorShape: island.kind === "clock" ? Qt.ArrowCursor : Qt.PointingHandCursor }
+        TapHandler { onTapped: { if (island.kind === "dl") downloadsBox.open(); else if (island.kind === "play") win.select(island.playing.key) } }
     }
 
     // -------------------------------------------------------------------- a cover opening up

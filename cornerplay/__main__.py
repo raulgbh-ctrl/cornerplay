@@ -263,6 +263,8 @@ def main():
                     help="open or close the in-game panel of the Cornerplay that is running (bind it to a key)")
     ap.add_argument("--quick", action="store_true",
                     help="open or close quick access (volume, frame limit, quit...) over the game being played")
+    ap.add_argument("--launcher", action="store_true",
+                    help="open or close the small search-and-play window (bind it to a key); starts Cornerplay in the tray if needed")
     ap.add_argument("--nxm", metavar="URL",
                     help="install a mod from a Nexus Mods \"Mod Manager Download\" link (nxm://...)")
     ap.add_argument("--stream-display", nargs="+", metavar="start|stop",
@@ -374,6 +376,10 @@ def main():
             return 0
         print("Cornerplay is not running", file=sys.stderr)
         return 1
+    if args.launcher and not args.demo and tray.hand_over("launcher"):
+        return 0  # the running Cornerplay opens it
+    if args.launcher:
+        args.background = True  # not running yet: start in the tray, then open the launcher
     if args.nxm and not args.demo and tray.hand_over("nxm:" + args.nxm.strip()):
         return 0  # the running Cornerplay installs it
     if not args.demo and tray.hand_over("tv" if args.tv else "show"):
@@ -433,6 +439,8 @@ def main():
                 cornerplay.overlayRequested.emit()
             elif msg == "quick":
                 cornerplay.quickAccessRequested.emit()
+            elif msg == "launcher":
+                cornerplay.launcherRequested.emit()
             elif msg.startswith("nxm:"):
                 the_tray.show_window(tv=False)
                 cornerplay.openNxm(msg[4:])
@@ -441,6 +449,9 @@ def main():
         instance = tray.Instance(on_message, app)  # noqa: F841 (kept alive)
     elif args.background:
         window.setProperty("hiddenAtStart", False)
+    if args.launcher:
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(1200, cornerplay.launcherRequested.emit)
     if args.nxm and not args.demo:  # started by the link itself: install once the library is there
         from PySide6.QtCore import QTimer
         QTimer.singleShot(1500, lambda: cornerplay.openNxm(args.nxm))

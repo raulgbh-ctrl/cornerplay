@@ -84,6 +84,11 @@ def run(*_):
                 w = QGuiApplication.focusWindow() or w
             if k == "shot":
                 w.grabWindow().save(f"{out}/{v}.png"); print("saved", v, flush=True)
+            elif k == "win":  # win:TITLE:NAME saves another window of Cornerplay's (win:launcher:ql)
+                part, name = v.split(":", 1)
+                p = [x for x in QGuiApplication.topLevelWindows() if x.isVisible() and part.lower() in x.title().lower()]
+                if p:
+                    p[0].grabWindow().save(f"{out}/{name}.png"); print("saved", name, flush=True)
             elif k in ("panel", "quick"):  # the in-game panel or quick access, windows of their own
                 p = [x for x in QGuiApplication.topLevelWindows() if x.isVisible() and ("panel" if k == "panel" else "quick access") in x.title()]
                 if p:
