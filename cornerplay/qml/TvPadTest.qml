@@ -51,12 +51,13 @@ Rectangle {
     property string preview: ""   // another pad's drawing instead (design checks: tools/shoot.py)
     readonly property string shape: preview || pad.padShape || "xbox"
     readonly property string xboxBody: "M 46 14 C 60 10, 100 10, 114 14 C 132 18, 146 26, 152 44 C 158 62, 160 84, 150 94 C 142 101, 130 98, 122 88 C 114 78, 108 72, 98 72 L 62 72 C 52 72, 46 78, 38 88 C 30 98, 18 101, 10 94 C 0 84, 2 62, 8 44 C 14 26, 28 18, 46 14 Z"
+    readonly property string psBody: "M 40 12 C 60 8, 100 8, 120 12 C 136 15, 146 24, 152 40 C 158 58, 162 86, 152 96 C 144 103, 132 99, 126 90 C 118 78, 112 70, 100 70 L 60 70 C 48 70, 42 78, 34 90 C 28 99, 16 103, 8 96 C -2 86, 2 58, 8 40 C 14 24, 24 15, 40 12 Z"
     readonly property var layouts: ({
         xbox: { body: xboxBody, sy: 6, lb: [34, 6], rb: [126, 6], ls: [40, 38], rs: [100, 58], dpad: [60, 58, 16],
                 face: [120, 38, 20, 7], back: [66, 38], start: [94, 38], guide: [80, 26, 9], share: [80, 47] },
         switch: { body: xboxBody, sy: 6, lb: [34, 6], rb: [126, 6], ls: [40, 38], rs: [100, 58], dpad: [60, 58, 16],
                   face: [120, 38, 20, 7], back: [66, 34], start: [94, 34], guide: [88, 46, 7], share: [72, 46] },
-        ps: { body: "M 40 12 C 60 8, 100 8, 120 12 C 136 15, 146 24, 152 40 C 158 58, 162 86, 152 96 C 144 103, 132 99, 126 90 C 118 78, 112 70, 100 70 L 60 70 C 48 70, 42 78, 34 90 C 28 99, 16 103, 8 96 C -2 86, 2 58, 8 40 C 14 24, 24 15, 40 12 Z",
+        ps: { body: psBody,
               sy: 4, lb: [34, 4], rb: [126, 4], touch: [58, 14, 44, 26], ls: [62, 60], rs: [98, 60], dpad: [36, 40, 16],
               face: [124, 40, 20, 7], back: [50, 20], start: [110, 20], guide: [80, 51, 7], share: [80, 60] },
         steam: { body: xboxBody, sy: 6, lb: [34, 6], rb: [126, 6], pads: [[44, 40, 12, "circle"], [116, 40, 12, "circle"]],
@@ -67,7 +68,32 @@ Rectangle {
         deck: { body: "M 18 24 L 142 24 C 154 24, 160 32, 160 44 L 160 72 C 160 84, 152 90, 140 90 L 20 90 C 8 90, 0 84, 0 72 L 0 44 C 0 32, 6 24, 18 24 Z",
                 sy: 15, lb: [22, 15], rb: [138, 15], screen: [36, 30, 88, 52], dpad: [11, 44, 13], ls: [27, 41],
                 pads: [[19, 73, 14, "square"], [141, 73, 14, "square"]], face: [148, 46, 16, 5], rs: [131, 40],
-                back: [29, 28], start: [131, 28], guide: [9, 30, 4], share: [151, 30], paddles: true }
+                back: [29, 28], start: [131, 28], guide: [9, 30, 4], share: [151, 30], paddles: true },
+        // Stadia, Luna, Shield: sticks side by side low, no touchpad.
+        sym: { body: psBody, sy: 4, lb: [34, 4], rb: [126, 4], ls: [62, 60], rs: [98, 60], dpad: [36, 40, 16],
+               face: [124, 40, 20, 7], back: [66, 34], start: [94, 34], guide: [80, 26, 8], share: [80, 46] },
+        // Two Joy-Cons side by side (Switch's pair, or one held alone).
+        joycons: { body: "M 46 16 L 30 16 C 19 16, 13 22, 13 32 L 13 84 C 13 92, 19 98, 30 98 L 46 98 Z M 114 16 L 130 16 C 141 16, 147 22, 147 32 L 147 84 C 147 92, 141 98, 130 98 L 114 98 Z",
+                   sy: 8, lb: [26, 8], rb: [134, 8], ls: [31, 36], dpad: [31, 66, 18], face: [129, 36, 21, 7], rs: [129, 68],
+                   back: [41, 22], start: [119, 22], guide: [124, 88, 6], share: [36, 88] },
+        // GameCube (and Switch / Wii U pads in its shape): the big A, the C stick.
+        gamecube: { body: xboxBody, sy: 6, lb: [34, 6], rb: [126, 6], ls: [40, 40], lsR: 9, rs: [100, 62], rsR: 6, dpad: [58, 62, 13],
+                    faceAt: [["a", 0, -1, 120, 46, 11], ["b", 1, -1, 108, 51, 6.5], ["x", 2, -1, 135, 40, 7], ["y", 3, -1, 117, 31, 7]],
+                    back: [72, 40], start: [80, 40], guide: [88, 40, 5] },
+        // SNES-shaped, no sticks: 8BitDo SN30 / Zero / Micro / Lite / M30, Retro-Bit, Nintendo's SNES pad.
+        snes: { body: "M 40 24 L 120 24 C 145 24, 158 40, 158 57 C 158 74, 145 90, 120 90 L 40 90 C 15 90, 2 74, 2 57 C 2 40, 15 24, 40 24 Z",
+                sy: 16, lb: [34, 16], rb: [126, 16], dpad: [36, 57, 22], face: [124, 57, 26, 9],
+                back: [70, 64], start: [90, 64], guide: [80, 46, 6], share: [80, 78] },
+        // SNES-shaped with sticks and grips: 8BitDo SN30 Pro / Pro 2 / Pro 3 / Lite 2.
+        sn30: { body: "M 38 18 L 122 18 C 146 18, 158 34, 158 50 C 158 62, 156 76, 150 88 C 146 96, 136 98, 130 90 C 124 82, 118 76, 108 76 L 52 76 C 42 76, 36 82, 30 90 C 24 98, 14 96, 10 88 C 4 76, 2 62, 2 50 C 2 34, 14 18, 38 18 Z",
+                sy: 10, lb: [34, 10], rb: [126, 10], dpad: [34, 42, 19], face: [126, 42, 22, 7.5], ls: [60, 63], lsR: 7, rs: [100, 63], rsR: 7,
+                back: [70, 40], start: [90, 40], guide: [80, 52, 6], share: [80, 30], paddles: true },
+        // An arcade stick: the lever and two rows of four buttons.
+        arcade: { body: "M 12 22 L 148 22 C 152 22, 155 25, 155 29 L 158 84 C 158 88, 155 92, 150 92 L 10 92 C 5 92, 2 88, 2 84 L 5 29 C 5 25, 8 22, 12 22 Z",
+                  noShoulders: true, ls: [36, 60], lsR: 11, lever: true,
+                  faceAt: [["x", 2, -1, 78, 50, 10], ["y", 3, -1, 94, 46, 10], ["rb", 10, -1, 110, 46, 10], ["lb", 9, -1, 126, 50, 10],
+                           ["a", 0, -1, 76, 68, 10], ["b", 1, -1, 92, 64, 10], ["rt", -1, 5, 108, 64, 10], ["lt", -1, 4, 124, 68, 10]],
+                  back: [64, 30], start: [80, 30], guide: [96, 30, 6] }
     })
     readonly property var lay: layouts[shape] || layouts.xbox
     readonly property color ink: Qt.alpha(theme.onSurface, 0.85)
@@ -78,8 +104,9 @@ Rectangle {
         property int b: 0
         property string glyph: "a"
         property real d: 7
+        property int ax: -1          // a trigger drawn as a button (arcade sticks): lit when pulled
         width: d * stage.k; height: width
-        readonly property bool lit: pt.on(b)
+        readonly property bool lit: pt.on(b) || (ax >= 0 && pt.axis(ax) > 0.5)
         scale: lit ? 0.88 : 1
         Behavior on scale { NumberAnimation { duration: 70 } }
         Rectangle { anchors.centerIn: parent; width: parent.width * 1.4; height: width; radius: width / 2
@@ -105,16 +132,19 @@ Rectangle {
         property int ax: 0
         property int b: 7
         property real r: 8
+        property bool lever: false   // an arcade lever: the D-pad moves it too
+        readonly property real dx: Math.max(-1, Math.min(1, pt.axis(ax) + (lever ? (pt.on(14) ? 1 : 0) - (pt.on(13) ? 1 : 0) : 0)))
+        readonly property real dy: Math.max(-1, Math.min(1, pt.axis(ax + 1) + (lever ? (pt.on(12) ? 1 : 0) - (pt.on(11) ? 1 : 0) : 0)))
         width: r * 2 * stage.k; height: width
         Rectangle { anchors.fill: parent; radius: width / 2; color: "transparent"
                     border.width: pt.lineW; border.color: pt.on(parent.b) ? pt.tint.primary : pt.ink }
         Rectangle {
             width: parent.width * 0.56; height: width; radius: width / 2
-            x: (parent.width - width) / 2 + pt.axis(parent.ax) * (parent.width - width) / 2
-            y: (parent.height - height) / 2 + pt.axis(parent.ax + 1) * (parent.height - height) / 2
+            x: (parent.width - width) / 2 + parent.dx * (parent.width - width) / 2
+            y: (parent.height - height) / 2 + parent.dy * (parent.height - height) / 2
             color: pt.on(parent.b) ? pt.tint.primary : "transparent"
             border.width: pt.lineW
-            border.color: Math.abs(pt.axis(parent.ax)) + Math.abs(pt.axis(parent.ax + 1)) > 0.15 || pt.on(parent.b) ? pt.tint.primary : pt.ink
+            border.color: Math.abs(parent.dx) + Math.abs(parent.dy) > 0.15 || pt.on(parent.b) ? pt.tint.primary : pt.ink
         }
     }
     // A trigger: its glyph, and a bar for how far it is pulled.
@@ -189,25 +219,29 @@ Rectangle {
             }
             // Shoulders: the trigger (with how far it is pulled) beside the bumper, above each side.
             Row {
-                readonly property var p: stage.at(stage.lay.lb, width, height)
+                visible: !stage.lay.noShoulders
+                readonly property var p: stage.lay.lb ? stage.at(stage.lay.lb, width, height) : ({ x: 0, y: 0 })
                 x: Math.max(0, p.x); y: p.y; spacing: stage.k * 2
                 Trigger { ax: 4; glyph: "lt" }
                 Plain { b: 9; text: Glyphs.label(pt.padStyle, "lb"); w: stage.k * 12; height: stage.k * 5; anchors.verticalCenter: parent.verticalCenter }
             }
             Row {
-                readonly property var p: stage.at(stage.lay.rb, width, height)
+                visible: !stage.lay.noShoulders
+                readonly property var p: stage.lay.rb ? stage.at(stage.lay.rb, width, height) : ({ x: 0, y: 0 })
                 x: Math.min(stage.width - width, p.x); y: p.y; spacing: stage.k * 2; layoutDirection: Qt.RightToLeft
                 Trigger { ax: 5; glyph: "rt"; layoutDirection: Qt.RightToLeft }
                 Plain { b: 10; text: Glyphs.label(pt.padStyle, "rb"); w: stage.k * 12; height: stage.k * 5; anchors.verticalCenter: parent.verticalCenter }
             }
-            Stick { ax: 0; b: 7; visible: !!stage.lay.ls
+            Stick { ax: 0; b: 7; visible: !!stage.lay.ls; r: stage.lay.lsR || 8; lever: !!stage.lay.lever
                     x: stage.lay.ls ? stage.lay.ls[0] * stage.k - width / 2 : 0; y: stage.lay.ls ? stage.lay.ls[1] * stage.k - height / 2 : 0 }
-            Stick { ax: 2; b: 8; visible: !!stage.lay.rs
+            Stick { ax: 2; b: 8; visible: !!stage.lay.rs; r: stage.lay.rsR || 8
                     x: stage.lay.rs ? stage.lay.rs[0] * stage.k - width / 2 : 0; y: stage.lay.rs ? stage.lay.rs[1] * stage.k - height / 2 : 0 }
             // D-pad: a cross of four arms.
             Item {
-                readonly property real s: stage.lay.dpad[2] * stage.k
-                x: stage.lay.dpad[0] * stage.k - s / 2; y: stage.lay.dpad[1] * stage.k - s / 2
+                visible: !!stage.lay.dpad
+                readonly property var dp: stage.lay.dpad || [0, 0, 0]
+                readonly property real s: dp[2] * stage.k
+                x: dp[0] * stage.k - s / 2; y: dp[1] * stage.k - s / 2
                 width: s; height: s
                 Plain { b: 11; x: parent.width / 3; y: 0; w: parent.width / 3; height: width; radius: stage.k }
                 Plain { b: 12; x: parent.width / 3; y: parent.height * 2 / 3; w: parent.width / 3; height: width; radius: stage.k }
@@ -216,14 +250,25 @@ Rectangle {
             }
             // Face buttons, by position.
             Item {
-                readonly property real s: stage.lay.face[2] * stage.k
-                readonly property real d: stage.lay.face[3]
-                x: stage.lay.face[0] * stage.k - s / 2; y: stage.lay.face[1] * stage.k - s / 2
+                visible: !stage.lay.faceAt
+                readonly property var f: stage.lay.face || [0, 0, 0, 7]
+                readonly property real s: f[2] * stage.k
+                readonly property real d: f[3]
+                x: f[0] * stage.k - s / 2; y: f[1] * stage.k - s / 2
                 width: s; height: s
                 Face { b: 3; glyph: "y"; d: parent.d; x: (parent.width - width) / 2; y: 0 }
                 Face { b: 0; glyph: "a"; d: parent.d; x: (parent.width - width) / 2; y: parent.height - height }
                 Face { b: 2; glyph: "x"; d: parent.d; x: 0; y: (parent.height - height) / 2 }
                 Face { b: 1; glyph: "b"; d: parent.d; x: parent.width - width; y: (parent.height - height) / 2 }
+            }
+            // Pads whose buttons are not a diamond (GameCube, arcade sticks): each where it is.
+            Repeater {
+                model: stage.lay.faceAt || []
+                Face {
+                    required property var modelData
+                    glyph: modelData[0]; b: modelData[1]; ax: modelData[2]; d: modelData[5]
+                    x: modelData[3] * stage.k - width / 2; y: modelData[4] * stage.k - height / 2
+                }
             }
             // View / Select, Menu / Start, Guide, Share: small pills (Guide round).
             Plain { b: 4; readonly property var p: stage.at(stage.lay.back, width, height); x: p.x; y: p.y

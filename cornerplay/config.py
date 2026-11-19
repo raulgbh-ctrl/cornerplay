@@ -183,6 +183,7 @@ DEFAULTS = {
     "pad_keys_custom": {},     # My layout: controller as keyboard and mouse (padkeys.py)
     "pad_layout": "",          # games' controller layout (padlayout.py): "", "swap_ab", "nintendo", "southpaw", "shoulders"
     "pad_glyphs": "",          # button prompts: "" (from the controller), "xbox", "playstation", "nintendo"
+    "pad_shape": "",           # Test your controller's drawing: "" (from the controller) or a gamepad.SHAPES name
     "pad_swap_confirm": False, # Cornerplay's menus: B chooses and A goes back (the Nintendo / Japanese way)
 }
 

@@ -193,6 +193,11 @@ QtObject {
     }
 
     // ------------------------------------------------------------ controllers
+    // Test buttons' drawings (gamepad.SHAPES), by what people call them.
+    readonly property var shapeNames: ({ xbox: qsTr("Xbox and similar"), ps: qsTr("PlayStation"), sym: qsTr("Stadia, Luna, Shield"),
+        switch: qsTr("Switch Pro"), joycons: qsTr("Joy-Cons"), gamecube: qsTr("GameCube"), snes: qsTr("8BitDo SN30, Zero, Micro (no sticks)"),
+        sn30: qsTr("8BitDo SN30 Pro, Pro 2, Pro 3"), arcade: qsTr("Arcade stick"), steam: qsTr("Steam Controller"),
+        handheld: qsTr("Handheld (Legion Go, ROG Ally...)"), deck: qsTr("Steam Deck") })
     readonly property var layoutNames: ({ "": qsTr("Standard"), none: qsTr("Standard"), swap_ab: qsTr("Swap A and B"), nintendo: qsTr("Nintendo"),
                                           southpaw: qsTr("Southpaw"), shoulders: qsTr("Swap bumpers and triggers") })
     readonly property var layoutOrder: ["", "swap_ab", "nintendo", "southpaw", "shoulders"]
@@ -213,6 +218,11 @@ QtObject {
         out.push({ group: g, kind: "choice", label: qsTr("Button prompts"), icon: "eye", cur: st.pad_glyphs || "",
                    options: [{ v: "", t: qsTr("Auto") + " (" + Glyphs.of(pad.style).name + ")" }].concat(Glyphs.choices()),
                    set: v => { app.setSetting("pad_glyphs", v); pad.reload() } })
+        // Test buttons draws the pad in its own shape; when it is taken for another (an 8BitDo in
+        // XInput mode says it is an Xbox 360 pad), pick the drawing here.
+        out.push({ group: g, kind: "choice", label: qsTr("Controller drawing"), icon: "gamepad-2", cur: st.pad_shape || "",
+                   options: [{ v: "", t: qsTr("Auto") }].concat(Object.keys(shapeNames).map(v => ({ v: v, t: shapeNames[v] }))),
+                   set: v => { app.setSetting("pad_shape", v); pad.reload() } })
         out.push({ group: g, kind: "choice", label: qsTr("Choose with"), icon: "check", cur: !!st.pad_swap_confirm,
                    options: [{ v: false, t: qsTr("Bottom button") }, { v: true, t: qsTr("Right button") }],
                    set: v => { app.setSetting("pad_swap_confirm", v); pad.reload() } })

@@ -38,3 +38,22 @@ def test_pad_shapes():
     g._handheld = True  # the built-in controls, through Steam in Game Mode
     assert g._shape_of("xbox", "Steam Virtual Gamepad", VALVE, 0x11FF) == "handheld"
     assert g._shape_of("ps5", "DualSense Wireless Controller") == "ps"
+
+
+def test_more_pad_shapes():
+    from cornerplay.gamepad import Gamepad, EIGHTBITDO, SHAPES
+    g = Gamepad.__new__(Gamepad)
+    g._handheld = False
+    assert g._shape_of("xbox", "8BitDo Pro 2") == "sn30"
+    assert g._shape_of("xbox", "8BitDo SN30 Pro") == "sn30"
+    assert g._shape_of("switch", "8BitDo SN30") == "snes"
+    assert g._shape_of("xbox", "8BitDo Zero 2 gamepad") == "snes"
+    assert g._shape_of("xbox", "8BitDo Ultimate Wireless Controller") == "xbox"
+    assert g._shape_of("xbox", "Xbox 360 Controller", EIGHTBITDO, 0x3106) == "sn30"
+    assert g._shape_of("switch", "Nintendo Switch Joy-Con (L/R)") == "joycons"
+    assert g._shape_of("switch", "Nintendo GameCube Controller") == "gamecube"
+    assert g._shape_of("ps4", "HORI Fighting Commander OCTA") == "arcade"
+    assert g._shape_of("stadia", "Google Stadia Controller") == "sym"
+    src = open("cornerplay/qml/TvPadTest.qml").read()
+    for s in SHAPES:
+        assert f"        {s}: {{" in src, s   # every shape has a drawing

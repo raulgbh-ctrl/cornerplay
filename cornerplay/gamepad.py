@@ -38,6 +38,9 @@ VALVE = 0x28DE
 STEAM_CONTROLLERS = {0x1102, 0x1142}   # wired and wireless
 DECK_PRODUCT = 0x1205
 STEAM_VIRTUAL = 0x11FF
+# The drawings Test your controller has (qml/TvPadTest.qml layouts), for the pad_shape setting.
+SHAPES = ("xbox", "ps", "sym", "switch", "joycons", "gamecube", "snes", "sn30", "arcade", "steam", "handheld", "deck")
+EIGHTBITDO = 0x2DC8
 # Words in a handheld's DMI strings or its pad's name (lower case).
 HANDHELD_WORDS = ("legion go", "rog ally", "claw", "ayaneo", "onexplayer", "gpd win", "zotac zone")                # Steam Input's virtual pad (Game Mode presents every pad this way)
 # SDL_JoystickPowerLevel -> a battery percentage to show (wired and unknown: None).
@@ -228,6 +231,24 @@ class Gamepad(QObject):
     def _shape_of(self, style, name, vendor=0, product=0):
         """Which drawing fits this pad: "xbox", "ps", "switch", "steam", "deck" or "handheld"."""
         low = (name or "").lower()
+        if vendor == EIGHTBITDO or "8bitdo" in low:
+            if "ultimate" in low:
+                return "xbox"
+            if "arcade" in low:
+                return "arcade"
+            if any(k in low for k in ("pro 2", "pro 3", "sn30 pro", "sf30 pro", "lite 2", "lite se", "64")):
+                return "sn30"
+            if any(k in low for k in ("zero", "micro", "sn30", "sf30", "n30", "m30", "lite", "snes")):
+                return "snes"
+            return "sn30"
+        if any(k in low for k in ("fight stick", "fightstick", "fighting stick", "arcade", "qanba", "victrix", "fighting commander")):
+            return "arcade"
+        if "gamecube" in low or "gc controller" in low:
+            return "gamecube"
+        if "joy-con" in low or "joycon" in low:
+            return "joycons"
+        if "snes" in low or "super famicom" in low or "retro-bit" in low:
+            return "snes"
         if style == "deck":
             return "deck"
         if style == "steam":
@@ -240,6 +261,8 @@ class Gamepad(QObject):
             return "ps"
         if style == "switch":
             return "switch"
+        if style in ("stadia", "luna", "shield"):
+            return "sym"
         return "xbox"
 
     available = Property(bool, lambda s: s._sdl is not None, notify=availableChanged)
@@ -260,6 +283,9 @@ class Gamepad(QObject):
         # No pad seen yet on a Steam Deck: its own controls (Steam turns them into keys on the desktop).
         own = self._pad_style if self._pads or not self._deck else "deck"
         shape = self._pad_shape if self._pads else "deck" if self._deck else "handheld" if self._handheld else "xbox"
+        picked = settings.get("pad_shape") or ""
+        if picked in SHAPES:  # Settings > Controllers > Drawing: when the pad says it is something else
+            shape = picked
         style = glyphs if glyphs in GLYPHS else own
         if style != self._style or own != getattr(self, "_own_style", None) or shape != getattr(self, "_own_shape", None):
             self._style = style
