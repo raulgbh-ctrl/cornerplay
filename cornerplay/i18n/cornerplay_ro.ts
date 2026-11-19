@@ -98,12 +98,12 @@
     <message>
         <location filename="../qml/GameCard.qml" line="539"/>
         <source>Not played yet</source>
-        <translation type="unfinished">Nejucat încă</translation>
+        <translation>Nejucat încă</translation>
     </message>
     <message>
         <location filename="../qml/GameCard.qml" line="539"/>
         <source>Not installed</source>
-        <translation type="unfinished">Neinstalat</translation>
+        <translation>Neinstalat</translation>
     </message>
 </context>
 <context>
@@ -1680,7 +1680,7 @@
     <message>
         <location filename="../qml/Main.qml" line="6536"/>
         <source>Look</source>
-        <translation type="unfinished">Aspect</translation>
+        <translation>Aspect</translation>
     </message>
     <message>
         <location filename="../qml/Main.qml" line="6537"/>
