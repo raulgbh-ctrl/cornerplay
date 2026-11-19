@@ -54,6 +54,10 @@ Item {
     property bool tilt: true
     // Looks (Settings > Appearance > Look): the title and a line under the cover; games not
     // installed in grey until pointed at; a soft shadow in the cover's own colour.
+    property bool shimmer: false   // Look > Loading shimmer: a soft light sweeps the cover until its art is in
+    property bool playRing: false  // Look > Play ring: the Play button turns into a ring, then a tick
+    property string ringState: ""  // "", "spin", "done"
+    Timer { id: ringTimer; interval: 1400; onTriggered: { if (card.ringState === "spin") { card.ringState = "done"; ringTimer.restart() } else card.ringState = "" } }
     property bool caption: false
     property string captionSub: ""
     property bool greyWhenOff: false
@@ -243,6 +247,27 @@ Item {
                 layer.effect: MultiEffect { saturation: card.lit ? 0 : -1; Behavior on saturation { NumberAnimation { duration: 250 } } }
             }
 
+            // Look > Loading shimmer: until the art is in, a soft band of light sweeps the empty cover.
+            Rectangle {
+                id: shimBox
+                visible: card.shimmer && img.status !== Image.Ready
+                anchors.fill: parent
+                color: Qt.alpha(card.theme.onSurface, 0.05)
+                clip: true
+                Rectangle {
+                    width: parent.width * 0.6; height: parent.height * 1.6
+                    y: -parent.height * 0.3
+                    rotation: 18
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0; color: "transparent" }
+                        GradientStop { position: 0.5; color: Qt.alpha(card.theme.onSurface, 0.09) }
+                        GradientStop { position: 1.0; color: "transparent" }
+                    }
+                    NumberAnimation on x { running: shimBox.visible; loops: Animation.Infinite; from: -shimBox.width; to: shimBox.width * 1.4; duration: 1300; easing.type: Easing.InOutQuad }
+                }
+            }
+
             // Logo wall: the game's logo over its wide art (its title when there is no logo).
             Rectangle {
                 visible: card.style === "logo"
@@ -397,7 +422,7 @@ Item {
         // one click instead of opening the game or double-clicking.
         Rectangle {
             id: quick
-            readonly property bool shown: card.quickAction && card.hovered && card.job === "" && !card.picking
+            readonly property bool shown: card.quickAction && (card.hovered || card.ringState !== "") && card.job === "" && !card.picking
             visible: opacity > 0
             opacity: shown ? 1 : 0
             scale: shown ? (quickHover.hovered ? 1.08 : 1) : 0.8
@@ -409,17 +434,33 @@ Item {
             border.width: 1; border.color: Qt.alpha("white", 0.25)
             Icon {
                 anchors.centerIn: parent
-                anchors.horizontalCenterOffset: card.installed ? 1 : 0   // a play triangle looks centred a touch right
-                name: card.installed ? "play" : "download"
+                anchors.horizontalCenterOffset: card.installed && card.ringState === "" ? 1 : 0   // a play triangle looks centred a touch right
+                name: card.ringState === "done" ? "check" : card.installed ? "play" : "download"
+                visible: card.ringState !== "spin"
                 size: Math.round(parent.width * 0.42)
                 color: card.theme.onPrimary
+            }
+            // Starting: a ring turning around the button.
+            Canvas {
+                anchors.fill: parent
+                visible: card.ringState === "spin"
+                property color c: card.theme.onPrimary
+                onVisibleChanged: requestPaint()
+                onPaint: {
+                    const x = getContext("2d"); x.reset(); x.lineWidth = Math.max(2.5, width * 0.08); x.lineCap = "round"
+                    x.strokeStyle = c; x.beginPath(); x.arc(width / 2, height / 2, width * 0.28, 0, Math.PI * 1.4); x.stroke()
+                }
+                RotationAnimator on rotation { running: card.ringState === "spin"; from: 0; to: 360; duration: 800; loops: Animation.Infinite }
             }
             HoverHandler { id: quickHover; enabled: card.interactive; cursorShape: Qt.PointingHandCursor }
             TapHandler {
                 enabled: card.interactive
                 gesturePolicy: TapHandler.WithinBounds
                 grabPermissions: PointerHandler.CanTakeOverFromAnything
-                onTapped: if (card.interactive) { card.installed ? card.activated() : card.installRequested() }
+                onTapped: if (card.interactive) {
+                    if (card.installed && card.playRing) { card.ringState = "spin"; ringTimer.restart() }
+                    card.installed ? card.activated() : card.installRequested()
+                }
             }
             ToolTip.visible: quickHover.hovered
             ToolTip.delay: 600

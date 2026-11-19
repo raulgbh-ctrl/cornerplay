@@ -5,7 +5,7 @@
 Actions run one after another, 0.6 s apart after a 2.5 s start:
     wait:MS       wait longer          shot:NAME     save OUTDIR/NAME.png
     key:Name      a key (Qt.Key_Name)  ctrl:X        Ctrl+X (ctrl:Comma for Ctrl+,)
-    type:text     type text            click:x,y     a click         hover:x,y   move the pointer there
+    type:text     type text            click:x,y     a click         hover:x,y   move the pointer there      wheel:x,y,dy  scroll there (dy < 0: down)
     rclick:x,y    a right click        mods:KEY      a game's mods page
     call:obj:method:arg   call a QML function with one argument
     crash:KEY:text the 'closed right away' window, as if KEY's log said text
@@ -155,6 +155,13 @@ def run(*_):
             elif k == "hover":
                 x, y = map(float, v.split(","))
                 QGuiApplication.sendEvent(w, QMouseEvent(QEvent.MouseMove, QPointF(x, y), QPointF(x, y), Qt.NoButton, Qt.NoButton, Qt.NoModifier))
+            elif k == "wheel":
+                from PySide6.QtGui import QWheelEvent
+                from PySide6.QtCore import QPoint
+                x, y, dy = map(float, v.split(","))
+                for _ in range(int(abs(dy) // 120) or 1):
+                    QGuiApplication.sendEvent(w, QWheelEvent(QPointF(x, y), QPointF(x, y), QPoint(0, 0), QPoint(0, 120 if dy > 0 else -120),
+                                                             Qt.NoButton, Qt.NoModifier, Qt.NoScrollPhase, False))
             elif k == "click":
                 x, y = map(float, v.split(","))
                 for typ in (QEvent.MouseButtonPress, QEvent.MouseButtonRelease):

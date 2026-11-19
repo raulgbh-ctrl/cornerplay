@@ -82,7 +82,9 @@ def _t(text):
 
 def _translatable_names():
     """Never called: lists names that reach _t() through variables, so lupdate finds them."""
-    return (QCoreApplication.translate("app", "Playing"),
+    return (QCoreApplication.translate("app", "Ready to play"),
+            QCoreApplication.translate("app", "Not played yet"),
+            QCoreApplication.translate("app", "Playing"),
             QCoreApplication.translate("app", "Put away"),
             QCoreApplication.translate("app", "Out now"),
             QCoreApplication.translate("app", "Out today"),
@@ -967,7 +969,8 @@ class AioLaunch(QObject):
             self._load_theme()
 
     theme = Property("QVariantMap", lambda s: s._theme, notify=themeChanged)
-    TITLE_FONTS = {"": "Nunito", "condensed": "Barlow Condensed", "serif": "Lora", "pixel": "Silkscreen"}
+    TITLE_FONTS = {"": "Nunito", "condensed": "Barlow Condensed", "serif": "Lora", "pixel": "Silkscreen",
+                   "geometric": "Outfit", "grotesk": "Space Grotesk"}
     titleFamily = Property(str, lambda s: s.TITLE_FONTS.get(settings.get("title_font") or "", "Nunito"), notify=settingsChanged)
     themePresets = Property("QVariantList", lambda s: list(themes.PRESETS), constant=True)
     lightPresets = Property("QVariantList", lambda s: [n for n, (bg, _a) in themes.PRESETS.items() if themes.luminance(bg) >= 0.5], constant=True)
@@ -1185,6 +1188,34 @@ class AioLaunch(QObject):
                 return done
             self._bg(work)
         return ""
+
+    gamePaletteReady = Signal(str, "QVariantList")
+
+    @Slot(str, result="QVariantList")
+    def gamePalette(self, key):
+        """Three colours from a game's cover (Look > Aurora); [] until known (gamePaletteReady)."""
+        g = self.model.find(key)
+        if not g:
+            return []
+        dark = self._theme.get("dark", True)
+        value = gamecolour.cached_palette(key)
+        if value is not None:
+            return [gamecolour.accent(v, dark) for v in value]
+        pend = self.__dict__.setdefault("_palette_pending", set())
+        if key not in pend:
+            pend.add(key)
+            urls = _covers(g)[:3]
+
+            def work():
+                value = gamecolour.palette(key, urls)
+
+                def done():
+                    pend.discard(key)
+                    if value is not None:
+                        self.gamePaletteReady.emit(key, [gamecolour.accent(v, dark) for v in value])
+                return done
+            self._bg(work)
+        return []
 
     def _recent_games(self):
         """The "Continue playing" row: games you have played (here or on another PC), most recent first."""
@@ -4019,6 +4050,13 @@ class AioLaunch(QObject):
                 continue
             test = tests.get(sid) or (lambda g, c=sid[2:]: shelves.in_group(g, c))
             rows.append((sid, shelf["name"], "", test))
+        # Look > Home as rows: two more, near the top (installed games to start right away, and
+        # the ones never started).
+        if settings.get("look_shelves"):
+            at = 1 if rows and rows[0][0] == "playing" else 0
+            rows[at:at] = [("ready", _t("Ready to play"), "", lambda g: any(x.installed for x in g)),
+                           ("unplayed", _t("Not played yet"), "",
+                            lambda g: m.group_value(g, "lastPlayed") <= 0 and m.group_value(g, "playtime") <= 0)]
         for name, n in sorted(genres.items(), key=lambda kv: -kv[1])[:4]:
             if n >= 4:
                 rows.append(("", name, "genre:" + name,
@@ -4026,7 +4064,7 @@ class AioLaunch(QObject):
         out = []
         for sid, name, tag, test in rows:
             hits = [g for g in groups if test(g)]
-            if sid == "playing" or sid == "together":
+            if sid in ("playing", "together", "ready"):
                 hits.sort(key=lambda g: -m.group_value(g, "lastPlayed"))
             elif sid == "added":
                 hits.sort(key=lambda g: -shelves.installed_at(g))

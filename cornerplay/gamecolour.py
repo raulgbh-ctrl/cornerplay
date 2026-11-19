@@ -48,6 +48,59 @@ def hue_sat(img):
     return [int(hs / ws) % 360, int(ss / ws)]
 
 
+def palette_of(img):
+    """Up to three strong hues of an image, strongest first: [[hue, saturation], ...]."""
+    from PySide6.QtGui import QColor
+    img = img.scaled(48, 48)
+    buckets = {}
+    for y in range(img.height()):
+        for x in range(img.width()):
+            h, s, v, _ = QColor(img.pixel(x, y)).getHsv()
+            if s < 60 or v < 60 or h < 0:
+                continue
+            w = (s / 255) * (v / 255)
+            hs, ws, ss = buckets.get(h // 20, (0.0, 0.0, 0.0))
+            buckets[h // 20] = (hs + h * w, ws + w, ss + s * w)
+    picked = []
+    for hs, ws, ss in sorted(buckets.values(), key=lambda b: -b[1]):
+        h = int(hs / ws) % 360
+        # Different enough from the ones already picked (a cover in one colour gives one).
+        if ws >= 15 and all(min(abs(h - p[0]), 360 - abs(h - p[0])) >= 35 for p in picked):
+            picked.append([h, int(ss / ws)])
+        if len(picked) == 3:
+            break
+    return picked
+
+
+def cached_palette(key):
+    with _lock:
+        return _cache().get("p:" + key)
+
+
+def palette(key, urls):
+    """Blocking (worker thread): the cover's three colours, remembered next to its accent."""
+    from PySide6.QtCore import QUrl
+    from PySide6.QtGui import QImage
+    for url in urls:
+        img = QImage()
+        try:
+            if url.startswith("file://"):
+                img.load(QUrl(url).toLocalFile())
+            else:
+                r = requests.get(url, timeout=15)
+                if r.status_code == 200:
+                    img.loadFromData(r.content)
+        except requests.RequestException:
+            continue
+        if not img.isNull():
+            value = palette_of(img)
+            with _lock:
+                _cache()["p:" + key] = value
+                write_json(FILE, _cache())
+            return value
+    return None
+
+
 def compute(key, urls):
     """Download the first cover that loads and remember its colour. Blocking (worker thread)."""
     from PySide6.QtCore import QUrl
