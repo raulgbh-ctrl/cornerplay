@@ -91,7 +91,7 @@ DEFAULTS = {
     "look_rich": False,      # covers: title and playtime under them, colour on hover for games not installed
     "look_titles": False,    # bigger section titles and a greeting
     "look_motion": False,    # covers come in one after another; the library glides when it changes
-    "look_page": False,      # a game's panel opens on its full art with the logo and facts
+    "look_page": True,       # a game's panel opens on its full art with the logo and facts
     "look_shelves": False,   # Home as rows (Continue, Ready to play, Recently added, Not played yet); every game in All games
     "look_wide": False,      # Continue playing as big cards: art, hours, achievements, your last screenshot
     "look_search": False,    # a floating search pill, with quick filters under it
@@ -100,7 +100,7 @@ DEFAULTS = {
     "look_skeleton": False,  # covers shimmer while their art loads
     "look_playring": False,  # Play turns into a ring while the game starts, then a tick
     "look_aurora": False,    # three colours from the game's cover drift behind the library like an aurora
-    "look_pagetabs": False,  # a game's page: section tabs, a slim header that stays when you scroll, a playtime chart
+    "look_pagetabs": True,   # a game's page: section tabs, a slim header that stays when you scroll, a playtime chart
     "tv_intro": False,       # TV mode: a short start-up animation and chime
     "tv_animated": True,   # animated covers and banners in TV mode (SteamGridDB key; only when plugged in)
     "peer_reports": True,  # ProtonDB's monthly open data: what players with a PC like this one did (pdbreports.py)
