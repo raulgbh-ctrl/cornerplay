@@ -72,6 +72,26 @@ def build_index():
     return ""
 
 
+def build_index_apart():
+    """build_index() in a process of its own. Its YAML parser (C, about 13 s for Ludusavi's
+    manifest) holds Python's lock all along, so in a thread it froze the window that long, and
+    the Legion Go S's session killed Cornerplay as not responding. Returns an error or ""."""
+    import subprocess
+    import sys
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env = dict(os.environ, PYTHONPATH=root + os.pathsep + os.environ.get("PYTHONPATH", ""))
+    try:
+        p = subprocess.run([sys.executable, "-c", "from cornerplay import savebackup; print(savebackup.build_index())"],
+                           env=env, cwd=root, capture_output=True, text=True, timeout=600)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return f"Could not read the save locations: {e}"
+    global _index
+    _index = None  # the child wrote a new one
+    if p.returncode != 0:
+        return (p.stderr.strip().splitlines() or ["Could not read the save locations"])[-1]
+    return p.stdout.strip()
+
+
 def index():
     global _index
     if _index is None:

@@ -1390,10 +1390,11 @@ class AioLaunch(QObject):
     savesReady = Signal(str, "QVariantList")
 
     def _refresh_save_index(self):
-        """The save-location index, once a week, in the background (13 s of parsing)."""
+        """The save-location index, once a week, in the background: 13 s of parsing, in a
+        process of its own so the window never stops (savebackup.build_index_apart)."""
         if not settings.get("save_backups") or self.demo or not savebackup.index_is_old():
             return
-        self._bg(lambda: (savebackup.build_index(), None)[1])
+        self._bg(lambda: (savebackup.build_index_apart(), None)[1])
 
     @Slot(str)
     def loadSaveBackups(self, key):

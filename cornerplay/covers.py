@@ -330,6 +330,8 @@ def add_backup_art(games):
         return g.id if g.store == "steam" else str(g.extra.get("steam_appid") or "")
 
     assets = steam_assets(appid(g) for g in games if appid(g))
+    from . import steamappinfo
+    steam_known = steamappinfo.known()
     key = settings.get("steamgriddb_key").strip()
     sgdb = _cached_lookups("sgdbhero", [g.title for g in games], lambda t: _sgdb_hero(t, key)) if key else {}
 
@@ -359,6 +361,11 @@ def add_backup_art(games):
         _add(heroes, g.cover_fallback, a.get("header"))  # wide store art: better than nothing
         logos = list(g.extra.get("store_logos") or [])
         if appid(g):
+            local = steam_known.get(appid(g)) or {}  # the Steam client's own, hashed logo path
+            if sharp and local.get("logo2x"):
+                _add(logos, f"{STEAM_ASSETS}steam/apps/{appid(g)}/{local['logo2x']}")
+            if local.get("logo"):
+                _add(logos, f"{STEAM_ASSETS}steam/apps/{appid(g)}/{local['logo']}")
             _add(logos, f"{STEAM_ASSETS}steam/apps/{appid(g)}/logo.png")
         if generated:
             covers = [u for u in covers if "portrait" not in u] + [a.get("cover"), a.get("cover2x")]

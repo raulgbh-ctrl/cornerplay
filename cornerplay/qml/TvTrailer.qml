@@ -28,6 +28,14 @@ Item {
         if (tr.skipTo > 0 || !player.seekable || player.duration < 20000) return
         tr.skipTo = Math.min(6000, Math.round(player.duration / 10))
         player.setPosition(tr.skipTo)
+        seekCheck.restart()
+    }
+    // Steam's trailers (HLS) often ignore the jump: the player then plays from the start, hidden,
+    // and the cover showed nothing for 6 s. When the jump did not happen, show it as it plays.
+    Timer {
+        id: seekCheck
+        interval: 700
+        onTriggered: if (player.position < tr.skipTo - 1500) tr.skipTo = 0
     }
     VideoOutput {
         id: video

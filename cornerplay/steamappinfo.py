@@ -16,7 +16,7 @@ from .config import CACHE_DIR, read_json, write_json
 CACHE = CACHE_DIR / "steam_appinfo.json"
 PACKAGES_CACHE = CACHE_DIR / "steam_free_weekends.json"
 MAGICS = {0x07564427: 27, 0x07564428: 28, 0x07564429: 29}
-VERSION = 3  # bump when the remembered fields change
+VERSION = 4  # bump when the remembered fields change
 
 
 def _parse(data):
@@ -77,12 +77,23 @@ def _parse(data):
         manual = re.search(r"/manual/(\d+)", str(extended.get("GameManualURL", "")))
         variant_of = manual.group(1) if manual and manual.group(1) != str(appid) else ""
         cats = common.get("category") if isinstance(common.get("category"), dict) else {}
+        # Newer games keep their library art at hashed paths only (".../<hash>/logo.png"): the
+        # old fixed "<appid>/logo.png" is a 404 for them (Forza Horizon 6), so remember the real one.
+        full = common.get("library_assets_full") if isinstance(common.get("library_assets_full"), dict) else {}
+        logo = full.get("library_logo") if isinstance(full.get("library_logo"), dict) else {}
+        pick = lambda d: str(d.get("english") or next(iter(d.values()), "")) if isinstance(d, dict) and d else ""
         apps[str(appid)] = {"name": str(common.get("name", "")), "type": str(common.get("type", "")).lower(),
                             "variant_of": variant_of,
                             # Steam's store categories (24/37/39: shared or split screen, 44: Remote Play Together, ...)
-                            "cat": sorted(int(k[9:]) for k in cats if k.startswith("category_") and k[9:].isdigit())}
+                            "cat": sorted(int(k[9:]) for k in cats if k.startswith("category_") and k[9:].isdigit()),
+                            "logo": pick(logo.get("image")), "logo2x": pick(logo.get("image2x"))}
         pos += size
     return apps
+
+
+def known():
+    """The apps remembered from the last parse (no file reading of Steam's own cache)."""
+    return (read_json(CACHE) or {}).get("apps") or {}
 
 
 def apps(root):

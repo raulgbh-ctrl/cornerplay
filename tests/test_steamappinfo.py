@@ -52,13 +52,18 @@ APPS = {
                                    "category": {"category_1": 1, "category_39": 1, "category_9": 1}},
                         "extended": {"GameManualURL": "https://store.steampowered.com/manual/49520/"}}},
     228980: {"appinfo": {"common": {"name": "Steamworks Common Redistributables", "type": "Tool"}}},
+    2483190: {"appinfo": {"common": {"name": "Forza Horizon 6", "type": "game", "library_assets_full": {"library_logo": {
+        "image": {"english": "b494309a/logo.png", "sc_schinese": "8d6a85dc/logo_sc_schinese.png"},
+        "image2x": {"english": "b494309a/logo_2x.png"}}}}}},
 }
 
 
 @pytest.mark.parametrize("version", [27, 28, 29])
 def test_parse_each_format(version):
     apps = steamappinfo._parse(build(version, APPS))
-    assert apps["570"] == {"name": "Dota 2", "type": "game", "variant_of": "", "cat": []}
+    assert apps["570"] == {"name": "Dota 2", "type": "game", "variant_of": "", "cat": [], "logo": "", "logo2x": ""}
+    # Newer games' logos live at hashed paths only: the fixed <appid>/logo.png is a 404 for them.
+    assert apps["2483190"]["logo"] == "b494309a/logo.png" and apps["2483190"]["logo2x"] == "b494309a/logo_2x.png"
     assert apps["49520"]["cat"] == [1, 9, 39]  # Steam's store categories: 39 is split-screen co-op
     assert apps["228980"]["type"] == "tool"
     assert apps["49521"]["variant_of"] == "49520"  # a regional edition points at the main game
