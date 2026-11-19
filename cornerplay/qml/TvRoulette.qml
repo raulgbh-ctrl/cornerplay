@@ -9,6 +9,7 @@ import QtQuick.Layouts
 // A plays, X spins again, B goes back.
 Rectangle {
     id: rl
+    TvShield {}  // clicks on the empty parts stop here, never reaching the covers behind
     objectName: "tvRoulette"
     required property var theme
     required property var tint
@@ -57,6 +58,7 @@ Rectangle {
     }
 
     Keys.onPressed: event => {
+        if (event.key === Qt.Key_F10 || event.key === Qt.Key_F9) { event.accepted = false; return }  // Guide / quick access, over this page
         event.accepted = true
         const k = event.key
         if (phase === "spin") return

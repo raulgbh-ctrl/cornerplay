@@ -8,6 +8,7 @@ import "glyphs.js" as Glyphs
 // steers nothing, so every button can be tried; hold B (or press Esc) to leave.
 Rectangle {
     id: pt
+    TvShield {}  // clicks on the empty parts stop here, never reaching the covers behind
     required property var theme
     required property var tint
     signal closed()

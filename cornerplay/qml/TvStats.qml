@@ -5,11 +5,12 @@ import QtQuick.Layouts
 // right change the year; up and down scroll; B goes back.
 Rectangle {
     id: st
+    TvShield {}  // clicks on the empty parts stop here, never reaching the covers behind
     objectName: "tvStats"
     required property var theme
     required property var tint
     signal closed()
-    color: Qt.alpha(theme.background, 0.97)
+    color: theme.background  // solid: Home must not show through (it looked like clicks could reach it)
     visible: false
     property var d: ({})
     property var yr: ({})
@@ -19,6 +20,7 @@ Rectangle {
     function show() { d = app.stats(); yr = d.year || {}; ch = app.challenges(); yearAt = 0; flick.contentY = 0; visible = true; forceActiveFocus() }
     function close() { app.uiSound("back"); visible = false; closed() }
     Keys.onPressed: event => {
+        if (event.key === Qt.Key_F10 || event.key === Qt.Key_F9) { event.accepted = false; return }  // Guide / quick access, over this page
         event.accepted = true
         const k = event.key, years = d.years || []
         if (k === Qt.Key_Escape || k === Qt.Key_Backspace || k === Qt.Key_Return) close()

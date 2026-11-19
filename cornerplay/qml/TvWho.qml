@@ -5,6 +5,7 @@ import QtQuick
 // collections, backlog, notes and playtime (personal.py).
 Rectangle {
     id: who
+    TvShield {}  // clicks on the empty parts stop here, never reaching the covers behind
     readonly property real capH: Math.min(height, 1100)  // sizes stop growing past an 1100 px tall screen
     objectName: "tvWho"
     required property var theme

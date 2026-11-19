@@ -36,6 +36,7 @@ Rectangle {
     MouseArea {
         anchors.fill: parent
         hoverEnabled: true
+        acceptedButtons: Qt.AllButtons  // a right click wakes it too, and never reaches Home
         property point first: Qt.point(-1, -1)
         onPositionChanged: mouse => {  // a nudge, not the pointer resting where it was
             if (first.x < 0) { first = Qt.point(mouse.x, mouse.y); return }

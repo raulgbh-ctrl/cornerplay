@@ -55,6 +55,26 @@ FocusScope {
     readonly property bool frosted: searching || (typeof mainMenu !== "undefined" && (mainMenu.open || quickMenu.open)) || panel.visible
                                     || (typeof tvSettings !== "undefined" && tvSettings.visible)
                                     || (typeof libraryPage !== "undefined" && libraryPage.visible)
+    // Anything over Home (a page, a menu, the keyboard, a dialog)? Home's covers and buttons then
+    // ignore the pointer, and keep ignoring it for a moment after it closes: the click or tap that
+    // closed it (or the second half of a double click) must never land on the game underneath.
+    readonly property int layers: [searching, intro.visible, gamePage.visible, gamePage.viewing, panel.visible,
+        tvDownloads.visible, phonePage.visible, gameNight.visible, tvStats.visible, roulette.visible,
+        libraryPage.visible, pinPrompt.visible, libPrompt.visible, prompt.visible, tvSettings.visible,
+        padTest.visible, saver.visible, whoPicker.visible,
+        mainMenu.open, moreMenu.open, powerMenu.open, quickMenu.open, libSheet.open, goalSheet.open, homeSheet.open,
+        !!(tv.Window.window && tv.Window.window.openPopups && tv.Window.window.openPopups.length > 0)].filter(Boolean).length
+    readonly property bool covered: layers > 0
+    property bool settling: false
+    property double quietUntil: 0
+    // Whenever a layer opens or closes (Home, or one page over another), clicks rest for half a
+    // second: a double click that closed a menu must not press the button that was under it.
+    onLayersChanged: { quietUntil = Date.now() + 500; settling = true; settleTimer.restart() }
+    Timer { id: settleTimer; interval: 500; onTriggered: tv.settling = false }
+    readonly property bool homeLive: !covered && !settling
+    // For a click that is about to open or start a game: checked again when it fires, because a
+    // single tap is only reported once the double-click time has passed.
+    function pointerOk() { return !covered && Date.now() >= quietUntil }
     // Steam-style status icons (top bar, quick access): Wi-Fi or wired, Bluetooth in use, volume.
     readonly property var statusIcons: {
         const s = app.system, n = s.network || {}, b = s.bluetooth || {}, a = s.audio || {}
@@ -516,7 +536,7 @@ FocusScope {
                 }
                 onActiveFocusChanged: if (activeFocus) { app.uiSound("move"); app.say(qsTr("Library")) }
                 HoverHandler { id: libHover; cursorShape: Qt.PointingHandCursor }
-                TapHandler { onTapped: libraryPage.show() }
+                TapHandler { enabled: tv.homeLive; onTapped: if (tv.pointerOk()) libraryPage.show() }
                 Keys.onReturnPressed: libraryPage.show()
                 Keys.onEnterPressed: libraryPage.show()
                 Keys.onDownPressed: grid.forceActiveFocus()
@@ -666,7 +686,7 @@ FocusScope {
                             Icon { visible: !pad.connected && !pad.deck; anchors.verticalCenter: parent.verticalCenter; name: tv.cur.installed ? "play" : "download"; size: 22; color: tv.tint.onPrimary }
                             Text { anchors.verticalCenter: parent.verticalCenter; text: playBtn.label; color: tv.tint.onPrimary; font.pixelSize: 21; font.weight: Font.DemiBold }
                         }
-                        TapHandler { onTapped: tv.accept() }
+                        TapHandler { enabled: tv.homeLive; onTapped: if (tv.pointerOk()) tv.accept() }
                         HoverHandler { cursorShape: Qt.PointingHandCursor }
                     }
                     Rectangle {
@@ -683,7 +703,7 @@ FocusScope {
                             Icon { visible: !pad.connected; anchors.verticalCenter: parent.verticalCenter; name: "ellipsis"; size: 22; color: theme.onSurface }
                             Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("More"); color: theme.onSurface; font.pixelSize: 21; font.weight: Font.Medium }
                         }
-                        TapHandler { onTapped: tv.openPage() }
+                        TapHandler { enabled: tv.homeLive; onTapped: if (tv.pointerOk()) tv.openPage() }
                         HoverHandler { cursorShape: Qt.PointingHandCursor }
                     }
                     Text {  // download speed and time left, beside the progress in the button
@@ -760,9 +780,10 @@ FocusScope {
                 dim: app.settingsMap.dim_uninstalled
                 current: GridView.isCurrentItem && !libBtn.activeFocus
                 // Pointing at a cover focuses it, so its artwork fills the screen.
-                onHoveredChanged: if (hovered && grid.currentIndex !== index) grid.currentIndex = index
-                onOpened: { grid.currentIndex = index; tv.sync(); tv.openPage() }
-                onActivated: { grid.currentIndex = index; tv.sync(); tv.accept() }
+                interactive: tv.homeLive
+                onHoveredChanged: if (hovered && tv.homeLive && grid.currentIndex !== index) grid.currentIndex = index
+                onOpened: { if (!tv.pointerOk()) return; grid.currentIndex = index; tv.sync(); tv.openPage() }
+                onActivated: { if (!tv.pointerOk()) return; grid.currentIndex = index; tv.sync(); tv.accept() }
                 // A soft reflection on the shelf below (Settings > Appearance).
                 Item {
                     visible: !!app.settingsMap.tv_reflection && !app.light && !peek.visible
@@ -1005,7 +1026,7 @@ FocusScope {
             OpacityAnimator { target: intro; from: 1; to: 0; duration: 450; easing.type: Easing.InCubic }
             ScriptAction { script: tv.skipIntro() }
         }
-        TapHandler { onTapped: tv.skipIntro() }
+        TvShield { onClicked: tv.skipIntro() }
         Keys.onPressed: event => { event.accepted = true; tv.skipIntro() }
     }
 
@@ -1018,6 +1039,7 @@ FocusScope {
         visible: tv.searching
         z: 4
         color: Qt.alpha("black", 0.5)
+        TvShield { onClicked: tv.closeSearch(true) }  // a click beside the keyboard closes it, keeping the results
     }
     Rectangle {
         id: searchBox
@@ -1028,6 +1050,7 @@ FocusScope {
         radius: 30
         color: Qt.alpha(theme.surfaceContainer, 0.9)
         border.width: 1; border.color: Qt.alpha("white", 0.1)
+        TvShield {}
         z: 5
         RectangularShadow {
             z: -1
@@ -1198,7 +1221,7 @@ FocusScope {
 
     // The game's own page (X / More): TvPage.qml. Its Options opens the action panel below, on top of it.
     function openPage() { if (!cur.key) return; app.uiSound("select"); gamePage.show(cur, app.gameDetails(cur.key), app.achievements(cur.key)) }
-    TvDownloads { id: tvDownloads; anchors.fill: parent; z: 42; theme: tv.theme; tint: tv.tint; onClosed: grid.forceActiveFocus() }
+    TvDownloads { id: tvDownloads; anchors.fill: parent; z: 42; theme: tv.theme; tint: tv.tint; onClosed: tv.refocus(null) }
     TvPhone { id: phonePage; anchors.fill: parent; z: 42; theme: tv.theme; tint: tv.tint; onClosed: tv.refocus(null) }
     TvGameNight {
         id: gameNight
@@ -1207,12 +1230,12 @@ FocusScope {
         onClosed: tv.refocus(null)
         onPlay: key => { tv.cur = app.game(key); tv.accept() }
     }
-    TvStats { id: tvStats; anchors.fill: parent; z: 42; theme: tv.theme; tint: tv.tint; onClosed: grid.forceActiveFocus() }
+    TvStats { id: tvStats; anchors.fill: parent; z: 42; theme: tv.theme; tint: tv.tint; onClosed: tv.refocus(null) }
     TvRoulette {
         id: roulette
         anchors.fill: parent; z: 42
         theme: tv.theme; tint: tv.tint
-        onClosed: grid.forceActiveFocus()
+        onClosed: tv.refocus(null)
         onPlay: key => { const t = app.launchTarget(key); if (t) app.play(t); else { tv.cur = app.game(key); panel.show() } }
     }
     TvLibrary {
@@ -1224,7 +1247,7 @@ FocusScope {
         storeIds: tv.storeIds
         onCurrentKeyChanged: if (visible) tv.sync()
         onVisibleChanged: tv.sync()
-        onClosed: grid.forceActiveFocus()
+        onClosed: tv.refocus(null)
         onPlay: key => { tv.cur = app.game(key); tv.accept() }
         onMore: key => { tv.cur = app.game(key); tv.openPage() }
         onOptions: libSheet.show()
@@ -1527,9 +1550,25 @@ FocusScope {
     }
     function powerMenuRows() { return [...controls.powerRows(""), ...controls.leaveRows("")] }
     // What a row in any of those menus does.
+    // The Guide's places replace whatever page is open (like Steam's): otherwise a page opened from
+    // the Guide could sit under the one already up (Downloads under Settings) while taking the keys,
+    // and Home could leave a game's page over a shelf that had the focus (A then started the game
+    // behind it). keepLibrary: the Library stays (a page opened from it goes over it).
+    function closePages(keepLibrary) {
+        if (padTest.visible) padTest.close()
+        if (roulette.visible) roulette.close()
+        if (gameNight.visible) app.closeGameNight()
+        for (const p of [gamePage, panel, tvDownloads, phonePage, gameNight, tvStats, roulette, tvSettings, pinPrompt, libPrompt, prompt])
+            p.visible = false
+        gamePage.viewing = false
+        if (!keepLibrary) libraryPage.visible = false
+        if (searching) closeSearch(true)
+    }
     function menuPick(sheet, row) {
+        const places = ["home", "library", "settings", "downloads", "stats", "night", "phone", "roulette"]
+        if (places.indexOf(row.act) !== -1) { sheet.open = false; closePages(row.act === "library") }
         if (row.act === "home") { sheet.hide(); libraryPage.visible = false; if (tvLibrary.search !== "") tv.clearSearch(); if (tv.shelfAt > 0) tv.stepShelf(-tv.shelfAt); grid.forceActiveFocus() }
-        else if (row.act === "library") { sheet.hide(); if (!libraryPage.visible) libraryPage.show() }
+        else if (row.act === "library") { sheet.hide(); if (!libraryPage.visible) libraryPage.show(); else libraryPage.forceActiveFocus() }
         else if (row.act === "more") { sheet.open = false; moreMenu.show(); moreMenu.back = sheet.back }
         else if (row.act === "powermenu") { sheet.open = false; powerMenu.show(); powerMenu.back = sheet.back }
         else if (row.act === "edithome") { sheet.hide(); homeSheet.show() }
@@ -1604,7 +1643,7 @@ FocusScope {
         onPicked: (row) => {
             if (row.act === "quitgame") { app.quitGame(row.key, false); hide() }
             else if (row.act === "clip") { hide(); app.saveClip() }
-            else if (row.act === "downloads") { hide(); tvDownloads.show() }
+            else if (row.act === "downloads") { open = false; tv.closePages(false); tvDownloads.show() }
             else controls.run(row)
         }
         onAlt: (row) => {
@@ -1724,11 +1763,11 @@ FocusScope {
     TvControls {
         id: controls
         onAskPassword: ssid => { tv.joining = ssid; prompt.back = tv.Window.activeFocusItem; prompt.ask(qsTr("Join ") + ssid, qsTr("Type the Wi-Fi password."), true) }
-        onOpenSettings: section => { mainMenu.hide(); quickMenu.hide(); tvSettings.show(section) }
+        onOpenSettings: section => { mainMenu.open = false; quickMenu.open = false; tv.closePages(false); tvSettings.show(section) }
         onPadTest: padTest.show()
         onPower: what => { mainMenu.hide(); quickMenu.hide(); app.power(what) }
         onLeave: how => {
-            mainMenu.hide(); quickMenu.hide(); tvSettings.visible = false
+            mainMenu.hide(); quickMenu.hide(); tv.closePages(false)
             if (how === "exit") tv.exit()
             else Qt.quit()
         }
@@ -1742,7 +1781,7 @@ FocusScope {
         tint: tv.tint
         controls: controls
         batt: topStatus.batt
-        onClosed: grid.forceActiveFocus()
+        onClosed: tv.refocus(null)
     }
     TvPadTest {
         id: padTest
@@ -1973,6 +2012,15 @@ FocusScope {
         anchors.fill: parent
         z: 150
         theme: tv.theme
-        onDone: grid.forceActiveFocus()
+        onDone: tv.refocus(null)
+    }
+    // The half second after a layer opens or closes: one invisible sheet over everything takes
+    // the stray clicks (see tv.layers). The keys and the controller are never held back.
+    MouseArea {
+        anchors.fill: parent
+        z: 1000
+        visible: tv.settling
+        acceptedButtons: Qt.AllButtons
+        onWheel: wheel => wheel.accepted = true
     }
 }

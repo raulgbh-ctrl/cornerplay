@@ -5,16 +5,18 @@ import QtQuick.Layouts
 // same network becomes a remote, a keyboard for search, and a ballot for game night.
 Rectangle {
     id: ph
+    TvShield {}  // clicks on the empty parts stop here, never reaching the covers behind
     objectName: "tvPhone"
     required property var theme
     required property var tint
     signal closed()
-    color: Qt.alpha(theme.background, 0.97)
+    color: theme.background  // solid: Home must not show through (it looked like clicks could reach it)
     visible: false
     readonly property var info: app.remoteInfo
     function show() { visible = true; forceActiveFocus(); app.uiSound("select") }
     function close() { app.uiSound("back"); visible = false; closed() }
     Keys.onPressed: event => {
+        if (event.key === Qt.Key_F10 || event.key === Qt.Key_F9) { event.accepted = false; return }  // Guide / quick access, over this page
         event.accepted = true
         if (event.key === Qt.Key_Escape || event.key === Qt.Key_Backspace) close()
         else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) app.setSetting("phone_remote", !app.settingsMap.phone_remote)

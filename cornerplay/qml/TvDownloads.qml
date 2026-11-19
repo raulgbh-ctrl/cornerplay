@@ -5,12 +5,13 @@ import QtQuick
 // later; X cancels (press it twice); B goes back.
 Rectangle {
     id: dl
+    TvShield {}  // clicks on the empty parts stop here, never reaching the covers behind
     readonly property real capH: Math.min(height, 1100)  // sizes stop growing past an 1100 px tall screen
     objectName: "tvDownloads"
     required property var theme
     required property var tint
     signal closed()
-    color: Qt.alpha(theme.background, 0.97)
+    color: theme.background  // solid: Home must not show through (it looked like clicks could reach it)
     visible: false
     property int at: 0
     property string armed: ""   // key whose cancel waits for the second X
@@ -20,6 +21,7 @@ Rectangle {
     function show() { at = 0; armed = ""; visible = true; forceActiveFocus() }
     function close() { app.uiSound("back"); visible = false; closed() }
     Keys.onPressed: event => {
+        if (event.key === Qt.Key_F10 || event.key === Qt.Key_F9) { event.accepted = false; return }  // Guide / quick access, over this page
         event.accepted = true
         const k = event.key
         if (k === Qt.Key_Escape || k === Qt.Key_Backspace) { close(); return }

@@ -9,6 +9,7 @@ import QtQuick.Layouts
 // size (left and right browse); B goes back.
 Rectangle {
     id: page
+    TvShield {}  // clicks on the empty parts stop here, never reaching the covers behind
     objectName: "tvPage"
     required property var theme
     required property var tint
@@ -61,6 +62,7 @@ Rectangle {
         function onDetailsReady(key, d) { if (key === page.game.key) page.info = d }
     }
     Keys.onPressed: event => {
+        if (event.key === Qt.Key_F10 || event.key === Qt.Key_F9) { event.accepted = false; return }  // Guide / quick access, over this page
         event.accepted = true
         const k = event.key
         if (viewing) {
@@ -263,6 +265,6 @@ Rectangle {
             text: (page.shot + 1) + " / " + page.allShots.length
             color: Qt.alpha("white", 0.8); font.pixelSize: Math.round(page.height * 0.022)
         }
-        TapHandler { onTapped: page.viewing = false }
+        TvShield { onClicked: page.viewing = false }  // a click closes it, and only that: nothing under it is pressed
     }
 }

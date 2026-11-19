@@ -22,7 +22,10 @@ ApplicationWindow {
     property bool tv: startTv
     property bool hiddenAtStart: startHidden  // started with the PC: in the tray until opened (tray.py)
     visibility: hiddenAtStart ? Window.Hidden : tv ? Window.FullScreen : Window.Windowed
-    onTvChanged: { app.setTvActive(tv); if (tv) tvUsed = true; else grid.forceActiveFocus() }
+    // Leaving or entering TV mode counts as a pop-up closing: the click on Exit TV mode (or its
+    // double) must not land on a cover of the library that fades in underneath.
+    onTvChanged: { app.setTvActive(tv); if (tv) tvUsed = true; else grid.forceActiveFocus()
+                   quietUntil = Date.now() + 500; justClosed = true; closeGuard.restart() }
     property string selectedKey: ""
     property var selected: ({})
 

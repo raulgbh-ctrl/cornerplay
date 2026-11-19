@@ -140,7 +140,7 @@ FocusScope {
     }
 
     Rectangle { anchors.fill: parent; color: lib.theme.background }
-    MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onWheel: w => w.accepted = false }
+    TvShield {}  // no click, hover or scroll goes through to Home behind
 
     ColumnLayout {
         anchors.fill: parent

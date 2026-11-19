@@ -6,12 +6,13 @@ import QtQuick.Layouts
 // game with the most votes; B ends game night.
 Rectangle {
     id: gn
+    TvShield {}  // clicks on the empty parts stop here, never reaching the covers behind
     objectName: "tvGameNight"
     required property var theme
     required property var tint
     signal closed()
     signal play(string key)
-    color: Qt.alpha(theme.background, 0.97)
+    color: theme.background  // solid: Home must not show through (it looked like clicks could reach it)
     visible: false
     property int at: 0
     readonly property var night: app.gameNightInfo
@@ -22,6 +23,7 @@ Rectangle {
     function show() { app.startGameNight(); at = 0; visible = true; forceActiveFocus(); app.uiSound("select") }
     function close() { app.uiSound("back"); app.closeGameNight(); visible = false; closed() }
     Keys.onPressed: event => {
+        if (event.key === Qt.Key_F10 || event.key === Qt.Key_F9) { event.accepted = false; return }  // Guide / quick access, over this page
         event.accepted = true
         const k = event.key
         if (k === Qt.Key_Escape) close()
