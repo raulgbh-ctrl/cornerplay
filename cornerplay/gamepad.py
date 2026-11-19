@@ -214,6 +214,9 @@ class Gamepad(QObject):
     deck = Property(bool, lambda s: s._deck, constant=True)
     connected = Property(bool, lambda s: bool(s._pads), notify=connectedChanged)
     style = Property(str, lambda s: s._style, notify=styleChanged)  # a key of qml/glyphs.js
+    # What the controller in your hands really is, whatever Button prompts says (the Test screen
+    # draws that pad, not the prompts you picked).
+    padStyle = Property(str, lambda s: getattr(s, "_own_style", None) or s._style, notify=styleChanged)
 
     @Slot()
     def reload(self):
@@ -224,8 +227,9 @@ class Gamepad(QObject):
         # No pad seen yet on a Steam Deck: its own controls (Steam turns them into keys on the desktop).
         own = self._pad_style if self._pads or not self._deck else "deck"
         style = glyphs if glyphs in GLYPHS else own
-        if style != self._style:
+        if style != self._style or own != getattr(self, "_own_style", None):
             self._style = style
+            self._own_style = own
             self.styleChanged.emit()
         self._buttons = dict(BUTTONS)
         if settings.get("pad_swap_confirm"):

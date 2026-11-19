@@ -106,6 +106,7 @@ Rectangle {
     }
 
     ColumnLayout {
+        id: topCol
         anchors { left: parent.left; right: parent.right; top: parent.top; margins: page.u * 5 }
         spacing: page.u * 1.6
         // Logo, or the title when there is none.
@@ -206,7 +207,10 @@ Rectangle {
         ListView {
             id: strip
             width: parent.width
-            height: page.u * 13
+            // Big: as tall as the room under the description allows (over twice the old strip),
+            // never less than the old size.
+            height: Math.round(Math.max(page.u * 13, Math.min(page.u * 30,
+                    hints.y - page.u * 2.5 - (topCol.y + topCol.height) - page.u * 3 - page.u * 1.7 - 10 - 20)))
             orientation: ListView.Horizontal
             spacing: 14
             clip: false
@@ -229,7 +233,7 @@ Rectangle {
                     radius: 12
                     Rectangle { anchors.fill: parent; color: page.theme.surfaceContainerHigh }
                     Image { anchors.fill: parent; source: modelData.thumb; fillMode: Image.PreserveAspectCrop; asynchronous: true
-                            sourceSize.width: 480 }
+                            sourceSize.width: 960 }
                 }
                 Rectangle { anchors.fill: parent; radius: 12; color: "transparent"; border.width: focused ? 4 : 0; border.color: page.theme.onSurface }
                 Rectangle {  // yours, marked

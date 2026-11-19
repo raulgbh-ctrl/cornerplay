@@ -115,6 +115,17 @@ FocusScope {
     }
     readonly property string curLetter: currentKey && tvAllLibrary.sortMode === "name" ? initial(view.currentIndex) : ""
 
+    // Pointing at a cover focuses it, but only when the pointer really moved: a cursor resting over
+    // the grid while the d-pad scrolls it must not pull the focus back to whatever slides under it
+    // (it kept the Library from going down). A scroll re-sends hover at the very same spot.
+    property point lastPointer: Qt.point(-1, -1)
+    function pointerMoved(p) {
+        if (p.x === 0 && p.y === 0) return false  // a hover that has only just begun: no position yet
+        const moved = Math.abs(p.x - lastPointer.x) + Math.abs(p.y - lastPointer.y) > 0.5
+        lastPointer = p
+        return moved
+    }
+
     // Keys both views share.
     function keys(event, v) {
         const k = event.key
@@ -313,7 +324,9 @@ FocusScope {
                 keyNavigationEnabled: true
                 keyNavigationWraps: false
                 boundsBehavior: Flickable.StopAtBounds
-                highlightFollowsCurrentItem: false
+                // The (invisible) highlight follows the focused cover, so the range below scrolls the
+                // grid with it: with false here the focus went down off screen and the grid stayed put.
+                highlightFollowsCurrentItem: true
                 preferredHighlightBegin: cellHeight * 0.3
                 preferredHighlightEnd: height - cellHeight * 0.7
                 highlightRangeMode: GridView.ApplyRange
@@ -336,7 +349,7 @@ FocusScope {
                     current: GridView.isCurrentItem && grid.activeFocus
                     picking: lib.picking
                     picked: lib.picked.indexOf(key) !== -1
-                    onHoveredChanged: if (hovered && grid.currentIndex !== index) grid.currentIndex = index
+                    onHoverAtChanged: if (hovered && lib.pointerMoved(hoverAt) && grid.currentIndex !== index) grid.currentIndex = index
                     onOpened: { grid.currentIndex = index; if (!lib.picking) lib.more(lib.currentKey) }
                     onActivated: { grid.currentIndex = index; lib.activate() }
                     onPickRequested: range => { grid.currentIndex = index; if (!lib.picking) lib.picking = true; lib.togglePick(key) }
@@ -419,7 +432,8 @@ FocusScope {
                                width: 90; horizontalAlignment: Text.AlignRight
                                color: row.lit ? lib.tint.onPrimary : lib.theme.onSurfaceVariant; font.pixelSize: 15 }
                     }
-                    HoverHandler { id: rowHover; cursorShape: Qt.PointingHandCursor; onHoveredChanged: if (hovered) list.currentIndex = row.index }
+                    HoverHandler { id: rowHover; cursorShape: Qt.PointingHandCursor
+                                   onPointChanged: if (hovered && lib.pointerMoved(point.scenePosition)) list.currentIndex = row.index }
                     TapHandler { onTapped: { list.currentIndex = row.index; lib.activate() } }
                 }
                 Keys.onReturnPressed: lib.activate()

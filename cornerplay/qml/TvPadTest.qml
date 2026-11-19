@@ -16,6 +16,9 @@ Rectangle {
     color: theme.background
     z: 110
 
+    // The connected controller's own buttons (a PlayStation pad shows ✕ ○ □ △ here even when
+    // Button prompts is set to Xbox), so the drawing matches what is in your hands.
+    readonly property string padStyle: pad.padStyle || pad.style
     property var down: ({})            // SDL button number -> pressed
     property var axes: [0, 0, 0, 0, 0, 0]
     property real holdB: 0             // 0..1 while B is held
@@ -51,7 +54,7 @@ Rectangle {
         Behavior on scale { NumberAnimation { duration: 70 } }
         Rectangle { anchors.centerIn: parent; width: parent.width * 1.35; height: width; radius: width / 2
                     color: Qt.alpha(pt.tint.primary, 0.35); visible: parent.lit }
-        PadButton { anchors.centerIn: parent; button: parent.glyph; style: pad.style; size: Math.round(parent.width) }
+        PadButton { anchors.centerIn: parent; button: parent.glyph; style: pt.padStyle; size: Math.round(parent.width) }
     }
     component Plain: Rectangle {
         property int b: 0
@@ -90,7 +93,7 @@ Rectangle {
             Rectangle { width: Math.max(height, parent.width * Math.max(0, pt.axis(parent.parent.ax))); height: parent.height; radius: height / 2
                         color: pt.tint.primary; visible: pt.axis(parent.parent.ax) > 0.02 }
         }
-        PadButton { anchors.horizontalCenter: parent.horizontalCenter; button: parent.glyph; style: pad.style; size: Math.round(pt.u * 0.5)
+        PadButton { anchors.horizontalCenter: parent.horizontalCenter; button: parent.glyph; style: pt.padStyle; size: Math.round(pt.u * 0.5)
                     opacity: pt.axis(parent.ax) > 0.5 ? 1 : 0.6 }
     }
 
@@ -119,12 +122,12 @@ Rectangle {
             Row {
                 x: pt.u * 1.1; y: 0; spacing: pt.u * 0.4
                 Trigger { ax: 4; glyph: "lt" }
-                Plain { b: 9; text: Glyphs.label(pad.style, "lb"); w: pt.u * 1.3; height: pt.u * 0.55; anchors.bottom: parent.bottom }
+                Plain { b: 9; text: Glyphs.label(pt.padStyle, "lb"); w: pt.u * 1.3; height: pt.u * 0.55; anchors.bottom: parent.bottom }
             }
             Row {
                 anchors.right: parent.right; anchors.rightMargin: pt.u * 1.1; y: 0; spacing: pt.u * 0.4; layoutDirection: Qt.RightToLeft
                 Trigger { ax: 5; glyph: "rt" }
-                Plain { b: 10; text: Glyphs.label(pad.style, "rb"); w: pt.u * 1.3; height: pt.u * 0.55; anchors.bottom: parent.bottom }
+                Plain { b: 10; text: Glyphs.label(pt.padStyle, "rb"); w: pt.u * 1.3; height: pt.u * 0.55; anchors.bottom: parent.bottom }
             }
             Stick { ax: 0; b: 7; x: pt.u * 1.3; y: pt.u * 1.9 }
             // D-pad
@@ -138,11 +141,11 @@ Rectangle {
             // Middle: View / Select, Guide, Menu / Start, Share
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter; y: pt.u * 2.3; spacing: pt.u * 0.3
-                Plain { b: 4; text: Glyphs.label(pad.style, "back"); w: pt.u * 0.85; height: pt.u * 0.45 }
-                Plain { b: 5; text: Glyphs.label(pad.style, "guide"); w: pt.u * 1.0; height: pt.u * 0.8; anchors.verticalCenter: parent.verticalCenter }
-                Plain { b: 6; text: Glyphs.label(pad.style, "start"); w: pt.u * 0.85; height: pt.u * 0.45 }
+                Plain { b: 4; text: Glyphs.label(pt.padStyle, "back"); w: pt.u * 0.85; height: pt.u * 0.45 }
+                Plain { b: 5; text: Glyphs.label(pt.padStyle, "guide"); w: pt.u * 1.0; height: pt.u * 0.8; anchors.verticalCenter: parent.verticalCenter }
+                Plain { b: 6; text: Glyphs.label(pt.padStyle, "start"); w: pt.u * 0.85; height: pt.u * 0.45 }
             }
-            Plain { b: 15; visible: Glyphs.label(pad.style, "share") !== "" || pt.on(15); text: Glyphs.label(pad.style, "share") || qsTr("Share"); w: pt.u * 0.9; height: pt.u * 0.4; anchors.horizontalCenter: parent.horizontalCenter; y: pt.u * 3.3 }
+            Plain { b: 15; visible: Glyphs.label(pt.padStyle, "share") !== "" || pt.on(15); text: Glyphs.label(pt.padStyle, "share") || qsTr("Share"); w: pt.u * 0.9; height: pt.u * 0.4; anchors.horizontalCenter: parent.horizontalCenter; y: pt.u * 3.3 }
             // Face buttons, by position
             Item {
                 x: parent.width - pt.u * 3.5; y: pt.u * 1.75; width: pt.u * 2.5; height: width
@@ -153,7 +156,7 @@ Rectangle {
             }
             // Back buttons (Steam Deck's L4 / L5 / R4 / R5, Xbox Elite's paddles), on pads that have them.
             Row {
-                visible: Glyphs.of(pad.style).name === "Steam Deck" || pt.on(16) || pt.on(17) || pt.on(18) || pt.on(19)
+                visible: Glyphs.of(pt.padStyle).name === "Steam Deck" || pt.on(16) || pt.on(17) || pt.on(18) || pt.on(19)
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom; anchors.bottomMargin: pt.u * 0.35
                 spacing: pt.u * 0.25
@@ -170,7 +173,7 @@ Rectangle {
         Row {
             Layout.alignment: Qt.AlignHCenter
             spacing: pt.u * 0.2
-            PadButton { anchors.verticalCenter: parent.verticalCenter; button: "b"; style: pad.style; size: 26 }
+            PadButton { anchors.verticalCenter: parent.verticalCenter; button: "b"; style: pt.padStyle; size: 26 }
             Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Hold to go back"); color: pt.theme.onSurfaceVariant; font.pixelSize: 16 }
             Rectangle {
                 anchors.verticalCenter: parent.verticalCenter

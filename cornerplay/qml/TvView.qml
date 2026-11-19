@@ -75,6 +75,16 @@ FocusScope {
     // For a click that is about to open or start a game: checked again when it fires, because a
     // single tap is only reported once the double-click time has passed.
     function pointerOk() { return !covered && Date.now() >= quietUntil }
+    // Pointing at a cover focuses it, but only when the pointer really moved: a cursor resting over
+    // the grid while the d-pad scrolls it must not pull the focus back to whatever slides under it
+    // (it kept the Library from going down). A scroll re-sends hover at the very same spot.
+    property point lastPointer: Qt.point(-1, -1)
+    function pointerMoved(p) {
+        if (p.x === 0 && p.y === 0) return false  // a hover that has only just begun: no position yet
+        const moved = Math.abs(p.x - lastPointer.x) + Math.abs(p.y - lastPointer.y) > 0.5
+        lastPointer = p
+        return moved
+    }
     // Steam-style status icons (top bar, quick access): Wi-Fi or wired, Bluetooth in use, volume.
     readonly property var statusIcons: {
         const s = app.system, n = s.network || {}, b = s.bluetooth || {}, a = s.audio || {}
@@ -781,7 +791,7 @@ FocusScope {
                 current: GridView.isCurrentItem && !libBtn.activeFocus
                 // Pointing at a cover focuses it, so its artwork fills the screen.
                 interactive: tv.homeLive
-                onHoveredChanged: if (hovered && tv.homeLive && grid.currentIndex !== index) grid.currentIndex = index
+                onHoverAtChanged: if (hovered && tv.homeLive && tv.pointerMoved(hoverAt) && grid.currentIndex !== index) grid.currentIndex = index
                 onOpened: { if (!tv.pointerOk()) return; grid.currentIndex = index; tv.sync(); tv.openPage() }
                 onActivated: { if (!tv.pointerOk()) return; grid.currentIndex = index; tv.sync(); tv.accept() }
                 // A soft reflection on the shelf below (Settings > Appearance).

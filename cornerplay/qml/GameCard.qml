@@ -47,6 +47,7 @@ Item {
     property bool picking: false      // some game is picked: a plain click picks too  // right-click, or a long press on a touchscreen (in the card's coordinates)
 
     readonly property bool hovered: hover.hovered
+    readonly property point hoverAt: hover.point.scenePosition  // where the pointer is (TV: did it really move?)
     readonly property bool lit: hover.hovered || current
 
     // The cover's shadow (Settings > Appearance: none, soft or deep).
