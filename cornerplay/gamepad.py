@@ -37,7 +37,9 @@ OLD_GLYPHS = {"playstation": "ps5", "nintendo": "switch"}
 VALVE = 0x28DE
 STEAM_CONTROLLERS = {0x1102, 0x1142}   # wired and wireless
 DECK_PRODUCT = 0x1205
-STEAM_VIRTUAL = 0x11FF                # Steam Input's virtual pad (Game Mode presents every pad this way)
+STEAM_VIRTUAL = 0x11FF
+# Words in a handheld's DMI strings or its pad's name (lower case).
+HANDHELD_WORDS = ("legion go", "rog ally", "claw", "ayaneo", "onexplayer", "gpd win", "zotac zone")                # Steam Input's virtual pad (Game Mode presents every pad this way)
 # SDL_JoystickPowerLevel -> a battery percentage to show (wired and unknown: None).
 POWER = {0: 5, 1: 20, 2: 60, 3: 100, 5: 100}
 STICK_ON, STICK_OFF = 18000, 12000
@@ -89,12 +91,14 @@ class Gamepad(QObject):
         self._timer = None
         self._style = "xbox"
         self._pad_style = "xbox"  # what the controller is; _style may be the user's choice instead
+        self._pad_shape = "xbox"  # how it looks (Test your controller draws it): see _shape_of
         self._info = {}            # instance id -> {"name", "style", "mapping"}
         self._capture = False
         self._target = None  # a window the pad steers even without the focus (quick access over a game)
         self._mapper = None  # padkeys.Mapper while a keyboard-only game with a layout is in front
         self._buttons = dict(BUTTONS)
         self._deck = self._is_deck()
+        self._handheld = self._is_handheld()
         self.reload()
         from . import padlayout
         padlayout.current_mappings = lambda: [i["mapping"] for i in list(self._info.values())]
@@ -210,6 +214,34 @@ class Gamepad(QObject):
             return False
         return vendor == "Valve" and product in ("Jupiter", "Galileo")
 
+    @staticmethod
+    def _is_handheld():
+        """A gaming handheld with its controls built in (Legion Go, ROG Ally, MSI Claw...): its own
+        pad, or Steam's virtual one in Game Mode, is drawn as the handheld."""
+        try:
+            text = " ".join(open(f"/sys/class/dmi/id/{f}").read().strip()
+                            for f in ("sys_vendor", "product_name", "product_version", "board_name"))
+        except OSError:
+            return False
+        return any(k in text.lower() for k in HANDHELD_WORDS)
+
+    def _shape_of(self, style, name, vendor=0, product=0):
+        """Which drawing fits this pad: "xbox", "ps", "switch", "steam", "deck" or "handheld"."""
+        low = (name or "").lower()
+        if style == "deck":
+            return "deck"
+        if style == "steam":
+            return "steam"
+        if any(k in low for k in HANDHELD_WORDS + ("go s",)):
+            return "handheld"
+        if self._handheld and (vendor == VALVE or not low or "virtual" in low or "xbox 360" in low):
+            return "handheld"  # the built-in controls, as the system or Steam present them
+        if style in ("ps3", "ps4", "ps5"):
+            return "ps"
+        if style == "switch":
+            return "switch"
+        return "xbox"
+
     available = Property(bool, lambda s: s._sdl is not None, notify=availableChanged)
     deck = Property(bool, lambda s: s._deck, constant=True)
     connected = Property(bool, lambda s: bool(s._pads), notify=connectedChanged)
@@ -217,6 +249,7 @@ class Gamepad(QObject):
     # What the controller in your hands really is, whatever Button prompts says (the Test screen
     # draws that pad, not the prompts you picked).
     padStyle = Property(str, lambda s: getattr(s, "_own_style", None) or s._style, notify=styleChanged)
+    padShape = Property(str, lambda s: getattr(s, "_own_shape", None) or "xbox", notify=styleChanged)
 
     @Slot()
     def reload(self):
@@ -226,10 +259,12 @@ class Gamepad(QObject):
         glyphs = OLD_GLYPHS.get(glyphs, glyphs)
         # No pad seen yet on a Steam Deck: its own controls (Steam turns them into keys on the desktop).
         own = self._pad_style if self._pads or not self._deck else "deck"
+        shape = self._pad_shape if self._pads else "deck" if self._deck else "handheld" if self._handheld else "xbox"
         style = glyphs if glyphs in GLYPHS else own
-        if style != self._style or own != getattr(self, "_own_style", None):
+        if style != self._style or own != getattr(self, "_own_style", None) or shape != getattr(self, "_own_shape", None):
             self._style = style
             self._own_style = own
+            self._own_shape = shape
             self.styleChanged.emit()
         self._buttons = dict(BUTTONS)
         if settings.get("pad_swap_confirm"):
@@ -293,8 +328,9 @@ class Gamepad(QObject):
     def _used(self, iid):
         """A button on this pad: the prompts follow the controller in your hands, like Steam's."""
         info = self._info.get(iid)
-        if info and info["style"] != self._pad_style:
+        if info and (info["style"] != self._pad_style or info.get("shape", "xbox") != self._pad_shape):
             self._pad_style = info["style"]
+            self._pad_shape = info.get("shape", "xbox")
             self.reload()
 
     def _style_of(self, handle, name):
@@ -327,8 +363,14 @@ class Gamepad(QObject):
         if ptr:
             mapping = ctypes.string_at(ptr).decode("utf-8", "replace")
             sdl.SDL_free(ptr)
-        style = self._style_of(handle, name.decode("utf-8", "replace"))
-        self._info[iid] = {"name": name.decode("utf-8", "replace"), "style": style, "mapping": mapping}
+        text = name.decode("utf-8", "replace")
+        style = self._style_of(handle, text)
+        try:
+            vendor, product = sdl.SDL_GameControllerGetVendor(handle), sdl.SDL_GameControllerGetProduct(handle)
+        except AttributeError:
+            vendor = product = 0
+        self._info[iid] = {"name": text, "style": style, "mapping": mapping,
+                           "shape": self._shape_of(style, text, vendor, product)}
 
     # --- SDL events ------------------------------------------------------
     def _on_button(self, which, button, down):
@@ -392,6 +434,7 @@ class Gamepad(QObject):
                     self._pads[iid] = handle
                     self._remember(iid, handle)
                     self._pad_style = self._info[iid]["style"]  # the pad plugged in last decides the glyphs
+                    self._pad_shape = self._info[iid]["shape"]
                     self.reload()
                     self.connectedChanged.emit()
                     self._pace()
@@ -403,6 +446,7 @@ class Gamepad(QObject):
                 self._info.pop(which, None)
                 if self._info:  # the prompts follow the pad that is still there
                     self._pad_style = list(self._info.values())[-1]["style"]
+                    self._pad_shape = list(self._info.values())[-1].get("shape", "xbox")
                 self.reload()
                 if handle:
                     sdl.SDL_GameControllerClose(handle)

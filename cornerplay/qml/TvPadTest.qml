@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import QtQuick.Layouts
+import QtQuick.Shapes
 import "glyphs.js" as Glyphs
 
 // Settings > Controllers > Test buttons: the controller drawn on screen, every button and stick
@@ -44,57 +45,92 @@ Rectangle {
     function on(b) { return !!down[b] }
     function axis(a) { return (axes[a] || 0) / 32767 }
 
-    // One round button on the drawing.
+    // How the drawing looks: the connected controller's own shape, in thin lines like Steam's
+    // controller screen. Everything sits on a 160 x 100 grid (k: pixels per step), where it sits
+    // on the real pad, and lights up while pressed.
+    property string preview: ""   // another pad's drawing instead (design checks: tools/shoot.py)
+    readonly property string shape: preview || pad.padShape || "xbox"
+    readonly property string xboxBody: "M 46 14 C 60 10, 100 10, 114 14 C 132 18, 146 26, 152 44 C 158 62, 160 84, 150 94 C 142 101, 130 98, 122 88 C 114 78, 108 72, 98 72 L 62 72 C 52 72, 46 78, 38 88 C 30 98, 18 101, 10 94 C 0 84, 2 62, 8 44 C 14 26, 28 18, 46 14 Z"
+    readonly property var layouts: ({
+        xbox: { body: xboxBody, sy: 6, lb: [34, 6], rb: [126, 6], ls: [40, 38], rs: [100, 58], dpad: [60, 58, 16],
+                face: [120, 38, 20, 7], back: [66, 38], start: [94, 38], guide: [80, 26, 9], share: [80, 47] },
+        switch: { body: xboxBody, sy: 6, lb: [34, 6], rb: [126, 6], ls: [40, 38], rs: [100, 58], dpad: [60, 58, 16],
+                  face: [120, 38, 20, 7], back: [66, 34], start: [94, 34], guide: [88, 46, 7], share: [72, 46] },
+        ps: { body: "M 40 12 C 60 8, 100 8, 120 12 C 136 15, 146 24, 152 40 C 158 58, 162 86, 152 96 C 144 103, 132 99, 126 90 C 118 78, 112 70, 100 70 L 60 70 C 48 70, 42 78, 34 90 C 28 99, 16 103, 8 96 C -2 86, 2 58, 8 40 C 14 24, 24 15, 40 12 Z",
+              sy: 4, lb: [34, 4], rb: [126, 4], touch: [58, 14, 44, 26], ls: [62, 60], rs: [98, 60], dpad: [36, 40, 16],
+              face: [124, 40, 20, 7], back: [50, 20], start: [110, 20], guide: [80, 51, 7], share: [80, 60] },
+        steam: { body: xboxBody, sy: 6, lb: [34, 6], rb: [126, 6], pads: [[44, 40, 12, "circle"], [116, 40, 12, "circle"]],
+                 dpad: [44, 40, 14], ls: [60, 60], face: [100, 60, 17, 5.5], back: [66, 30], start: [94, 30], guide: [80, 30, 8] },
+        handheld: { body: "M 20 20 L 140 20 C 152 20, 159 28, 159 40 L 159 74 C 159 84, 152 90, 142 90 L 18 90 C 8 90, 1 84, 1 74 L 1 40 C 1 28, 8 20, 20 20 Z",
+                    sy: 11, lb: [22, 11], rb: [138, 11], screen: [32, 27, 96, 56], ls: [16, 39], dpad: [16, 65, 15],
+                    face: [144, 39, 19, 6], rs: [144, 66], back: [26, 83], start: [134, 83], guide: [26, 24, 4], share: [134, 24], paddles: true },
+        deck: { body: "M 18 24 L 142 24 C 154 24, 160 32, 160 44 L 160 72 C 160 84, 152 90, 140 90 L 20 90 C 8 90, 0 84, 0 72 L 0 44 C 0 32, 6 24, 18 24 Z",
+                sy: 15, lb: [22, 15], rb: [138, 15], screen: [36, 30, 88, 52], dpad: [11, 44, 13], ls: [27, 41],
+                pads: [[19, 73, 14, "square"], [141, 73, 14, "square"]], face: [148, 46, 16, 5], rs: [131, 40],
+                back: [29, 28], start: [131, 28], guide: [9, 30, 4], share: [151, 30], paddles: true }
+    })
+    readonly property var lay: layouts[shape] || layouts.xbox
+    readonly property color ink: Qt.alpha(theme.onSurface, 0.85)
+    readonly property real lineW: 2
+
+    // One round face button, its glyph inside.
     component Face: Item {
         property int b: 0
         property string glyph: "a"
-        width: pt.u * 0.95; height: width
+        property real d: 7
+        width: d * stage.k; height: width
         readonly property bool lit: pt.on(b)
         scale: lit ? 0.88 : 1
         Behavior on scale { NumberAnimation { duration: 70 } }
-        Rectangle { anchors.centerIn: parent; width: parent.width * 1.35; height: width; radius: width / 2
-                    color: Qt.alpha(pt.tint.primary, 0.35); visible: parent.lit }
+        Rectangle { anchors.centerIn: parent; width: parent.width * 1.4; height: width; radius: width / 2
+                    color: Qt.alpha(pt.tint.primary, 0.4); visible: parent.lit }
         PadButton { anchors.centerIn: parent; button: parent.glyph; style: pt.padStyle; size: Math.round(parent.width) }
     }
+    // A small button or a D-pad arm: an outline, filled while pressed.
     component Plain: Rectangle {
         property int b: 0
         property string text: ""
         property real w: pt.u
         readonly property bool lit: pt.on(b)
-        width: Math.max(w, plainText.implicitWidth + pt.u * 0.35)
+        width: Math.max(w, plainText.implicitWidth + pt.u * 0.3)
         radius: height / 2
-        color: lit ? pt.tint.primary : Qt.alpha(pt.theme.onSurface, 0.12)
-        border.width: 1; border.color: Qt.alpha("white", 0.12)
+        color: lit ? pt.tint.primary : "transparent"
+        border.width: pt.lineW; border.color: lit ? pt.tint.primary : pt.ink
         Behavior on color { ColorAnimation { duration: 70 } }
         Text { id: plainText; anchors.centerIn: parent; text: parent.text; color: parent.lit ? pt.tint.onPrimary : pt.theme.onSurface
-               font.pixelSize: Math.round(pt.u * (parent.text.length > 4 ? 0.22 : 0.3)); font.weight: Font.DemiBold }
+               font.pixelSize: Math.max(10, Math.round(parent.height * (parent.text.length > 3 ? 0.42 : 0.55))); font.weight: Font.DemiBold }
     }
-    component Stick: Rectangle {
+    // A stick: its ring, and the cap where the stick is pushed (filled when clicked in).
+    component Stick: Item {
         property int ax: 0
         property int b: 7
-        width: pt.u * 1.9; height: width; radius: width / 2
-        color: Qt.alpha(pt.theme.onSurface, 0.08)
-        border.width: 2; border.color: pt.on(b) ? pt.tint.primary : Qt.alpha("white", 0.15)
+        property real r: 8
+        width: r * 2 * stage.k; height: width
+        Rectangle { anchors.fill: parent; radius: width / 2; color: "transparent"
+                    border.width: pt.lineW; border.color: pt.on(parent.b) ? pt.tint.primary : pt.ink }
         Rectangle {
-            width: parent.width * 0.5; height: width; radius: width / 2
+            width: parent.width * 0.56; height: width; radius: width / 2
             x: (parent.width - width) / 2 + pt.axis(parent.ax) * (parent.width - width) / 2
             y: (parent.height - height) / 2 + pt.axis(parent.ax + 1) * (parent.height - height) / 2
-            color: pt.on(parent.b) ? pt.tint.primary : pt.theme.onSurface
-            opacity: Math.abs(pt.axis(parent.ax)) + Math.abs(pt.axis(parent.ax + 1)) > 0.15 || pt.on(parent.b) ? 1 : 0.55
+            color: pt.on(parent.b) ? pt.tint.primary : "transparent"
+            border.width: pt.lineW
+            border.color: Math.abs(pt.axis(parent.ax)) + Math.abs(pt.axis(parent.ax + 1)) > 0.15 || pt.on(parent.b) ? pt.tint.primary : pt.ink
         }
     }
-    component Trigger: Column {
+    // A trigger: its glyph, and a bar for how far it is pulled.
+    component Trigger: Row {
         property int ax: 4
         property string glyph: "lt"
         spacing: pt.u * 0.12
+        PadButton { anchors.verticalCenter: parent.verticalCenter; button: parent.glyph; style: pt.padStyle; size: Math.round(stage.k * 5)
+                    opacity: pt.axis(parent.ax) > 0.5 ? 1 : 0.7 }
         Rectangle {
-            width: pt.u * 1.6; height: pt.u * 0.22; radius: height / 2
-            color: Qt.alpha(pt.theme.onSurface, 0.12)
+            anchors.verticalCenter: parent.verticalCenter
+            width: stage.k * 16; height: stage.k * 3; radius: height / 2
+            color: "transparent"; border.width: pt.lineW; border.color: pt.ink
             Rectangle { width: Math.max(height, parent.width * Math.max(0, pt.axis(parent.parent.ax))); height: parent.height; radius: height / 2
                         color: pt.tint.primary; visible: pt.axis(parent.parent.ax) > 0.02 }
         }
-        PadButton { anchors.horizontalCenter: parent.horizontalCenter; button: parent.glyph; style: pt.padStyle; size: Math.round(pt.u * 0.5)
-                    opacity: pt.axis(parent.ax) > 0.5 ? 1 : 0.6 }
     }
 
     ColumnLayout {
@@ -106,67 +142,112 @@ Rectangle {
                text: pad.pads.length ? pad.pads.map(p => p.name).join("  ·  ") : qsTr("No controller connected")
                color: pt.theme.onSurfaceVariant; font.pixelSize: Math.round(pt.u * 0.3) }
 
-        // The pad: a rounded body with everything where it sits on a real one.
+        // The pad itself, drawn in lines.
         Item {
-            Layout.preferredWidth: pt.u * 11
-            Layout.preferredHeight: pt.u * 6.4
+            id: stage
+            readonly property real k: width / 160
+            readonly property var lay: pt.lay
+            function at(p, w, h) { return { x: p[0] * k - w / 2, y: p[1] * k - h / 2 } }
+            // As big as fits between the title and the hint below (the title, hint and gaps take about 3.6 u).
+            Layout.preferredWidth: Math.min(pt.u * 12, pt.width - 80, (pt.height - pt.u * 3.6 - 60) * 160 / 100)
+            Layout.preferredHeight: Layout.preferredWidth * 100 / 160
             Layout.alignment: Qt.AlignHCenter
+
+            Shape {
+                width: 160; height: 100
+                scale: stage.k
+                transformOrigin: Item.TopLeft
+                preferredRendererType: Shape.CurveRenderer
+                ShapePath {
+                    strokeColor: pt.ink; strokeWidth: pt.lineW / stage.k
+                    fillColor: Qt.alpha(pt.theme.onSurface, 0.035)
+                    joinStyle: ShapePath.RoundJoin
+                    PathSvg { path: stage.lay.body }
+                }
+            }
+            // A handheld's screen, or a DualSense's touchpad (SDL button 20: it lights when clicked).
             Rectangle {
-                anchors.fill: parent
-                anchors.topMargin: pt.u * 1.1
-                radius: pt.u * 2
-                color: Qt.alpha(pt.theme.surfaceContainerHigh, 0.9)
-                border.width: 1; border.color: Qt.alpha("white", 0.08)
+                readonly property var r: stage.lay.screen || stage.lay.touch
+                visible: !!r
+                x: r ? r[0] * stage.k : 0; y: r ? r[1] * stage.k : 0
+                width: r ? r[2] * stage.k : 0; height: r ? r[3] * stage.k : 0
+                radius: stage.k * (stage.lay.screen ? 3 : 5)
+                color: pt.on(20) ? Qt.alpha(pt.tint.primary, 0.35) : "transparent"
+                border.width: pt.lineW; border.color: pt.ink
             }
-            // Shoulders: triggers (with how far they are pulled) above the bumpers.
+            // Trackpads (Steam Deck, Steam Controller).
+            Repeater {
+                model: stage.lay.pads || []
+                Rectangle {
+                    required property var modelData
+                    readonly property real s: (modelData[3] === "circle" ? modelData[2] * 2 : modelData[2]) * stage.k
+                    x: modelData[0] * stage.k - s / 2; y: modelData[1] * stage.k - s / 2
+                    width: s; height: s
+                    radius: modelData[3] === "circle" ? s / 2 : stage.k * 3
+                    color: "transparent"; border.width: pt.lineW; border.color: Qt.alpha(pt.theme.onSurface, 0.5)
+                }
+            }
+            // Shoulders: the trigger (with how far it is pulled) beside the bumper, above each side.
             Row {
-                x: pt.u * 1.1; y: 0; spacing: pt.u * 0.4
+                readonly property var p: stage.at(stage.lay.lb, width, height)
+                x: Math.max(0, p.x); y: p.y; spacing: stage.k * 2
                 Trigger { ax: 4; glyph: "lt" }
-                Plain { b: 9; text: Glyphs.label(pt.padStyle, "lb"); w: pt.u * 1.3; height: pt.u * 0.55; anchors.bottom: parent.bottom }
+                Plain { b: 9; text: Glyphs.label(pt.padStyle, "lb"); w: stage.k * 12; height: stage.k * 5; anchors.verticalCenter: parent.verticalCenter }
             }
             Row {
-                anchors.right: parent.right; anchors.rightMargin: pt.u * 1.1; y: 0; spacing: pt.u * 0.4; layoutDirection: Qt.RightToLeft
-                Trigger { ax: 5; glyph: "rt" }
-                Plain { b: 10; text: Glyphs.label(pt.padStyle, "rb"); w: pt.u * 1.3; height: pt.u * 0.55; anchors.bottom: parent.bottom }
+                readonly property var p: stage.at(stage.lay.rb, width, height)
+                x: Math.min(stage.width - width, p.x); y: p.y; spacing: stage.k * 2; layoutDirection: Qt.RightToLeft
+                Trigger { ax: 5; glyph: "rt"; layoutDirection: Qt.RightToLeft }
+                Plain { b: 10; text: Glyphs.label(pt.padStyle, "rb"); w: stage.k * 12; height: stage.k * 5; anchors.verticalCenter: parent.verticalCenter }
             }
-            Stick { ax: 0; b: 7; x: pt.u * 1.3; y: pt.u * 1.9 }
-            // D-pad
+            Stick { ax: 0; b: 7; visible: !!stage.lay.ls
+                    x: stage.lay.ls ? stage.lay.ls[0] * stage.k - width / 2 : 0; y: stage.lay.ls ? stage.lay.ls[1] * stage.k - height / 2 : 0 }
+            Stick { ax: 2; b: 8; visible: !!stage.lay.rs
+                    x: stage.lay.rs ? stage.lay.rs[0] * stage.k - width / 2 : 0; y: stage.lay.rs ? stage.lay.rs[1] * stage.k - height / 2 : 0 }
+            // D-pad: a cross of four arms.
             Item {
-                x: pt.u * 2.9; y: pt.u * 4.0; width: pt.u * 1.8; height: width
-                Plain { b: 11; x: parent.width / 3; y: 0; w: parent.width / 3; height: width; radius: pt.u * 0.12 }
-                Plain { b: 12; x: parent.width / 3; y: parent.height * 2 / 3; w: parent.width / 3; height: width; radius: pt.u * 0.12 }
-                Plain { b: 13; x: 0; y: parent.height / 3; w: parent.width / 3; height: width; radius: pt.u * 0.12 }
-                Plain { b: 14; x: parent.width * 2 / 3; y: parent.height / 3; w: parent.width / 3; height: width; radius: pt.u * 0.12 }
+                readonly property real s: stage.lay.dpad[2] * stage.k
+                x: stage.lay.dpad[0] * stage.k - s / 2; y: stage.lay.dpad[1] * stage.k - s / 2
+                width: s; height: s
+                Plain { b: 11; x: parent.width / 3; y: 0; w: parent.width / 3; height: width; radius: stage.k }
+                Plain { b: 12; x: parent.width / 3; y: parent.height * 2 / 3; w: parent.width / 3; height: width; radius: stage.k }
+                Plain { b: 13; x: 0; y: parent.height / 3; w: parent.width / 3; height: width; radius: stage.k }
+                Plain { b: 14; x: parent.width * 2 / 3; y: parent.height / 3; w: parent.width / 3; height: width; radius: stage.k }
             }
-            // Middle: View / Select, Guide, Menu / Start, Share
-            Row {
-                anchors.horizontalCenter: parent.horizontalCenter; y: pt.u * 2.3; spacing: pt.u * 0.3
-                Plain { b: 4; text: Glyphs.label(pt.padStyle, "back"); w: pt.u * 0.85; height: pt.u * 0.45 }
-                Plain { b: 5; text: Glyphs.label(pt.padStyle, "guide"); w: pt.u * 1.0; height: pt.u * 0.8; anchors.verticalCenter: parent.verticalCenter }
-                Plain { b: 6; text: Glyphs.label(pt.padStyle, "start"); w: pt.u * 0.85; height: pt.u * 0.45 }
-            }
-            Plain { b: 15; visible: Glyphs.label(pt.padStyle, "share") !== "" || pt.on(15); text: Glyphs.label(pt.padStyle, "share") || qsTr("Share"); w: pt.u * 0.9; height: pt.u * 0.4; anchors.horizontalCenter: parent.horizontalCenter; y: pt.u * 3.3 }
-            // Face buttons, by position
+            // Face buttons, by position.
             Item {
-                x: parent.width - pt.u * 3.5; y: pt.u * 1.75; width: pt.u * 2.5; height: width
-                Face { b: 3; glyph: "y"; x: (parent.width - width) / 2; y: 0 }
-                Face { b: 0; glyph: "a"; x: (parent.width - width) / 2; y: parent.height - height }
-                Face { b: 2; glyph: "x"; x: 0; y: (parent.height - height) / 2 }
-                Face { b: 1; glyph: "b"; x: parent.width - width; y: (parent.height - height) / 2 }
+                readonly property real s: stage.lay.face[2] * stage.k
+                readonly property real d: stage.lay.face[3]
+                x: stage.lay.face[0] * stage.k - s / 2; y: stage.lay.face[1] * stage.k - s / 2
+                width: s; height: s
+                Face { b: 3; glyph: "y"; d: parent.d; x: (parent.width - width) / 2; y: 0 }
+                Face { b: 0; glyph: "a"; d: parent.d; x: (parent.width - width) / 2; y: parent.height - height }
+                Face { b: 2; glyph: "x"; d: parent.d; x: 0; y: (parent.height - height) / 2 }
+                Face { b: 1; glyph: "b"; d: parent.d; x: parent.width - width; y: (parent.height - height) / 2 }
             }
-            // Back buttons (Steam Deck's L4 / L5 / R4 / R5, Xbox Elite's paddles), on pads that have them.
+            // View / Select, Menu / Start, Guide, Share: small pills (Guide round).
+            Plain { b: 4; readonly property var p: stage.at(stage.lay.back, width, height); x: p.x; y: p.y
+                    text: ""; w: stage.k * 7; height: stage.k * 3.4 }
+            Plain { b: 6; readonly property var p: stage.at(stage.lay.start, width, height); x: p.x; y: p.y
+                    text: ""; w: stage.k * 7; height: stage.k * 3.4 }
+            Plain { b: 5; readonly property real d: (stage.lay.guide[2] || 8) * stage.k
+                    x: stage.lay.guide[0] * stage.k - d / 2; y: stage.lay.guide[1] * stage.k - d / 2
+                    text: ""; w: d; height: d }
+            Plain { b: 15; visible: !!stage.lay.share
+                    readonly property var p: stage.lay.share ? stage.at(stage.lay.share, width, height) : ({ x: 0, y: 0 }); x: p.x; y: p.y
+                    text: ""; w: stage.k * 5; height: stage.k * 2.6 }
+            // Back buttons (Steam Deck's L4 / L5 / R4 / R5, a handheld's, Xbox Elite's paddles), under the pad.
             Row {
-                visible: Glyphs.of(pt.padStyle).name === "Steam Deck" || pt.on(16) || pt.on(17) || pt.on(18) || pt.on(19)
+                visible: !!stage.lay.paddles || pt.on(16) || pt.on(17) || pt.on(18) || pt.on(19)
                 anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottom: parent.bottom; anchors.bottomMargin: pt.u * 0.35
-                spacing: pt.u * 0.25
-                Plain { b: 17; text: "L4"; w: pt.u * 0.8; height: pt.u * 0.4 }
-                Plain { b: 19; text: "L5"; w: pt.u * 0.8; height: pt.u * 0.4 }
-                Item { width: pt.u * 0.6; height: 1 }
-                Plain { b: 18; text: "R5"; w: pt.u * 0.8; height: pt.u * 0.4 }
-                Plain { b: 16; text: "R4"; w: pt.u * 0.8; height: pt.u * 0.4 }
+                y: parent.height - height + stage.k * 1
+                spacing: stage.k * 2
+                Plain { b: 17; text: "L4"; w: stage.k * 9; height: stage.k * 4.5 }
+                Plain { b: 19; text: "L5"; w: stage.k * 9; height: stage.k * 4.5 }
+                Item { width: stage.k * 8; height: 1 }
+                Plain { b: 18; text: "R5"; w: stage.k * 9; height: stage.k * 4.5 }
+                Plain { b: 16; text: "R4"; w: stage.k * 9; height: stage.k * 4.5 }
             }
-            Stick { ax: 2; b: 8; x: parent.width - pt.u * 4.8; y: pt.u * 4.2 }
         }
 
         // Leaving: hold B, with a bar that fills while it is held.

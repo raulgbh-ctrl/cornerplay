@@ -24,3 +24,17 @@ def test_home_covers_are_guarded():
     assert "interactive: tv.homeLive" in src
     assert "onActivated: { if (!tv.pointerOk()) return" in src
     assert "function closePages(" in src
+
+
+def test_pad_shapes():
+    from cornerplay.gamepad import Gamepad, VALVE
+    g = Gamepad.__new__(Gamepad)
+    g._handheld = False
+    assert g._shape_of("ps5", "DualSense Wireless Controller") == "ps"
+    assert g._shape_of("switch", "Nintendo Switch Pro Controller") == "switch"
+    assert g._shape_of("deck", "Steam Deck") == "deck"
+    assert g._shape_of("xbox", "Legion Go S") == "handheld"
+    assert g._shape_of("xbox", "Xbox Wireless Controller") == "xbox"
+    g._handheld = True  # the built-in controls, through Steam in Game Mode
+    assert g._shape_of("xbox", "Steam Virtual Gamepad", VALVE, 0x11FF) == "handheld"
+    assert g._shape_of("ps5", "DualSense Wireless Controller") == "ps"
