@@ -1081,7 +1081,14 @@ ApplicationWindow {
                     // scrolls, is searched or filtered, or the view changes.
                     function dropPreview() { previewTimer.stop(); preview.visible = false }
                     onCountChanged: dropPreview()
-                    onContentYChanged: if (preview.visible) dropPreview()
+                    // Only a real scroll: the banner or the rows above growing or shrinking also move
+                    // contentY (and originY with it), and took the card away as soon as it showed.
+                    property real scrolledTo: 0
+                    onContentYChanged: {
+                        const at = contentY - originY
+                        if (preview.visible && Math.abs(at - scrolledTo) > 2) dropPreview()
+                        scrolledTo = at
+                    }
                     onVisibleChanged: dropPreview()
                     keyNavigationEnabled: true
                     // Follow the selection only when it moves (keys, controller). Following it always made
@@ -6388,6 +6395,7 @@ ApplicationWindow {
                             Toggle { label: qsTr("Warmer colours in the evening and at night"); settingKey: "evening_warmth" }
                             Toggle { label: qsTr("TV mode: covers reflected on the shelf"); settingKey: "tv_reflection" }
                             Toggle { label: qsTr("A card with the game's details when the pointer rests on a cover"); settingKey: "hover_preview" }
+                            Toggle { label: qsTr("Covers tilt toward the pointer"); settingKey: "card_tilt" }
                             Toggle { label: qsTr("TV mode: start-up animation and chime"); settingKey: "tv_intro" }
                             KButton {
                                 theme: win.theme

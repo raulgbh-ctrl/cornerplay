@@ -19,19 +19,27 @@ from PySide6.QtGui import QGuiApplication  # noqa: E402
 
 # (name the pad gives itself, vendor, product, the prompts Cornerplay should pick)
 PADS = [
-    ("Microsoft X-Box 360 pad", 0x045E, 0x028E, "xbox360"),
-    ("Microsoft X-Box One S pad", 0x045E, 0x02EA, "xbox"),
-    ("Xbox Wireless Controller", 0x045E, 0x0B13, "xbox"),
-    ("Sony Interactive Entertainment Wireless Controller", 0x054C, 0x0CE6, "ps5"),
-    ("Sony Interactive Entertainment Wireless Controller", 0x054C, 0x09CC, "ps4"),
-    ("Sony PLAYSTATION(R)3 Controller", 0x054C, 0x0268, "ps3"),
-    ("Nintendo Switch Pro Controller", 0x057E, 0x2009, "switch"),
-    ("Steam Deck", 0x28DE, 0x1205, "deck"),
-    ("Valve Software Steam Controller", 0x28DE, 0x1102, "steam"),
-    ("Google LLC Stadia Controller rev. A", 0x18D1, 0x9400, "stadia"),
-    ("Amazon Game Controller", 0x1949, 0x0419, "luna"),
-    ("NVIDIA Controller v01.04", 0x0955, 0x7214, "shield"),
-    ("Generic USB Joystick", 0x0079, 0x0006, "generic"),
+    ("Microsoft X-Box 360 pad", 0x045E, 0x028E, "xbox360", "xbox"),
+    ("Microsoft X-Box One S pad", 0x045E, 0x02EA, "xbox", "xbox"),
+    ("Xbox Wireless Controller", 0x045E, 0x0B13, "xbox", "xbox"),
+    ("Sony Interactive Entertainment Wireless Controller", 0x054C, 0x0CE6, "ps5", "ps"),
+    ("Sony Interactive Entertainment Wireless Controller", 0x054C, 0x09CC, "ps4", "ps"),
+    ("Sony PLAYSTATION(R)3 Controller", 0x054C, 0x0268, "ps3", "ps"),
+    ("Nintendo Switch Pro Controller", 0x057E, 0x2009, "switch", "switch"),
+    ("Steam Deck", 0x28DE, 0x1205, "deck", "deck"),
+    ("Valve Software Steam Controller", 0x28DE, 0x1102, "steam", "steam"),
+    ("Google LLC Stadia Controller rev. A", 0x18D1, 0x9400, "stadia", "sym"),
+    ("Amazon Game Controller", 0x1949, 0x0419, "luna", "sym"),
+    ("NVIDIA Controller v01.04", 0x0955, 0x7214, "shield", "sym"),
+    ("Generic USB Joystick", 0x0079, 0x0006, "generic", "xbox"),
+    # Test your controller's drawings (pad.padShape) for pads named or made by someone it knows.
+    ("8BitDo Pro 2", 0x2DC8, 0x6003, None, "sn30"),
+    ("8BitDo SN30 Pro", 0x2DC8, 0x6001, None, "sn30"),
+    ("8BitDo Zero 2 gamepad", 0x2DC8, 0x9018, None, "snes"),
+    ("8BitDo Ultimate Wireless Controller", 0x2DC8, 0x3106, None, "xbox"),
+    ("Xbox 360 Controller", 0x2DC8, 0x3105, None, "sn30"),   # an 8BitDo in XInput mode
+    ("HORI Fighting Commander OCTA", 0x0F0D, 0x0123, None, "arcade"),
+    ("Nintendo GameCube Controller", 0x0E6F, 0x0185, None, "gamecube"),
 ]
 
 AXIS = AbsInfo(0, -32768, 32767, 16, 128, 0)
@@ -69,15 +77,15 @@ def main():
     if not pad.available:
         print("SDL2 is not available"); return 2
     bad = 0
-    for name, vendor, product, want in PADS:
+    for name, vendor, product, want, shape in PADS:
         dev = plug(name, vendor, product)
         wait(1.2)
         info = pad.pads[-1] if pad.pads else {}
-        got = pad.style
-        ok = got == want
+        got, drawn = pad.style, pad.padShape
+        ok = (want is None or got == want) and drawn == shape
         bad += not ok
-        print(f"{'ok ' if ok else 'BAD'}  {vendor:04x}:{product:04x}  {name[:44]:44}  sdl: {info.get('name', '-')[:28]:28}  "
-              f"prompts: {got}" + ("" if ok else f" (wanted {want})"))
+        print(f"{'ok ' if ok else 'BAD'}  {vendor:04x}:{product:04x}  {name[:36]:36}  sdl: {info.get('name', '-')[:28]:28}  "
+              f"prompts: {got:8} drawing: {drawn}" + ("" if ok else f" (wanted {want or got}, {shape})"))
         dev.close()
         wait(0.8)
 

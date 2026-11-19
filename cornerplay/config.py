@@ -81,8 +81,9 @@ DEFAULTS = {
     "bg_mode": "",           # behind the library: "" (plain), "picture" (bg_picture), "gradient" (slowly moving), "game" (the last played game's art)
     "bg_picture": "",
     "shelf_backgrounds": {}, # a collection's own picture: {"c:<name>": path}
-    "tv_reflection": False,
-    "hover_preview": False,  # a details card after the pointer rests on a cover (it covers the next games)  # TV mode: covers reflected on the shelf below
+    "tv_reflection": False,  # TV mode: covers reflected on the shelf below
+    "hover_preview": True,   # a details card after the pointer rests on a cover (Settings > Appearance)
+    "card_tilt": True,       # desktop covers tip toward the pointer, with a soft light (Settings > Appearance)
     "tv_intro": False,       # TV mode: a short start-up animation and chime
     "tv_animated": True,   # animated covers and banners in TV mode (SteamGridDB key; only when plugged in)
     "peer_reports": True,  # ProtonDB's monthly open data: what players with a PC like this one did (pdbreports.py)

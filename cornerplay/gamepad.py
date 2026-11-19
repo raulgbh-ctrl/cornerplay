@@ -41,6 +41,10 @@ STEAM_VIRTUAL = 0x11FF
 # The drawings Test your controller has (qml/TvPadTest.qml layouts), for the pad_shape setting.
 SHAPES = ("xbox", "ps", "sym", "switch", "joycons", "gamecube", "snes", "sn30", "arcade", "steam", "handheld", "deck")
 EIGHTBITDO = 0x2DC8
+# 8BitDo product ids -> drawing (the SN30 Pro / SF30 Pro, SN30 Pro+, Pro 2, Pro 3, Lite 2; Zero 2, SN30, M30; Ultimate).
+EIGHTBITDO_SHAPES = {0x6000: "sn30", 0x6001: "sn30", 0x6002: "sn30", 0x6003: "sn30", 0x6006: "sn30", 0x6009: "sn30",
+                     0x5112: "sn30", 0x9018: "snes", 0x9015: "snes", 0x2101: "snes", 0x5006: "snes", 0x0651: "snes",
+                     0x3106: "xbox", 0x3109: "xbox", 0x3010: "xbox", 0x3011: "xbox", 0x3012: "xbox", 0x3013: "xbox"}
 # Words in a handheld's DMI strings or its pad's name (lower case).
 HANDHELD_WORDS = ("legion go", "rog ally", "claw", "ayaneo", "onexplayer", "gpd win", "zotac zone")                # Steam Input's virtual pad (Game Mode presents every pad this way)
 # SDL_JoystickPowerLevel -> a battery percentage to show (wired and unknown: None).
@@ -231,6 +235,8 @@ class Gamepad(QObject):
     def _shape_of(self, style, name, vendor=0, product=0):
         """Which drawing fits this pad: "xbox", "ps", "switch", "steam", "deck" or "handheld"."""
         low = (name or "").lower()
+        if vendor == EIGHTBITDO and product in EIGHTBITDO_SHAPES:
+            return EIGHTBITDO_SHAPES[product]  # SDL renames some (the SN30 Pro is "8Bitdo SN30 Controller")
         if vendor == EIGHTBITDO or "8bitdo" in low:
             if "ultimate" in low:
                 return "xbox"

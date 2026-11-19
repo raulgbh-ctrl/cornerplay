@@ -779,6 +779,7 @@ FocusScope {
             delegate: GameCard {
                 id: tvCard
                 quickAction: false   // TV mode: the controller's A button plays
+                tilt: false          // and no tilt (the desktop library's)
                 required property int index
                 width: grid.cellWidth
                 height: grid.cellHeight

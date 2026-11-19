@@ -341,6 +341,7 @@ FocusScope {
                     height: grid.cellHeight
                     theme: lib.tint
                     quickAction: false
+                    tilt: false
                     cornerRadius: app.settingsMap.card_radius
                     showBadge: true
                     showProtonDb: false

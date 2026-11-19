@@ -49,7 +49,8 @@ def test_more_pad_shapes():
     assert g._shape_of("switch", "8BitDo SN30") == "snes"
     assert g._shape_of("xbox", "8BitDo Zero 2 gamepad") == "snes"
     assert g._shape_of("xbox", "8BitDo Ultimate Wireless Controller") == "xbox"
-    assert g._shape_of("xbox", "Xbox 360 Controller", EIGHTBITDO, 0x3106) == "sn30"
+    assert g._shape_of("xbox", "Xbox 360 Controller", EIGHTBITDO, 0x3105) == "sn30"
+    assert g._shape_of("xbox", "8Bitdo SN30 Controller", EIGHTBITDO, 0x6001) == "sn30"  # SDL's name for the SN30 Pro
     assert g._shape_of("switch", "Nintendo Switch Joy-Con (L/R)") == "joycons"
     assert g._shape_of("switch", "Nintendo GameCube Controller") == "gamecube"
     assert g._shape_of("ps4", "HORI Fighting Commander OCTA") == "arcade"
