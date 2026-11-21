@@ -694,6 +694,7 @@ class AioLaunch(QObject):
     loginWeb = Signal(str, str, str)     # store, store name, url (built-in sign-in window)
     loginDone = Signal(str, bool, str)   # store, ok, message
     dlcsReady = Signal(str, "QVariantList", str)  # key, rows, note
+    dlcsSearching = Signal(str, bool)  # key, still looking on the other stores
     saveConflict = Signal(str, str, str)          # key, local date, cloud date
     epicFreeChanged = Signal()
     humbleShopChanged = Signal()
@@ -5135,24 +5136,41 @@ class AioLaunch(QObject):
 
     DLC_TTL = 30 * 60  # a game's DLC list is asked for again after half an hour (or after a DLC install)
 
-    def _dlc_rows(self, g, deals=True):
-        """Blocking: (rows, error) for a game's DLC on its own store and every other store, grouped
-        (the same DLC on several stores), with IsThereAnyDeal's best deals when there is a key."""
+    def _copies(self, g):
+        """Your copies of the game on other stores (merged in the library or not)."""
+        n = covers.norm(g.title)
+        return [c for c in self.model.games if c.store != g.store and c.store in self.stores
+                and c.id != "battlenet-app" and covers.norm(c.title) == n]
+
+    def _dlc_rows(self, g, deals=True, first=None):
+        """Blocking: (rows, error) for a game's DLC on its own store, your copies on other stores
+        and every other store, grouped (the same DLC on several stores), with IsThereAnyDeal's best
+        deals when there is a key. first(rows) gets what your own stores said, before the search."""
         store = self.stores[g.store]
         error = ""
         try:
             own = self._demo_dlcs(g) if self.demo else (store.dlcs(g) or [])
         except StoreError as e:
             own, error = [], str(e)
-        rank = {"installed": 0, "owned": 1, "missing": 2, "available": 3}
-        own.sort(key=lambda r: (rank.get(r["status"], 3), r["title"].lower()))
         for r in own:
             r.update(store=g.store, storeName=store.name)
+        mine = set()  # stores where you own it: their own list says what you own and have installed
+        for c in [] if self.demo else self._copies(g):
+            if c.store in mine:
+                continue
+            try:
+                got = self.stores[c.store].dlcs(c)
+            except Exception:  # noqa: BLE001 - the anonymous search below covers that store then
+                continue
+            if got is not None:
+                mine.add(c.store)
+                # installing goes through that copy's own page (it is another game in the library)
+                own += [dict(r, store=c.store, storeName=self.stores[c.store].name, canInstall=False) for r in got]
+        if first is not None:
+            first(dlcfinder.group([dict(r) for r in own], g.title))
         # then the same game's DLC on the other stores (Steam, GOG, Epic), each sold there
-        rows = own + self._demo_other_dlcs(g) if self.demo else dlcfinder.rows(g, self.stores, own, _appid(g))
-        others = rows[len(own):]
-        others.sort(key=lambda r: (r["store"], rank.get(r["status"], 3), r["title"].lower()))
-        rows = dlcfinder.group(own + others, g.title)
+        rows = own + self._demo_other_dlcs(g) if self.demo else dlcfinder.rows(g, self.stores, own, _appid(g), mine)
+        rows = dlcfinder.group(rows, g.title)
         key = str(settings.get("itad_key") or "").strip()
         if key and deals and not self.demo:
             dlcfinder.deals(rows, key, wishlist.country())
@@ -5170,8 +5188,18 @@ class AioLaunch(QObject):
             self.dlcsReady.emit(key, hit[1], store.dlc_note if any(r.get("store") == g.store for r in hit[1]) else "")
             return
 
+        def early(rows):  # your own stores' lists show while the others are searched
+            if rows:
+                self._after.emit(lambda: (self.dlcsReady.emit(key, rows, ""), self.dlcsSearching.emit(key, True)))
+
         def work():
-            rows, error = self._dlc_rows(g)
+            try:
+                rows, error = self._dlc_rows(g, first=early)
+            except Exception as e:  # noqa: BLE001 - the window must not wait forever
+                import traceback
+                traceback.print_exc()
+                return lambda msg=f"Could not look up DLC ({type(e).__name__})": (
+                    self.dlcsReady.emit(key, [], msg), self.dlcsSearching.emit(key, False))
             note = store.dlc_note if any(r.get("store") == g.store for r in rows) else ""
             if rows or not error:
                 dlcfinder.remember(key, rows)
@@ -5181,6 +5209,7 @@ class AioLaunch(QObject):
                     self._dlc_cache[key] = (time.time(), rows)
                     self.model.touch(key)
                 self.dlcsReady.emit(key, rows, note if rows else error)
+                self.dlcsSearching.emit(key, False)
             return done
         self._bg(work)
 

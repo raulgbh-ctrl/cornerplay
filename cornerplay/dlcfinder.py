@@ -33,13 +33,14 @@ NAMES = {"steam": "Steam", "gog": "GOG", "epic": "Epic Games"}
 # Edition words that differ between stores for the same game ("GOTY", "Definitive Edition"); only
 # taken off the end, so "Gold Rush" or "Digital Combat Simulator" keep their names.
 EDITION = re.compile(r"(\s+(game of the year|goty|definitive|complete|deluxe|standard|ultimate|enhanced|"
-                     r"gold|premium|anniversary|digital|directors cut|director s cut|remastered|edition))+$")
-SUMMARY_VERSION = 2  # bump when dlc_key changes: old ids would all look like new DLC
+                     r"gold|premium|anniversary|digital|directors cut|remastered|edition))+$")
+SUMMARY_VERSION = 3  # bump when dlc_key changes: old ids would all look like new DLC
 
 
 def norm(title):
     """A title reduced for matching: "The Witcher® 3: Wild Hunt - GOTY" -> "the witcher 3 wild hunt"."""
-    t = unicodedata.normalize("NFKD", title or "").encode("ascii", "ignore").decode().lower()
+    t = re.sub(r"['’‘`´]", "", (title or "").replace("&", " and "))  # Meier's = Meier’s, & = and
+    t = unicodedata.normalize("NFKD", t).encode("ascii", "ignore").decode().lower()
     t = " ".join(re.sub(r"[^a-z0-9]+", " ", t).split())
     return EDITION.sub("", t).strip() or t
 
@@ -271,14 +272,16 @@ def epic_rows(namespace, owned=None, installed=(), game_installed=False):
 
 
 # --- all of them -------------------------------------------------------------
-def rows(game, stores, own_rows, steam_appid=""):
-    """own_rows: the game's own store's list (already tagged); the other stores are searched here.
-    A store that cannot be reached is left out quietly: the others still show."""
+def rows(game, stores, own_rows, steam_appid="", skip=()):
+    """own_rows: the lists you already have (the game's own store and your copies of it on other
+    stores, tagged); the other stores are searched here, except those in skip. A store that
+    cannot be reached is left out quietly: the others still show."""
     jobs = {}
     title = game.title
     if not norm(title):
         return list(own_rows)
-    if game.store != "steam" and "steam" in stores:
+    skip = set(skip) | {game.store}
+    if "steam" not in skip and "steam" in stores:
         def steam():
             appid = steam_appid or find("steam", title, steam_find)
             rows = steam_rows(appid, client=bool(stores["steam"].client())) if appid else []
@@ -287,9 +290,9 @@ def rows(game, stores, own_rows, steam_appid=""):
                     r["status"] = "available"  # sold on Steam; your copy of the game is elsewhere
             return rows
         jobs["steam"] = steam
-    if game.store != "gog" and "gog" in stores:
+    if "gog" not in skip and "gog" in stores:
         jobs["gog"] = lambda: (lambda pid: gog_rows(pid, stores["gog"]) if pid else [])(find("gog", title, gog_find))
-    if game.store != "epic":
+    if "epic" not in skip:
         jobs["epic"] = lambda: (lambda ns: epic_rows(ns)[0] if ns else [])(find("epic", title, epic_find))
     found = {}
     with ThreadPoolExecutor(max_workers=3) as pool:
@@ -314,12 +317,21 @@ HAVE = ("installed", "owned")
 def dlc_key(title, game_title):
     """What makes two stores' rows the same DLC: the title without the game's name in front."""
     t = norm(title)
-    for g in sorted({norm(v) for v in variants(game_title)}, key=len, reverse=True):
-        if g and t.startswith(g + " "):
-            t = t[len(g) + 1:]
-            break
-    t = re.sub(r"^(dlc|expansion|add on)\s+", "", t)
-    t = re.sub(r"\s+(dlc|add on|pack)$", "", t)
+    words = t.split()
+    cut = 0
+    for v in variants(game_title):
+        g = norm(v).split()
+        # the game's name in front, whole or its tail: Epic's "Civilization VI : Gathering Storm"
+        # and Steam's "Sid Meier's Civilization VI: Gathering Storm" are the same DLC
+        for start in range(len(g)):
+            tail = g[start:]
+            if len(tail) < len(words) and words[:len(tail)] == tail and (len(tail) > 1 or len(tail[0]) > 3):
+                cut = max(cut, len(tail))
+                break
+    t = " ".join(words[cut:])
+    t = re.sub(r"^(dlc|add on)\s+", "", t)
+    t = re.sub(r"\s+(dlc|add on|pack|content)$", "", t)
+    t = re.sub(r"\b(original (game )?soundtrack|ost)\b", "soundtrack", t)
     return t or norm(title)
 
 
@@ -359,7 +371,12 @@ def group(rows, game_title):
         lead = (next((r for r in rs if r["status"] in HAVE), None) or cheapest or rs[0])
         lead["primary"] = True
         lead["offers"] = [{"store": r.get("store", ""), "storeName": r.get("storeName", ""), "price": r.get("price", ""),
-                           "url": r.get("url", ""), "status": r["status"], "cheapest": r["cheapest"]} for r in rs]
+                           "url": r.get("url", ""), "status": r["status"], "cheapest": r["cheapest"]}
+                          for r in sorted(rs, key=lambda r: (r["status"] not in HAVE, not r["cheapest"],
+                                                             (amount(r.get("price", "")) or ("", 1e9))[1]))]
+    # installed, then owned, then the rest; alphabetical within each (owned elsewhere counts as owned)
+    rank = {"installed": 0, "owned": 1}
+    rows.sort(key=lambda r: (rank.get(r["status"], 1 if r.get("ownedOn") else 2), r["group"]))
     return rows
 
 

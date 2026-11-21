@@ -48,11 +48,21 @@ def test_same_dlc_on_two_stores_is_one_group_cheapest_marked():
         {"title": "Game: Pass", "status": "owned", "price": "", "store": "epic", "storeName": "Epic Games", "url": ""},
         {"title": "Game Pass", "status": "available", "price": "€24.99", "store": "steam", "storeName": "Steam", "url": "s2"},
     ]
+    steam_ost, gog_ost, epic_pass, steam_pass = rows
     dlcfinder.group(rows, "Game")
-    assert rows[0]["group"] == rows[1]["group"] == "soundtrack"
-    assert rows[1]["cheapest"] and not rows[0]["cheapest"]
-    assert rows[1]["primary"] and len(rows[1]["offers"]) == 2
-    assert rows[2]["primary"] and rows[3]["ownedOn"] == ["Epic Games"]  # don't buy it twice
+    assert steam_ost["group"] == gog_ost["group"] == "soundtrack"
+    assert gog_ost["cheapest"] and not steam_ost["cheapest"]
+    assert gog_ost["primary"] and len(gog_ost["offers"]) == 2
+    assert epic_pass["primary"] and steam_pass["ownedOn"] == ["Epic Games"]  # don't buy it twice
+    assert rows[0] is epic_pass  # yours first
+
+
+def test_dlc_names_match_across_stores():
+    g = "Sid Meier's Civilization VI"
+    assert dlcfinder.dlc_key("Sid Meier’s Civilization® VI: Rise and Fall", g) == \
+        dlcfinder.dlc_key("Civilization VI : Rise and Fall", g) == "rise and fall"
+    assert dlcfinder.dlc_key("Game OST", "Game") == dlcfinder.dlc_key("Game: Original Soundtrack", "Game")
+    assert dlcfinder.dlc_key("Game: Expansion Pass", "Game") != dlcfinder.dlc_key("Game: Season Pass", "Game")
 
 
 def test_amount_and_variants():
@@ -110,3 +120,18 @@ def test_a_failed_search_is_not_remembered_as_a_miss(monkeypatch):
 def test_epic_price_in_its_currency():
     assert dlcfinder.epic_price({"discountPrice": 3149, "originalPrice": 4499, "currencyCode": "AUD",
                                  "currencyInfo": {"decimals": 2}}) == "A$31.49 (-30%)"
+
+
+def test_amazon_lists_the_add_ons_you_hold(monkeypatch, tmp_path):
+    import json
+    from types import SimpleNamespace as NS
+    from cornerplay.stores import amazon
+    (tmp_path / "library.json").write_text(json.dumps([
+        {"product": {"id": "g1", "title": "Besiege", "productLine": "Sonic:Game"}},
+        {"product": {"id": "d1", "title": "Besiege: The Splintered Sea", "productLine": "Twitch:FuelEntitlement"}},
+        {"product": {"id": "x1", "title": "Besieged Castle", "productLine": "Twitch:FuelEntitlement"}},
+    ]))
+    monkeypatch.setattr(amazon, "NILE_DIR", tmp_path)
+    store = amazon.Amazon.__new__(amazon.Amazon)
+    rows = store.dlcs(NS(id="g1", title="Besiege"))
+    assert [(r["id"], r["status"]) for r in rows] == [("d1", "owned")]

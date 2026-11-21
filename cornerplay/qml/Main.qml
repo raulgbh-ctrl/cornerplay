@@ -5900,6 +5900,7 @@ ApplicationWindow {
         property string error: ""
         property bool busy: false   // a DLC install for this game is running
         property string storeFilter: ""   // "" = every store
+        property bool searching: false     // your own stores' lists are in; the others still coming
         // All stores: one row per DLC (the same DLC on several stores is one row with each store's
         // price); one store: that store's rows.
         readonly property var stores: {   // [{id, name, count}] in list order
@@ -5915,7 +5916,8 @@ ApplicationWindow {
         headingIcon: "puzzle"
         width: Math.min(win.width - 60, 680)
         function show(k, title) {
-            key = k; rows = []; note = ""; error = ""; loading = true; storeFilter = ""
+            key = k; rows = []; note = ""; error = ""; loading = true; storeFilter = ""; searching = false
+            dlcList.tallest = 0
             busy = app.game(k).job === "dlc"
             heading = qsTr("DLC · ") + title
             open()
@@ -5931,6 +5933,7 @@ ApplicationWindow {
                 if (rows.length) { dlc.note = note; dlc.error = "" } else { dlc.error = note; dlc.note = "" }
                 if (dlc.storeFilter && !rows.some(r => r.store === dlc.storeFilter)) dlc.storeFilter = ""
             }
+            function onDlcsSearching(key, on) { if (key === dlc.key) dlc.searching = on }
             function onGameChanged(key) {
                 // the DLC install finished: show the new state
                 if (key === dlc.key && dlc.busy && app.game(key).job !== "dlc") { dlc.busy = false; app.loadDlcs(key, true) }
@@ -5966,33 +5969,29 @@ ApplicationWindow {
                 visible: dlc.stores.length > 1
                 Repeater {
                     model: [{ id: "", name: qsTr("All stores"), count: dlc.rows.filter(r => r.primary !== false).length }].concat(dlc.stores)
-                    delegate: Rectangle {
+                    delegate: Chip2 {
                         required property var modelData
-                        readonly property bool on: dlc.storeFilter === modelData.id
-                        height: 28; radius: 14
-                        width: chipText.implicitWidth + 22
-                        color: on ? theme.primaryContainer : "transparent"
-                        border.width: on ? 0 : 1
-                        border.color: theme.outlineVariant
-                        Text {
-                            id: chipText
-                            anchors.centerIn: parent
-                            text: parent.modelData.name + "  " + parent.modelData.count
-                            font.pixelSize: 12
-                            font.weight: Font.DemiBold
-                            color: parent.on ? theme.onPrimaryContainer : theme.onSurfaceVariant
-                        }
-                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: dlc.storeFilter = parent.modelData.id }
+                        label: modelData.name + "  " + modelData.count
+                        on: dlc.storeFilter === modelData.id
+                        onPicked: dlc.storeFilter = modelData.id
                     }
                 }
             }
             Text {
                 Layout.fillWidth: true
-                visible: dlc.loading || dlc.rows.length === 0
+                visible: dlc.loading || (dlc.rows.length === 0 && !dlc.searching)
                 color: theme.onSurfaceVariant
                 font.pixelSize: 13
                 wrapMode: Text.WordWrap
                 text: dlc.loading ? qsTr("Looking up DLC…") : (dlc.error || qsTr("No DLC found for this game."))
+            }
+            Text {
+                Layout.fillWidth: true
+                visible: dlc.searching
+                color: theme.onSurfaceVariant
+                font.pixelSize: 12
+                font.italic: true
+                text: qsTr("Looking for this game's DLC on the other stores…")
             }
             // Install all owned DLC at once (GOG installs them together anyway).
             KButton {
@@ -6013,7 +6012,11 @@ ApplicationWindow {
             ListView {
                 id: dlcList
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(contentHeight, Math.max(240, win.height - 320))
+                // as tall as the longest list shown since the window opened: switching stores
+                // doesn't make the window jump
+                property real tallest: 0
+                onContentHeightChanged: tallest = Math.max(tallest, contentHeight)
+                Layout.preferredHeight: Math.min(tallest, Math.max(240, win.height - 320))
                 visible: dlc.shown.length > 0
                 clip: true
                 spacing: 8
