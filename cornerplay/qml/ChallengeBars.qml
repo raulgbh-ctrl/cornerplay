@@ -29,7 +29,7 @@ ColumnLayout {
             }
             Rectangle {
                 Layout.fillWidth: true
-                height: Math.round(8 * cb.unit); radius: height / 2
+                implicitHeight: Math.round(8 * cb.unit); radius: height / 2
                 color: Qt.alpha(cb.theme.onSurface, 0.1)
                 Rectangle {
                     height: parent.height; radius: parent.radius

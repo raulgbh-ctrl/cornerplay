@@ -243,6 +243,9 @@ _PLUGINS = {"host": {}, "game": lambda group: {}}
 # Family limits: the games the current person may see (family.py), "" = every game.
 _FAMILY = {"only": ""}
 
+# Demo mode (set by the App): the library's DLC counts stay out of it (they are real data).
+_DEMO = {"on": False}
+
 # The "Because you played" row's test, set by App._because() (the proxies have no App to ask).
 _BECAUSE = {"test": lambda group: False}
 
@@ -290,8 +293,8 @@ def _job(m, g):
 
 _FIELDS = {
     "isNew": lambda m, g: m.group_value([g], "isNew"),
-    "dlcToBuy": lambda m, g: dlcfinder.counts([g.key])[0],
-    "dlcNew": lambda m, g: dlcfinder.counts([g.key])[1],
+    "dlcToBuy": lambda m, g: 0 if _DEMO["on"] else dlcfinder.counts([g.key])[0],
+    "dlcNew": lambda m, g: 0 if _DEMO["on"] else dlcfinder.counts([g.key])[1],
     "key": lambda m, g: g.key,
     "store": lambda m, g: g.store,
     "storeName": lambda m, g: m.stores[g.store].name,
@@ -413,7 +416,7 @@ class LibraryModel(QAbstractListModel):
         if role == "isNew":
             return shelves.is_new(group) and not any(playtime.of(g, self.played)[0] for g in group)
         if role in ("dlcToBuy", "dlcNew"):  # looked up per copy; the row shows the most
-            return dlcfinder.counts([g.key for g in group])[role == "dlcNew"]
+            return 0 if _DEMO["on"] else dlcfinder.counts([g.key for g in group])[role == "dlcNew"]
         times = [playtime.of(g, self.played) for g in group]
         return sum(t[0] for t in times) if role == "playtime" else max(t[1] for t in times)
 
@@ -560,7 +563,7 @@ class LibraryProxy(QSortFilterProxyModel):
         if tag == "couch":
             return any(couch.local(_appid(g)) for g in group)
         if tag == "dlc":  # DLC to get, on any store (games whose DLC were looked up)
-            return dlcfinder.counts([g.key for g in group])[0] > 0
+            return not _DEMO["on"] and dlcfinder.counts([g.key for g in group])[0] > 0
         if tag == "protondb":
             return any(protondb.rating(_appid(g)).get("tier") in ("platinum", "gold", "native") for g in group)
         if tag.startswith("genre:"):
@@ -711,6 +714,7 @@ class AioLaunch(QObject):
     def __init__(self, demo=False):
         super().__init__()
         self.demo = demo
+        _DEMO["on"] = bool(demo)
         statsdata.LANG = ui_language()  # month names in the interface language
         self.stores = {s.id: s for s in all_stores()}
         self.model = LibraryModel(self.stores)
@@ -5205,7 +5209,7 @@ class AioLaunch(QObject):
                 return lambda msg=f"Could not look up DLC ({type(e).__name__})": (
                     self.dlcsReady.emit(key, [], msg), self.dlcsSearching.emit(key, False))
             note = store.dlc_note if any(r.get("store") == g.store for r in rows) else ""
-            if rows or not error:
+            if (rows or not error) and not self.demo:  # the demo's made-up DLC never reach the real counts
                 dlcfinder.remember(key, rows)
 
             def done():
@@ -5221,6 +5225,8 @@ class AioLaunch(QObject):
     def dlcsSeen(self, key):
         """The DLC window was opened: the game's new DLC are not new any more, on every copy of it
         (the card shows the most of its copies, so one left over would keep the badge)."""
+        if self.demo:
+            return
         g = self.model.find(key)
         for k in [key] + ([c.key for c in self._copies(g)] if g else []):
             if dlcfinder.seen(k):

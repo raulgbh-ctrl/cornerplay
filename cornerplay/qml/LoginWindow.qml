@@ -128,7 +128,7 @@ Window {
         }
         Rectangle {
             Layout.fillWidth: true
-            height: 3
+            implicitHeight: 3
             color: "transparent"
             Rectangle {
                 height: parent.height

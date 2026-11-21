@@ -1082,7 +1082,7 @@ FocusScope {
             spacing: 14
             Rectangle {
                 Layout.fillWidth: true
-                height: 56; radius: 28
+                implicitHeight: 56; radius: 28
                 color: theme.surfaceContainerHighest
                 Icon { x: 20; anchors.verticalCenter: parent.verticalCenter; name: "search"; size: 22; color: theme.onSurfaceVariant }
                 Rectangle {  // the cursor, blinking after what has been typed

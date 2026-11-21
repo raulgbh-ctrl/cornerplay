@@ -269,7 +269,7 @@ KDialog {
         Layout.fillWidth: true
         spacing: 10
         Rectangle {
-            width: 20; height: 20; radius: 6
+            implicitWidth: 20; implicitHeight: 20; radius: 6
             color: tk.on ? app.theme.primary : "transparent"
             border.width: tk.on ? 0 : 2; border.color: app.theme.outline
             Icon { anchors.centerIn: parent; visible: tk.on; name: "check"; size: 14; color: app.theme.onPrimary }
