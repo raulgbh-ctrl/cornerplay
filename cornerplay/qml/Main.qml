@@ -1936,7 +1936,17 @@ ApplicationWindow {
                                             color: "transparent"; border.width: shelfHover.hovered ? 2 : 0; border.color: theme.primary }
                                 Text { y: 216; width: parent.width; text: shelfCard.modelData.title; color: theme.onSurfaceVariant
                                        font.family: app.titleFamily; font.pixelSize: 12; elide: Text.ElideRight }
-                                HoverHandler { id: shelfHover; cursorShape: Qt.PointingHandCursor }
+                                HoverHandler {
+                                    id: shelfHover; cursorShape: Qt.PointingHandCursor
+                                    onHoveredChanged: if (hovered && win.lkExpand) shelfRest.restart(); else shelfRest.stop()
+                                }
+                                // Look > Covers open up, as in the grid: resting on a cover grows it into the wide card.
+                                Timer {
+                                    id: shelfRest
+                                    interval: 1200
+                                    onTriggered: if (shelfHover.hovered && win.cardsLive && !win.popupOpen)
+                                                     expandCard.showOver(shelfArt, shelfCard.modelData.key)
+                                }
                                 TapHandler { enabled: win.cardsLive; onTapped: if (win.pointerOk()) win.select(shelfCard.modelData.key) }
                                 TapHandler { enabled: win.cardsLive; acceptedButtons: Qt.LeftButton; onDoubleTapped: if (win.pointerOk()) win.activate(shelfCard.modelData.key) }
                             }
