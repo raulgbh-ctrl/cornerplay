@@ -260,26 +260,64 @@ def sunshine_kind() -> str:
     return kind
 
 
-def _read() -> str | None:
+def _read(name: str = "apps.json") -> str | None:
     if not host.IN_FLATPAK:
         try:
-            return sunshine_file().read_text()
+            return (sunshine_dir() / name).read_text()
         except OSError:
             return None
-    r = subprocess.run(host.argv(["sh", "-c", f'cat "{HOST_FILE}" 2>/dev/null']), capture_output=True, text=True, timeout=15)
+    path = HOST_FILE.replace("apps.json", name)
+    r = subprocess.run(host.argv(["sh", "-c", f'cat "{path}" 2>/dev/null']), capture_output=True, text=True, timeout=15)
     return r.stdout if r.returncode == 0 else None
 
 
-def _write(text: str):
+def _write(text: str, name: str = "apps.json"):
     if not host.IN_FLATPAK:
-        f = sunshine_file()
+        f = sunshine_dir() / name
         f.parent.mkdir(parents=True, exist_ok=True)
-        tmp = f.with_suffix(".json.tmp")
+        tmp = f.with_name(name + ".tmp")
         tmp.write_text(text)
         tmp.replace(f)
         return
-    script = f'f="{HOST_FILE}"; mkdir -p "$(dirname "$f")" && printf "%s" "$1" > "$f.tmp" && mv "$f.tmp" "$f"'
+    path = HOST_FILE.replace("apps.json", name)
+    script = f'f="{path}"; mkdir -p "$(dirname "$f")" && printf "%s" "$1" > "$f.tmp" && mv "$f.tmp" "$f"'
     subprocess.run(host.argv(["sh", "-c", script, "sh", text]), check=True, timeout=15)
+
+
+# --- Sunshine's settings that break streaming on this PC -------------------------------------------
+_FAMILY = re.compile(r"^\s*address_family\s*=\s*both\s*$", re.I | re.M)
+
+
+def has_ipv6(table: str = "/proc/net/if_inet6") -> bool:
+    """Has this PC a routable IPv6 address (not loopback, not link-local)? Scope 00 = global."""
+    try:
+        rows = Path(table).read_text().split()
+    except OSError:
+        return False
+    rows = [rows[i:i + 6] for i in range(0, len(rows) - 5, 6)]
+    return any(r[3] == "00" and r[5] != "lo" for r in rows)
+
+
+def conf_problem(conf: str = None, ipv6: bool = None) -> str:
+    """Why Sunshine will fail to stream with its current sunshine.conf, or "".
+    address_family = both makes Sunshine open IPv6 sockets; with no IPv6 on the network it
+    crashes as each stream starts (net::host_create, seen on a Legion Go S on Wi-Fi)."""
+    conf = _read("sunshine.conf") if conf is None else conf
+    if conf and _FAMILY.search(conf) and not (has_ipv6() if ipv6 is None else ipv6):
+        return "address_family"
+    return ""
+
+
+def fix_conf(conf: str = None) -> bool:
+    """Drop the setting conf_problem() found (a copy of the file is kept next to it first).
+    True when sunshine.conf changed; Sunshine needs a restart to read it."""
+    conf = _read("sunshine.conf") if conf is None else conf
+    if not conf or not conf_problem(conf):
+        return False
+    if _read("sunshine.conf.before-cornerplay") is None:
+        _write(conf, "sunshine.conf.before-cornerplay")
+    _write(_FAMILY.sub("", conf).replace("\n\n\n", "\n\n"), "sunshine.conf")
+    return True
 
 
 def _launcher(kind: str = "") -> list:

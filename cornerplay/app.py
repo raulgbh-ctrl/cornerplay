@@ -3473,6 +3473,15 @@ class AioLaunch(QObject):
                 st["installNote"] = pkgs.note("sunshine")
             else:
                 st["running"] = stream.sunshine_running()
+                fixed = False
+                try:  # address_family = both with no IPv6 here: Sunshine crashes as each stream starts
+                    fixed = stream.fix_conf()
+                except (OSError, subprocess.SubprocessError):
+                    pass
+                if fixed:
+                    if st["running"]:
+                        stream.restart_sunshine(self._sun_login())
+                    st["fixedConf"] = True
             login = self._sun_login()
             if st["running"] and not login and not stream.has_login():
                 # Sunshine's first run: give its web page a login Cornerplay keeps (shown in Settings).
@@ -3496,6 +3505,9 @@ class AioLaunch(QObject):
             def done():
                 self._sunshine = st
                 self.sunshineChanged.emit()
+                if st.get("fixedConf"):
+                    self.toast.emit("Sunshine was set to use IPv6, which this network does not have, "
+                                    "so streams would crash. Cornerplay switched it to IPv4.")
             return done
         self._bg(work)
 

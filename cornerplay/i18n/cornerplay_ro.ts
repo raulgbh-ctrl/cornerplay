@@ -9683,1012 +9683,1017 @@
 <context>
     <name>toast</name>
     <message>
-        <location filename="../toastsi18n.py" line="217"/>
+        <location filename="../toastsi18n.py" line="218"/>
         <source>%1 GPU%2 ready for Windows games</source>
         <translation>Plăci video pregătite pentru jocuri Windows: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="218"/>
+        <location filename="../toastsi18n.py" line="219"/>
         <source>%1 added to Favourites</source>
         <translation>%1 adăugat la Favorite</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="219"/>
+        <location filename="../toastsi18n.py" line="220"/>
         <source>%1 available</source>
         <translation>%1 disponibile</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="220"/>
+        <location filename="../toastsi18n.py" line="221"/>
         <source>%1 can no longer stream from this PC</source>
         <translation>%1 nu mai poate face stream de pe acest PC</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="221"/>
+        <location filename="../toastsi18n.py" line="222"/>
         <source>%1 does not offer %2 yet: on it, open Cornerplay &gt; Settings &gt; Advanced &gt; Add Cornerplay to Sunshine</source>
         <translation>%1 nu oferă încă %2: pe el, deschide Cornerplay &gt; Setări &gt; Avansat &gt; Adaugă Cornerplay în Sunshine</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="222"/>
+        <location filename="../toastsi18n.py" line="223"/>
         <source>%1 found%2</source>
         <translation>%1 găsit%2</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="223"/>
+        <location filename="../toastsi18n.py" line="224"/>
         <source>%1 free on %2 (%3%)</source>
         <translation>%1 liber pe %2 (%3%)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="224"/>
+        <location filename="../toastsi18n.py" line="225"/>
         <source>%1 game updates available</source>
         <translation>%1 actualizări de jocuri disponibile</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="225"/>
+        <location filename="../toastsi18n.py" line="226"/>
         <source>%1 games can only be moved from the %2 app</source>
         <translation>Jocurile %1 se pot muta doar din aplicația %2</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="226"/>
+        <location filename="../toastsi18n.py" line="227"/>
         <source>%1 has no Proton prefix yet</source>
         <translation>%1 nu are încă un prefix Proton</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="227"/>
+        <location filename="../toastsi18n.py" line="228"/>
         <source>%1 hidden. Find it under Hidden games.</source>
         <translation>%1 ascuns. Îl găsești la Jocuri ascunse.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="228"/>
+        <location filename="../toastsi18n.py" line="229"/>
         <source>%1 installed</source>
         <translation>%1 instalat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="229"/>
+        <location filename="../toastsi18n.py" line="230"/>
         <source>%1 installed: pick it under Proton version</source>
         <translation>%1 instalat: alege-l la Versiune Proton</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="230"/>
+        <location filename="../toastsi18n.py" line="231"/>
         <source>%1 installs %2 in its own app, so it can&apos;t wait for tonight</source>
         <translation>%1 instalează %2 în propria aplicație, deci nu poate aștepta până la noapte</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="231"/>
+        <location filename="../toastsi18n.py" line="232"/>
         <source>%1 is already starting</source>
         <translation>%1 deja pornește</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="232"/>
+        <location filename="../toastsi18n.py" line="233"/>
         <source>%1 is already the newest</source>
         <translation>%1 e deja cel mai nou</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="233"/>
+        <location filename="../toastsi18n.py" line="234"/>
         <source>%1 is already there</source>
         <translation>%1 e deja acolo</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="234"/>
+        <location filename="../toastsi18n.py" line="235"/>
         <source>%1 is back in your library</source>
         <translation>%1 e din nou în bibliotecă</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="235"/>
+        <location filename="../toastsi18n.py" line="236"/>
         <source>%1 is queued: it starts when the current download finishes</source>
         <translation>%1 e în așteptare: pornește după descărcarea curentă</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="236"/>
+        <location filename="../toastsi18n.py" line="237"/>
         <source>%1 is taking over the install of %2</source>
         <translation>%1 preia instalarea lui %2</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="237"/>
+        <location filename="../toastsi18n.py" line="238"/>
         <source>%1 isn&apos;t in your library</source>
         <translation>%1 nu e în biblioteca ta</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="238"/>
+        <location filename="../toastsi18n.py" line="239"/>
         <source>%1 removed from Favourites</source>
         <translation>%1 scos din Favorite</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="239"/>
+        <location filename="../toastsi18n.py" line="240"/>
         <source>%1 sign-in</source>
         <translation>Conectare %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="240"/>
+        <location filename="../toastsi18n.py" line="241"/>
         <source>%1 tool (%2)</source>
         <translation>Unealta pentru %1 (%2)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="241"/>
+        <location filename="../toastsi18n.py" line="242"/>
         <source>%1 will install tonight, between %2:00 and %3:00</source>
         <translation>%1 se va instala la noapte, între %2:00 și %3:00</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="242"/>
+        <location filename="../toastsi18n.py" line="243"/>
         <source>%1: %2 (launching anyway)</source>
         <translation>%1: %2 (pornește oricum)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="243"/>
+        <location filename="../toastsi18n.py" line="244"/>
         <source>%1: %2 save files from your other PC are in place</source>
         <translation>%1: %2 fișiere de salvare de pe celălalt PC sunt la locul lor</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="244"/>
+        <location filename="../toastsi18n.py" line="245"/>
         <source>%1: saves not uploaded (%2)</source>
         <translation>%1: salvările nu au fost încărcate (%2)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="245"/>
+        <location filename="../toastsi18n.py" line="246"/>
         <source>32-bit support (Flatpak)</source>
         <translation>Suport pe 32 de biți (Flatpak)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="246"/>
+        <location filename="../toastsi18n.py" line="247"/>
         <source>A Linux library is missing</source>
         <translation>Lipsește o bibliotecă Linux</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="247"/>
+        <location filename="../toastsi18n.py" line="248"/>
         <source>A Windows library is missing</source>
         <translation>Lipsește o bibliotecă Windows</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="248"/>
+        <location filename="../toastsi18n.py" line="249"/>
         <source>Add your Nexus Mods API key in the Mods page first</source>
         <translation>Adaugă întâi cheia API Nexus Mods în pagina Moduri</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="249"/>
+        <location filename="../toastsi18n.py" line="250"/>
         <source>Add your Nexus Mods API key in the game&apos;s Mods page, then press the button on Nexus again</source>
         <translation>Adaugă cheia API Nexus Mods în pagina Moduri a jocului, apoi apasă din nou butonul de pe Nexus</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="250"/>
+        <location filename="../toastsi18n.py" line="251"/>
         <source>Added %1 (%2)</source>
         <translation>Adăugat %1 (%2)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="251"/>
+        <location filename="../toastsi18n.py" line="252"/>
         <source>Added %1 to Sunshine</source>
         <translation>Am adăugat %1 în Sunshine</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="252"/>
+        <location filename="../toastsi18n.py" line="253"/>
         <source>Added %1 to Sunshine. Start Sunshine to see them in Moonlight.</source>
         <translation>Am adăugat %1 în Sunshine. Pornește Sunshine ca să le vezi în Moonlight.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="253"/>
+        <location filename="../toastsi18n.py" line="254"/>
         <source>Allow</source>
         <translation>Permite</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="254"/>
+        <location filename="../toastsi18n.py" line="255"/>
         <source>Allowed</source>
         <translation>Permis</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="255"/>
+        <location filename="../toastsi18n.py" line="256"/>
         <source>Another Proton version often helps (a game&apos;s Options &gt; Proton version); ProtonDB lists what works.</source>
         <translation>Altă versiune de Proton ajută des (Opțiunile jocului &gt; Versiune Proton); ProtonDB arată ce merge.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="256"/>
+        <location filename="../toastsi18n.py" line="257"/>
         <source>Anti-cheat blocked it</source>
         <translation>Anti-cheat-ul l-a blocat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="257"/>
+        <location filename="../toastsi18n.py" line="258"/>
         <source>Available</source>
         <translation>Disponibil</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="258"/>
+        <location filename="../toastsi18n.py" line="259"/>
         <source>Backup failed: %1</source>
         <translation>Copia nu a reușit: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="259"/>
+        <location filename="../toastsi18n.py" line="260"/>
         <source>Backup saved: %1</source>
         <translation>Copie salvată: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="260"/>
+        <location filename="../toastsi18n.py" line="261"/>
         <source>Battle.net: %1</source>
         <translation>Battle.net: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="261"/>
+        <location filename="../toastsi18n.py" line="262"/>
         <source>Battle.net: Blizzard wants your password again to update your owned games. Your games stay listed; Accounts &gt; Battle.net &gt; Link account when you like.</source>
         <translation>Battle.net: Blizzard îți cere din nou parola ca să actualizeze jocurile deținute. Jocurile rămân în listă; Conturi &gt; Battle.net &gt; Leagă contul când vrei.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="262"/>
+        <location filename="../toastsi18n.py" line="263"/>
         <source>Being set up (downloading a private SDL2)</source>
         <translation>Se pregătește (se descarcă un SDL2 propriu)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="263"/>
+        <location filename="../toastsi18n.py" line="264"/>
         <source>Blizzard account unlinked</source>
         <translation>Contul Blizzard a fost dezlegat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="264"/>
+        <location filename="../toastsi18n.py" line="265"/>
         <source>Blocked by Ubuntu: Windows games crash at start</source>
         <translation>Blocat de Ubuntu: jocurile Windows se închid la pornire</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="265"/>
+        <location filename="../toastsi18n.py" line="266"/>
         <source>Built-in sign-in window</source>
         <translation>Fereastra de conectare inclusă</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="266"/>
+        <location filename="../toastsi18n.py" line="267"/>
         <source>Cancelled: %1</source>
         <translation>Anulat: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="267"/>
+        <location filename="../toastsi18n.py" line="268"/>
         <source>Checking and repairing the files usually fixes it.</source>
         <translation>De obicei se rezolvă verificând și reparând fișierele.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="268"/>
+        <location filename="../toastsi18n.py" line="269"/>
         <source>Close %1 first: mods can&apos;t change while it runs</source>
         <translation>Închide întâi %1: modurile nu se pot schimba cât rulează</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="269"/>
+        <location filename="../toastsi18n.py" line="270"/>
         <source>Close other programs (browsers above all) and try again; a bigger swap file helps on PCs with 8 GB or less.</source>
         <translation>Închide alte programe (mai ales browserele) și încearcă din nou; un fișier swap mai mare ajută pe PC-urile cu 8 GB sau mai puțin.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="270"/>
+        <location filename="../toastsi18n.py" line="271"/>
         <source>Close the game first, then restore</source>
         <translation>Închide întâi jocul, apoi restaurează</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="271"/>
+        <location filename="../toastsi18n.py" line="272"/>
         <source>Close the game first: its files may be in use</source>
         <translation>Închide întâi jocul: fișierele lui pot fi folosite</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="272"/>
+        <location filename="../toastsi18n.py" line="273"/>
         <source>Connected</source>
         <translation>Conectat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="273"/>
+        <location filename="../toastsi18n.py" line="274"/>
         <source>Controller as keyboard and mouse is on for this game (Guide still opens Cornerplay)</source>
         <translation>Controlerul ca tastatură și mouse e pornit pentru jocul acesta (Guide deschide în continuare Cornerplay)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="274"/>
+        <location filename="../toastsi18n.py" line="275"/>
         <source>Controller support (SDL2)</source>
         <translation>Suport pentru controller (SDL2)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="275"/>
+        <location filename="../toastsi18n.py" line="276"/>
         <source>Copied: paste it into a terminal</source>
         <translation>Copiat: lipește-l într-un terminal</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="276"/>
+        <location filename="../toastsi18n.py" line="277"/>
         <source>Cornerplay %1 is installed. Restart to use it.</source>
         <translation>Cornerplay %1 e instalat. Repornește ca să-l folosești.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="277"/>
+        <location filename="../toastsi18n.py" line="278"/>
         <source>Cornerplay cannot reach this game: close it from the game itself</source>
         <translation>Cornerplay nu poate ajunge la acest joc: închide-l din joc</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="278"/>
+        <location filename="../toastsi18n.py" line="279"/>
         <source>Cornerplay no longer starts with the PC</source>
         <translation>Cornerplay nu mai pornește odată cu PC-ul</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="279"/>
+        <location filename="../toastsi18n.py" line="280"/>
         <source>Cornerplay starts in the tray when you log in</source>
         <translation>Cornerplay pornește în tray când te conectezi</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="280"/>
+        <location filename="../toastsi18n.py" line="281"/>
         <source>Could not change starting with the PC: %1</source>
         <translation>Nu am putut schimba pornirea odată cu PC-ul: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="281"/>
+        <location filename="../toastsi18n.py" line="282"/>
         <source>Could not close %1: close it from the game or Steam</source>
         <translation>Nu am putut închide %1: închide-l din joc sau din Steam</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="282"/>
+        <location filename="../toastsi18n.py" line="283"/>
         <source>Could not close it: %1</source>
         <translation>Nu am putut să-l închid: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="283"/>
+        <location filename="../toastsi18n.py" line="284"/>
         <source>Could not import %1: %2</source>
         <translation>Nu am putut importa %1: %2</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="284"/>
+        <location filename="../toastsi18n.py" line="285"/>
         <source>Could not start %1 (log: %2)</source>
         <translation>Nu am putut porni %1 (jurnal: %2)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="285"/>
+        <location filename="../toastsi18n.py" line="286"/>
         <source>Could not start %1: %2</source>
         <translation>Nu am putut porni %1: %2</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="286"/>
+        <location filename="../toastsi18n.py" line="287"/>
         <source>Could not use that save: %1</source>
         <translation>Nu am putut folosi acea salvare: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="287"/>
+        <location filename="../toastsi18n.py" line="288"/>
         <source>Could not wake it: %1</source>
         <translation>Nu am putut să-l trezesc: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="288"/>
+        <location filename="../toastsi18n.py" line="289"/>
         <source>Deleted %1</source>
         <translation>Șters %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="289"/>
+        <location filename="../toastsi18n.py" line="290"/>
         <source>Demo mode: Steam is not changed</source>
         <translation>Mod demo: Steam nu e modificat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="290"/>
+        <location filename="../toastsi18n.py" line="291"/>
         <source>Demo mode: nothing is really launched or installed</source>
         <translation>Mod demo: nimic nu e pornit sau instalat cu adevărat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="291"/>
+        <location filename="../toastsi18n.py" line="292"/>
         <source>Download</source>
         <translation>Descarcă</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="292"/>
+        <location filename="../toastsi18n.py" line="293"/>
         <source>Downloading a voice (10 MB)…</source>
         <translation>Descarc o voce (10 MB)…</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="293"/>
+        <location filename="../toastsi18n.py" line="294"/>
         <source>Downloading the store tools…</source>
         <translation>Se descarcă uneltele magazinelor…</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="294"/>
+        <location filename="../toastsi18n.py" line="295"/>
         <source>Downloads paused while you play (%1)</source>
         <translation>Descărcări puse pe pauză cât timp joci (%1)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="295"/>
+        <location filename="../toastsi18n.py" line="296"/>
         <source>FPS counter in 32-bit games</source>
         <translation>Contor FPS în jocurile pe 32 de biți</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="296"/>
+        <location filename="../toastsi18n.py" line="297"/>
         <source>Fetching the newest artwork from every store…</source>
         <translation>Se aduc cele mai noi imagini din fiecare magazin…</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="297"/>
+        <location filename="../toastsi18n.py" line="298"/>
         <source>Found %1 GOG game%2</source>
         <translation>Am găsit jocuri GOG: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="298"/>
+        <location filename="../toastsi18n.py" line="299"/>
         <source>Free up space</source>
         <translation>Eliberează spațiu</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="299"/>
+        <location filename="../toastsi18n.py" line="300"/>
         <source>Freed %1</source>
         <translation>Eliberat %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="300"/>
+        <location filename="../toastsi18n.py" line="301"/>
         <source>Fresh Proton prefix for %1; the old one is at %2</source>
         <translation>Prefix Proton nou pentru %1; cel vechi e la %2</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="301"/>
+        <location filename="../toastsi18n.py" line="302"/>
         <source>GE-Proton download failed</source>
         <translation>Descărcarea GE-Proton nu a reușit</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="302"/>
+        <location filename="../toastsi18n.py" line="303"/>
         <source>Games you haven&apos;t played in a year use %1. Storage &gt; Free up space puts them away, saves kept.</source>
         <translation>Jocurile pe care nu le-ai jucat de un an ocupă %1. Spațiu &gt; Eliberează spațiu le pune deoparte, cu salvările păstrate.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="303"/>
+        <location filename="../toastsi18n.py" line="304"/>
         <source>Get GE-Proton</source>
         <translation>Ia GE-Proton</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="304"/>
+        <location filename="../toastsi18n.py" line="305"/>
         <source>Graphics (Vulkan)</source>
         <translation>Grafică (Vulkan)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="305"/>
+        <location filename="../toastsi18n.py" line="306"/>
         <source>Hi %1: your favourites, collections and stats</source>
         <translation>Salut, %1: favoritele, colecțiile și statisticile tale</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="306"/>
+        <location filename="../toastsi18n.py" line="307"/>
         <source>Imported %1</source>
         <translation>Importat %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="307"/>
+        <location filename="../toastsi18n.py" line="308"/>
         <source>Install %1 with winetricks into %2</source>
         <translation>Instalează %1 cu winetricks în %2</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="308"/>
+        <location filename="../toastsi18n.py" line="309"/>
         <source>Install .NET</source>
         <translation>Instalează .NET</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="309"/>
+        <location filename="../toastsi18n.py" line="310"/>
         <source>Install DirectX 9-11</source>
         <translation>Instalează DirectX 9-11</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="310"/>
+        <location filename="../toastsi18n.py" line="311"/>
         <source>Install DirectX audio</source>
         <translation>Instalează sunetul DirectX</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="311"/>
+        <location filename="../toastsi18n.py" line="312"/>
         <source>Install Visual C++</source>
         <translation>Instalează Visual C++</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="312"/>
+        <location filename="../toastsi18n.py" line="313"/>
         <source>Install the shader compiler</source>
         <translation>Instalează compilatorul de shadere</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="313"/>
+        <location filename="../toastsi18n.py" line="314"/>
         <source>Installed</source>
         <translation>Instalat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="314"/>
+        <location filename="../toastsi18n.py" line="315"/>
         <source>Installing %1 for %2; it can take a few minutes</source>
         <translation>Se instalează %1 pentru %2; poate dura câteva minute</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="315"/>
+        <location filename="../toastsi18n.py" line="316"/>
         <source>Invite for %1 copied: paste it in your chat</source>
         <translation>Invitația pentru %1 a fost copiată: lipește-o în chat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="316"/>
+        <location filename="../toastsi18n.py" line="317"/>
         <source>It closed right away</source>
         <translation>S-a închis imediat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="317"/>
+        <location filename="../toastsi18n.py" line="318"/>
         <source>It needs %1. </source>
         <translation>Are nevoie de %1. </translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="318"/>
+        <location filename="../toastsi18n.py" line="319"/>
         <source>Linking a Blizzard account needs Qt WebEngine (%1)</source>
         <translation>Legarea unui cont Blizzard cere Qt WebEngine (%1)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="319"/>
+        <location filename="../toastsi18n.py" line="320"/>
         <source>MangoHud&apos;s 32-bit part is missing, so older 32-bit games run without the counter</source>
         <translation>Lipsește partea pe 32 de biți a MangoHud, așa că jocurile vechi pe 32 de biți rulează fără contor</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="320"/>
+        <location filename="../toastsi18n.py" line="321"/>
         <source>Missing</source>
         <translation>Lipsește</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="321"/>
+        <location filename="../toastsi18n.py" line="322"/>
         <source>Missing .NET Framework</source>
         <translation>Lipsește .NET Framework</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="322"/>
+        <location filename="../toastsi18n.py" line="323"/>
         <source>Missing DirectX 9-11 libraries</source>
         <translation>Lipsesc bibliotecile DirectX 9-11</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="323"/>
+        <location filename="../toastsi18n.py" line="324"/>
         <source>Missing DirectX audio (XACT)</source>
         <translation>Lipsește sunetul DirectX (XACT)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="324"/>
+        <location filename="../toastsi18n.py" line="325"/>
         <source>Missing DirectX shader compiler</source>
         <translation>Lipsește compilatorul de shadere DirectX</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="325"/>
+        <location filename="../toastsi18n.py" line="326"/>
         <source>Missing Visual C++ runtime</source>
         <translation>Lipsește Visual C++</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="326"/>
+        <location filename="../toastsi18n.py" line="327"/>
         <source>Missing: Windows games and Battle.net will not start</source>
         <translation>Lipsește: jocurile Windows și Battle.net nu vor porni</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="327"/>
+        <location filename="../toastsi18n.py" line="328"/>
         <source>Missing: sign-ins open your browser instead</source>
         <translation>Lipsește: conectările se deschid în browser</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="328"/>
+        <location filename="../toastsi18n.py" line="329"/>
         <source>Moonlight did not start</source>
         <translation>Moonlight nu a pornit</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="329"/>
+        <location filename="../toastsi18n.py" line="330"/>
         <source>Moved %1</source>
         <translation>Mutat %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="330"/>
+        <location filename="../toastsi18n.py" line="331"/>
         <source>Needs PyYAML to read where games keep their saves</source>
         <translation>Are nevoie de PyYAML ca să afle unde își țin jocurile salvările</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="331"/>
+        <location filename="../toastsi18n.py" line="332"/>
         <source>Nexus Mods&apos; “Mod Manager Download” buttons now open in Cornerplay</source>
         <translation>Butoanele „Mod Manager Download” de pe Nexus Mods se deschid acum în Cornerplay</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="332"/>
+        <location filename="../toastsi18n.py" line="333"/>
         <source>No GOG games in that folder. For an Epic or Amazon game, pick the game first.</source>
         <translation>Niciun joc GOG în acel folder. Pentru un joc Epic sau Amazon, alege întâi jocul.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="333"/>
+        <location filename="../toastsi18n.py" line="334"/>
         <source>No core yet for: %1 (RetroArch &gt; Online Updater &gt; Core Downloader)</source>
         <translation>Încă nu există core pentru: %1 (RetroArch &gt; Online Updater &gt; Core Downloader)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="334"/>
+        <location filename="../toastsi18n.py" line="335"/>
         <source>No log yet: it is written when the game runs</source>
         <translation>Niciun jurnal încă: se scrie când rulează jocul</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="335"/>
+        <location filename="../toastsi18n.py" line="336"/>
         <source>No saves of %1 found on this PC yet</source>
         <translation>Nicio salvare %1 găsită încă pe acest PC</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="336"/>
+        <location filename="../toastsi18n.py" line="337"/>
         <source>No working Vulkan graphics</source>
         <translation>Grafica Vulkan nu funcționează</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="337"/>
+        <location filename="../toastsi18n.py" line="338"/>
         <source>None found</source>
         <translation>Nu s-a găsit niciuna</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="338"/>
+        <location filename="../toastsi18n.py" line="339"/>
         <source>Not a program this PC can run</source>
         <translation>Nu e un program pe care acest PC îl poate rula</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="339"/>
+        <location filename="../toastsi18n.py" line="340"/>
         <source>Not added to Sunshine: %1</source>
         <translation>Nu a fost adăugat în Sunshine: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="340"/>
+        <location filename="../toastsi18n.py" line="341"/>
         <source>Not connected (only needed if you use it)</source>
         <translation>Neconectat (doar dacă îl folosești)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="341"/>
+        <location filename="../toastsi18n.py" line="342"/>
         <source>Not installed%1</source>
         <translation>Neinstalat%1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="342"/>
+        <location filename="../toastsi18n.py" line="343"/>
         <source>Not paired: %1</source>
         <translation>Neasociat: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="343"/>
+        <location filename="../toastsi18n.py" line="344"/>
         <source>Nothing in its log says why. Another Proton version, or Repair files, often helps.</source>
         <translation>Log-ul nu spune de ce. Altă versiune de Proton sau Repară fișierele ajută des.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="344"/>
+        <location filename="../toastsi18n.py" line="345"/>
         <source>Nothing was brought over: %1</source>
         <translation>Nu s-a adus nimic: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="345"/>
+        <location filename="../toastsi18n.py" line="346"/>
         <source>On the Nexus page, press “Mod Manager Download” on the file you want: Cornerplay installs it from there</source>
         <translation>Pe pagina Nexus, apasă „Mod Manager Download” la fișierul dorit: Cornerplay îl instalează de acolo</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="346"/>
+        <location filename="../toastsi18n.py" line="347"/>
         <source>Opening %1; sign in there, then press Refresh</source>
         <translation>Se deschide %1; conectează-te acolo, apoi apasă Reîmprospătează</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="347"/>
+        <location filename="../toastsi18n.py" line="348"/>
         <source>Out now from your wishlist: %1</source>
         <translation>A apărut din lista ta de dorințe: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="348"/>
+        <location filename="../toastsi18n.py" line="349"/>
         <source>Overnight installs are done</source>
         <translation>Instalările de noapte s-au terminat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="349"/>
+        <location filename="../toastsi18n.py" line="350"/>
         <source>Paired with %1</source>
         <translation>Asociat cu %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="350"/>
+        <location filename="../toastsi18n.py" line="351"/>
         <source>Paused: %1</source>
         <translation>Pe pauză: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="351"/>
+        <location filename="../toastsi18n.py" line="352"/>
         <source>Pick a different Proton version to compare with</source>
         <translation>Alege altă versiune de Proton cu care să compari</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="352"/>
+        <location filename="../toastsi18n.py" line="353"/>
         <source>Proton draws Windows games with Vulkan, and it found no GPU to use.</source>
         <translation>Proton desenează jocurile Windows cu Vulkan și nu a găsit nicio placă video.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="353"/>
+        <location filename="../toastsi18n.py" line="354"/>
         <source>Proton game container (Ubuntu)</source>
         <translation>Containerul Proton pentru jocuri (Ubuntu)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="354"/>
+        <location filename="../toastsi18n.py" line="355"/>
         <source>Proton runner (umu-launcher)</source>
         <translation>Lansatorul Proton (umu-launcher)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="355"/>
+        <location filename="../toastsi18n.py" line="356"/>
         <source>Proton test done: %1. Details on the game&apos;s page.</source>
         <translation>Testul Proton s-a terminat: %1. Detalii pe pagina jocului.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="356"/>
+        <location filename="../toastsi18n.py" line="357"/>
         <source>Proton test, half-way: now play %1 again for %2 minutes; it starts on %3</source>
         <translation>Testul Proton, la jumătate: acum joacă %1 din nou %2 minute; pornește pe %3</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="357"/>
+        <location filename="../toastsi18n.py" line="358"/>
         <source>Proton test: play %1 for %2 minutes, then quit. Then once more, on the other version.</source>
         <translation>Testul Proton: joacă %1 timp de %2 minute, apoi închide. Apoi încă o dată, pe cealaltă versiune.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="358"/>
+        <location filename="../toastsi18n.py" line="359"/>
         <source>Proton test: that was too short to compare. Play %1 for %2 minutes, then quit.</source>
         <translation>Testul Proton: a fost prea scurt ca să compar. Joacă %1 timp de %2 minute, apoi închide.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="359"/>
+        <location filename="../toastsi18n.py" line="360"/>
         <source>Proton versions</source>
         <translation>Versiuni Proton</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="360"/>
+        <location filename="../toastsi18n.py" line="361"/>
         <source>Proton-CachyOS download failed</source>
         <translation>Descărcarea Proton-CachyOS nu a reușit</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="361"/>
+        <location filename="../toastsi18n.py" line="362"/>
         <source>Put back %1 save file%2 of %3 (what was there is backed up too)</source>
         <translation>Am pus la loc fișiere de salvare (%1) pentru %3 (ce era acolo e copiat și el)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="362"/>
+        <location filename="../toastsi18n.py" line="363"/>
         <source>Ready</source>
         <translation>Gata</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="363"/>
+        <location filename="../toastsi18n.py" line="364"/>
         <source>Ready (save locations for 20,000+ games)</source>
         <translation>Gata (locurile salvărilor pentru peste 20.000 de jocuri)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="364"/>
+        <location filename="../toastsi18n.py" line="365"/>
         <source>Ready for %1 system%2</source>
         <translation>Gata pentru sisteme: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="365"/>
+        <location filename="../toastsi18n.py" line="366"/>
         <source>Refusing to delete a folder outside the prefixes folder</source>
         <translation>Nu șterg un folder din afara folderului de prefixe</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="366"/>
+        <location filename="../toastsi18n.py" line="367"/>
         <source>Removed %1</source>
         <translation>Eliminat %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="367"/>
+        <location filename="../toastsi18n.py" line="368"/>
         <source>Restore failed: %1</source>
         <translation>Restaurarea nu a reușit: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="368"/>
+        <location filename="../toastsi18n.py" line="369"/>
         <source>Restored. Cornerplay restarts to load it…</source>
         <translation>Restaurat. Cornerplay repornește ca să încarce…</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="369"/>
+        <location filename="../toastsi18n.py" line="370"/>
         <source>RetroArch (retro games)</source>
         <translation>RetroArch (jocuri retro)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="370"/>
+        <location filename="../toastsi18n.py" line="371"/>
         <source>SDL2 missing: controllers do nothing</source>
         <translation>Lipsește SDL2: controllerele nu fac nimic</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="371"/>
+        <location filename="../toastsi18n.py" line="372"/>
         <source>Save backups</source>
         <translation>Copii de siguranță pentru salvări</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="372"/>
+        <location filename="../toastsi18n.py" line="373"/>
         <source>Saves of %1 backed up</source>
         <translation>Salvările %1 au fost copiate</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="373"/>
+        <location filename="../toastsi18n.py" line="374"/>
         <source>Sign in</source>
         <translation>Conectează-te</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="374"/>
+        <location filename="../toastsi18n.py" line="375"/>
         <source>Signed in to Sunshine</source>
         <translation>Conectat la Sunshine</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="375"/>
+        <location filename="../toastsi18n.py" line="376"/>
         <source>Signed out of %1</source>
         <translation>Deconectat de la %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="376"/>
+        <location filename="../toastsi18n.py" line="377"/>
         <source>Space for games</source>
         <translation>Spațiu pentru jocuri</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="377"/>
+        <location filename="../toastsi18n.py" line="378"/>
         <source>Starting Steam: play again once it has signed in</source>
         <translation>Pornesc Steam: joacă din nou după ce se conectează</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="378"/>
+        <location filename="../toastsi18n.py" line="379"/>
         <source>Steam</source>
         <translation>Steam</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="379"/>
+        <location filename="../toastsi18n.py" line="380"/>
         <source>Steam games are uninstalled in Steam; the others are being put away</source>
         <translation>Jocurile Steam se dezinstalează din Steam; celelalte sunt puse deoparte</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="380"/>
+        <location filename="../toastsi18n.py" line="381"/>
         <source>Steam is installing Proton Experimental; it appears in this list when done</source>
         <translation>Steam instalează Proton Experimental; apare în listă când e gata</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="381"/>
+        <location filename="../toastsi18n.py" line="382"/>
         <source>Steam is not installed</source>
         <translation>Steam nu e instalat</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="382"/>
+        <location filename="../toastsi18n.py" line="383"/>
         <source>Steam library updated (%1 games)</source>
         <translation>Biblioteca Steam actualizată (%1 jocuri)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="383"/>
+        <location filename="../toastsi18n.py" line="384"/>
         <source>Steam moves its own games: in Steam, Settings &gt; Storage, pick the game, then Move</source>
         <translation>Steam își mută singur jocurile: în Steam, Setări &gt; Stocare, alege jocul, apoi Mută</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="384"/>
+        <location filename="../toastsi18n.py" line="385"/>
         <source>Steam picks the Proton version of its games: compare them in Steam&apos;s Properties &gt; Compatibility</source>
         <translation>Steam alege versiunea de Proton pentru jocurile lui: compară-le în Steam la Proprietăți &gt; Compatibilitate</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="385"/>
+        <location filename="../toastsi18n.py" line="386"/>
         <source>Stream did not start: %1</source>
         <translation>Stream-ul nu a pornit: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="386"/>
+        <location filename="../toastsi18n.py" line="387"/>
         <source>Streaming %1…</source>
         <translation>Stream %1…</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="387"/>
+        <location filename="../toastsi18n.py" line="388"/>
+        <source>Sunshine was set to use IPv6, which this network does not have, so streams would crash. Cornerplay switched it to IPv4.</source>
+        <translation>Sunshine era setat să folosească IPv6, pe care rețeaua asta nu îl are, așa că transmisiile ar fi căzut. Cornerplay l-a trecut pe IPv4.</translation>
+    </message>
+    <message>
+        <location filename="../toastsi18n.py" line="389"/>
         <source>Sunshine: %1</source>
         <translation>Sunshine: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="388"/>
+        <location filename="../toastsi18n.py" line="390"/>
         <source>Switch to Desktop Mode to change Steam&apos;s library</source>
         <translation>Treci în Desktop Mode ca să schimbi biblioteca Steam</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="389"/>
+        <location filename="../toastsi18n.py" line="391"/>
         <source>Sync: %1</source>
         <translation>Sincronizare: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="390"/>
+        <location filename="../toastsi18n.py" line="392"/>
         <source>Syncing saves for %1…</source>
         <translation>Se sincronizează salvările pentru %1…</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="391"/>
+        <location filename="../toastsi18n.py" line="393"/>
         <source>The GPU driver gave up while drawing. Turning off the FPS counter and gamescope for this game, updating the graphics driver, or another Proton version usually helps.</source>
         <translation>Driverul plăcii video a cedat în timp ce desena. De obicei ajută să oprești contorul FPS și gamescope pentru acest joc, să actualizezi driverul sau altă versiune de Proton.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="392"/>
+        <location filename="../toastsi18n.py" line="394"/>
         <source>The PC ran out of memory</source>
         <translation>PC-ul a rămas fără memorie</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="393"/>
+        <location filename="../toastsi18n.py" line="395"/>
         <source>The Proton test measures with MangoHud: install it first (%1)</source>
         <translation>Testul Proton măsoară cu MangoHud: instalează-l mai întâi (%1)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="394"/>
+        <location filename="../toastsi18n.py" line="396"/>
         <source>The drive is full</source>
         <translation>Discul e plin</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="395"/>
+        <location filename="../toastsi18n.py" line="397"/>
         <source>The game (or its launcher) needs .NET in its Proton prefix.</source>
         <translation>Jocul (sau lansatorul lui) are nevoie de .NET în prefixul Proton.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="396"/>
+        <location filename="../toastsi18n.py" line="398"/>
         <source>The game could not write its files. Free some space and try again.</source>
         <translation>Jocul nu și-a putut scrie fișierele. Eliberează spațiu și încearcă din nou.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="397"/>
+        <location filename="../toastsi18n.py" line="399"/>
         <source>The game crashed inside Proton</source>
         <translation>Jocul s-a prăbușit în Proton</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="398"/>
+        <location filename="../toastsi18n.py" line="400"/>
         <source>The game needs Microsoft&apos;s Visual C++ runtime in its Proton prefix.</source>
         <translation>Jocul are nevoie de Visual C++ de la Microsoft în prefixul Proton.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="399"/>
+        <location filename="../toastsi18n.py" line="401"/>
         <source>The game needs d3dcompiler from DirectX in its prefix.</source>
         <translation>Jocul are nevoie de d3dcompiler din DirectX în prefixul lui.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="400"/>
+        <location filename="../toastsi18n.py" line="402"/>
         <source>The game plays its sound through the old DirectX audio libraries.</source>
         <translation>Jocul folosește vechile biblioteci de sunet DirectX.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="401"/>
+        <location filename="../toastsi18n.py" line="403"/>
         <source>The game uses the old DirectX helper libraries (d3dx), which are not part of Proton.</source>
         <translation>Jocul folosește vechile biblioteci DirectX (d3dx), care nu vin cu Proton.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="402"/>
+        <location filename="../toastsi18n.py" line="404"/>
         <source>The game wants Steam running</source>
         <translation>Jocul vrea Steam pornit</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="403"/>
+        <location filename="../toastsi18n.py" line="405"/>
         <source>The game&apos;s file is for another kind of computer. Use its Windows version instead (Options &gt; Version).</source>
         <translation>Fișierul jocului e pentru alt tip de calculator. Folosește versiunea de Windows (Opțiuni &gt; Versiune).</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="404"/>
+        <location filename="../toastsi18n.py" line="406"/>
         <source>The game&apos;s files are missing or broken</source>
         <translation>Fișierele jocului lipsesc sau sunt stricate</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="405"/>
+        <location filename="../toastsi18n.py" line="407"/>
         <source>The graphics driver stopped</source>
         <translation>Driverul video s-a oprit</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="406"/>
+        <location filename="../toastsi18n.py" line="408"/>
         <source>The log names a .dll the game needs; another Proton version, or ProtonDB&apos;s tips, usually help.</source>
         <translation>Log-ul numește un .dll de care jocul are nevoie; altă versiune de Proton sau sfaturile de pe ProtonDB ajută de obicei.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="407"/>
+        <location filename="../toastsi18n.py" line="409"/>
         <source>The update did not install; try again, or download it from GitHub</source>
         <translation>Actualizarea nu s-a instalat; încearcă din nou sau descarc-o de pe GitHub</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="408"/>
+        <location filename="../toastsi18n.py" line="410"/>
         <source>The update was not installed: %1</source>
         <translation>Actualizarea nu a fost instalată: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="409"/>
+        <location filename="../toastsi18n.py" line="411"/>
         <source>There is already a folder called %1 there</source>
         <translation>Există deja un folder numit %1 acolo</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="410"/>
+        <location filename="../toastsi18n.py" line="412"/>
         <source>This Linux version needs a library your system does not have. Install it, or use the game&apos;s Windows version instead (Options &gt; Version), which runs through Proton.</source>
         <translation>Versiunea de Linux are nevoie de o bibliotecă pe care sistemul tău nu o are. Instaleaz-o sau folosește versiunea de Windows (Opțiuni &gt; Versiune), care rulează prin Proton.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="411"/>
+        <location filename="../toastsi18n.py" line="413"/>
         <source>This game checks for Steam when it starts. Start Steam, sign in, then play again.</source>
         <translation>Jocul caută Steam când pornește. Pornește Steam, conectează-te, apoi joacă din nou.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="412"/>
+        <location filename="../toastsi18n.py" line="414"/>
         <source>This game&apos;s anti-cheat does not allow Linux (the publisher has to turn that on). Single-player modes sometimes still work; check its ProtonDB page.</source>
         <translation>Anti-cheat-ul jocului nu permite Linux (editorul trebuie să-l activeze). Modurile single-player merg uneori; vezi pagina lui de pe ProtonDB.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="413"/>
+        <location filename="../toastsi18n.py" line="415"/>
         <source>Ubuntu blocked Proton&apos;s container</source>
         <translation>Ubuntu a blocat containerul Proton</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="414"/>
+        <location filename="../toastsi18n.py" line="416"/>
         <source>Ubuntu stops the container Proton runs games in. Allowing it once fixes every game.</source>
         <translation>Ubuntu oprește containerul în care Proton rulează jocurile. Dacă îl permiți o dată, se rezolvă pentru toate jocurile.</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="415"/>
+        <location filename="../toastsi18n.py" line="417"/>
         <source>Update available: %1</source>
         <translation>Actualizare disponibilă: %1</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="416"/>
+        <location filename="../toastsi18n.py" line="418"/>
         <source>Uploading saves for %1…</source>
         <translation>Se încarcă salvările pentru %1…</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="417"/>
+        <location filename="../toastsi18n.py" line="419"/>
         <source>Woke %1 (it can take a few seconds to start)</source>
         <translation>Am trezit %1 (poate dura câteva secunde să pornească)</translation>
     </message>
     <message>
-        <location filename="../toastsi18n.py" line="418"/>
+        <location filename="../toastsi18n.py" line="420"/>
         <source>Your library, settings and sign-ins are here. Cornerplay restarts to load them…</source>
         <translation>Biblioteca, setările și conectările tale sunt aici. Cornerplay repornește ca să le încarce…</translation>
     </message>
