@@ -17,7 +17,7 @@ import shlex
 
 import sys
 
-from . import family
+from . import family, steamweb
 from . import installinfo, humbleshop, pkgs, patchnotes, mods, workshop, cleanup, steambundles, syscontrol, achievements, backup, perf, search, couch, host, hostimport, statsdata, steamrun, wishlist, health, savebackup, importer, personal, problems, storage, updates, covers, details, epicfree, shelves, gamecolour, playtime, protondb, steamcompat, proton, runner, saves, session, steamgames, steamshortcut, theme as themes
 from . import __version__
 from .config import CACHE_DIR, CONFIG_DIR as CONFIG_DIR_STREAM, DATA_DIR as DATA_DIR_STREAM, DEFAULTS, LANGUAGES, LOG_DIR, game_options, read_json, settings, write_json
@@ -2986,6 +2986,88 @@ class AioLaunch(QObject):
         if not jar:
             return self.loginDone.emit("humble", False, "Humble did not keep you signed in; try again")
         self.loginFinish("humble", "; ".join(f"{k}={v}" for k, v in jar.items()))
+
+    # --- Steam account on the web: for every owned game without a Web API key, and Steam Family ---
+    steamWebLinked = Property(bool, lambda s: steamweb.signed_in(), notify=storesChanged)
+    steamWebAccount = Property(str, lambda s: steamweb.account(), notify=storesChanged)
+
+    @Slot()
+    def steamWebLink(self):
+        if not self.web_login:
+            self.toast.emit(f"Signing in to Steam needs Qt WebEngine ({pkgs.hint('webengine')})")
+            return
+        web_types()
+        self.loginWeb.emit("steamweb", "Steam", steamweb.LOGIN_URL)
+
+    @Slot()
+    def steamWebUnlink(self):
+        steamweb.forget()
+        self.storesChanged.emit()
+        self.refresh("steam")
+
+    @Slot(QObject)
+    def steamWebStart(self, profile):
+        """Collect the Steam cookies as the sign-in window is given them (HttpOnly ones included)."""
+        self._steam_jar = {}
+        try:
+            store = profile.cookieStore()
+        except (AttributeError, RuntimeError):
+            self._steam_store = None
+            return
+        old = getattr(self, "_steam_store", None)
+        if old is not None:
+            for sig, fn in ((old.cookieAdded, self._steam_added), (old.cookieRemoved, self._steam_removed)):
+                try:
+                    sig.disconnect(fn)
+                except (RuntimeError, TypeError):
+                    pass
+        store.deleteAllCookies()
+        store.cookieAdded.connect(self._steam_added)
+        store.cookieRemoved.connect(self._steam_removed)
+        self._steam_store = store
+
+    @staticmethod
+    def _steam_cookie(c):
+        domain = c.domain()
+        if not steamweb.ours(domain):
+            return None
+        return {"name": bytes(c.name()).decode(), "value": bytes(c.value()).decode(),
+                "domain": domain, "path": c.path() or "/"}
+
+    def _steam_added(self, c):
+        kv = self._steam_cookie(c)
+        if kv:
+            self._steam_jar[(kv["domain"], kv["name"])] = kv
+
+    def _steam_removed(self, c):
+        kv = self._steam_cookie(c)
+        if kv and (self._steam_jar.get((kv["domain"], kv["name"])) or {}).get("value") == kv["value"]:
+            self._steam_jar.pop((kv["domain"], kv["name"]), None)
+
+    @Slot(QObject)
+    def steamWebDone(self, profile):
+        """The Steam sign-in reached the account page: keep the session (never the password)."""
+        jar = list((getattr(self, "_steam_jar", {}) or {}).values())
+
+        def work():
+            try:
+                steamweb.save(jar)
+                sid = steamweb.steamid()
+                steamweb.token()  # proves Steam accepts the session
+            except (steamweb.NotSignedIn, OSError) as e:
+                return lambda msg=str(e): self.loginDone.emit("steamweb", False, msg)
+            except Exception as e:
+                steamweb.forget()
+                return lambda msg=f"Steam: {type(e).__name__}": self.loginDone.emit("steamweb", False, msg)
+            name = steamweb.person(sid) if sid else ""
+            steamweb.save(jar, name)
+
+            def ok():
+                self.loginDone.emit("steamweb", True, "Signed in to Steam" + (f" as {name}" if name else ""))
+                self.storesChanged.emit()
+                self.refresh("steam")
+            return ok
+        self._bg(work)
 
     @Slot(QObject)
     def blizzardClearCookies(self, profile):

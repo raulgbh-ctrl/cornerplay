@@ -138,7 +138,7 @@ ApplicationWindow {
             app.openUrl(url)
         }
         function onLoginDone(store, ok, message) {
-            if (store === "blizzard") { if (ok) toasts.append({ message: message }); return }
+            if (store === "blizzard" || store === "steamweb") { if (ok) toasts.append({ message: message }); return }
             login.busy = false
             if (ok) { login.close(); toasts.append({ message: message }) }
             else login.error = message
@@ -6133,17 +6133,29 @@ ApplicationWindow {
                                       : qsTr("Not connected")
                                 }
                             }
-                            // Steam without a Web API key: say what is listed, and where to get the rest.
+                            // Steam: every owned game (and Steam Family's) needs the account itself: a sign-in
+                            // in Cornerplay, or a Web API key. Without either, only installed games are listed.
                             Text {
                                 Layout.fillWidth: true
-                                visible: modelData.id === "steam" && modelData.loggedIn && !app.settingsMap.steam_api_key
+                                visible: modelData.id === "steam" && modelData.loggedIn
                                 wrapMode: Text.WordWrap
                                 font.pixelSize: 11
                                 color: theme.outline
                                 linkColor: theme.primary
-                                text: qsTr("Showing the games installed on this PC. For every game on your account, ")
-                                      + "<a href=\"key\">add a Steam Web API key</a>."
-                                onLinkActivated: { accounts.close(); prefs.tab = 3; prefs.open() }
+                                text: app.steamWebLinked
+                                      ? qsTr("All your games and Steam Family's, from your Steam account%1. ").arg(app.steamWebAccount ? " (" + app.steamWebAccount + ")" : "")
+                                        + "<a href=\"out\">" + qsTr("Sign out") + "</a>"
+                                      : app.settingsMap.steam_api_key
+                                      ? qsTr("All your games, through your Web API key. For Steam Family's games too, ")
+                                        + "<a href=\"in\">" + qsTr("sign in to Steam") + "</a>."
+                                      : qsTr("Showing the games installed on this PC. For every game on your account, ")
+                                        + "<a href=\"in\">" + qsTr("sign in to Steam") + "</a>" + qsTr(" or ")
+                                        + "<a href=\"key\">" + qsTr("add a Steam Web API key") + "</a>."
+                                onLinkActivated: link => {
+                                    if (link === "in") app.steamWebLink()
+                                    else if (link === "out") app.steamWebUnlink()
+                                    else { accounts.close(); prefs.tab = 3; prefs.open() }
+                                }
                                 HoverHandler { cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor }
                             }
                         }
@@ -7504,7 +7516,7 @@ ApplicationWindow {
                             }
                             Row2 {
                                 label: qsTr("Steam Web API key (optional)")
-                                hint: qsTr("Without a key Cornerplay shows the Steam games installed on this PC. With one it also lists everything you own. Get a key at <a href='https://steamcommunity.com/dev/apikey'>steamcommunity.com/dev/apikey</a>.")
+                                hint: qsTr("Not needed when you sign in to Steam in Accounts. Without either, Cornerplay shows the Steam games installed on this PC. With a key it also lists everything you own. Get a key at <a href='https://steamcommunity.com/dev/apikey'>steamcommunity.com/dev/apikey</a>.")
                                 KField {
                                     theme: win.theme; Layout.fillWidth: true
                                     echoMode: TextInput.PasswordEchoOnEdit

@@ -162,10 +162,24 @@ class Steam(Store):
         # also names every store page, wishlisted or friend's game the client has looked at,
         # and packageinfo.vdf keeps giveaways that were never claimed, so they listed games
         # the account does not own.
+        # Two ways in: the Web API key in Settings, or signing in to Steam in Cornerplay
+        # (steamweb.py: the web session's own token, which also reads Steam Family's games).
+        from .. import steamweb
         key = settings.get("steam_api_key").strip()
-        steamid = settings.get("steam_id").strip() or self._recent_user()[0]
-        if key and steamid:
-            try:
+        steamid = settings.get("steam_id").strip() or steamweb.steamid() or self._recent_user()[0]
+
+        def add_owned(rows):
+            for g in rows:
+                appid = str(g.get("appid", ""))
+                if appid in games:
+                    games[appid].extra["source"] = "account"
+                elif appid and appid not in TOOL_IDS and g.get("name"):
+                    games[appid] = self._game(appid, g["name"])
+                    games[appid].extra["source"] = "account"
+
+        problem = ""
+        try:
+            if key and steamid:
                 r = requests.get(
                     "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/",
                     params={"key": key, "steamid": steamid, "include_appinfo": 1,
@@ -173,20 +187,37 @@ class Steam(Store):
                     timeout=20,
                 )
                 r.raise_for_status()
-                for g in r.json().get("response", {}).get("games", []):
-                    appid = str(g["appid"])
-                    if appid in games:
-                        games[appid].extra["source"] = "account"
-                    elif appid not in TOOL_IDS and g.get("name"):
-                        games[appid] = self._game(appid, g["name"])
-                        games[appid].extra["source"] = "account"
-            except (requests.RequestException, ValueError) as e:
-                self._add_playtime(games)
-                self._mark_hidden(games, steamid)
-                raise PartialResult(list(games.values()), f"Steam Web API: {redact(e)}") from None
+                add_owned(r.json().get("response", {}).get("games", []))
+            if steamweb.signed_in():
+                tok, sid = steamweb.token(), steamweb.steamid() or steamid
+                if not (key and steamid):
+                    add_owned(steamweb.owned(tok, sid))
+                self._add_lent(games, steamweb.lent(tok, sid), steamweb.person)
+        except steamweb.NotSignedIn as e:
+            problem = f"Steam: {e}"
+        except (requests.RequestException, ValueError) as e:
+            problem = f"Steam Web API: {redact(e)}"
+        if problem:
+            self._add_playtime(games)
+            self._mark_hidden(games, steamid)
+            raise PartialResult(list(games.values()), problem)
         self._add_playtime(games)
         self._mark_hidden(games, steamid)
         return list(games.values())
+
+    def _add_lent(self, games, rows, name_of):
+        """Steam Family's games: listed as lent, with who lends them (extra["lender"])."""
+        for a in rows:
+            appid = a["appid"]
+            g = games.get(appid)
+            if g is not None and g.extra.get("source") == "account":
+                continue  # owned as well: yours
+            if g is None:
+                if appid in TOOL_IDS:
+                    continue
+                g = games[appid] = self._game(appid, a["name"])
+            g.extra["source"] = "lent"
+            g.extra["lender"] = ", ".join(n for n in (name_of(o) for o in a["owners"][:2]) if n)
 
     def _mark_hidden(self, games, steamid):
         """Games hidden in Steam's library get extra["steam_hidden"]; Cornerplay then keeps

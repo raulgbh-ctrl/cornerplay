@@ -31,6 +31,7 @@ Window {
         store = storeId; storeName = name; startUrl = url; done = false; failedUrl = ""
         status.text = ""
         if (store === "humble") app.humbleWebStart(view.profile)  // collects the cookies as they are set
+        else if (store === "steamweb") app.steamWebStart(view.profile)
         view.url = url
         show(); raise(); requestActivate()
     }
@@ -41,6 +42,7 @@ Window {
         status.text = qsTr("Signing in…")
         if (store === "blizzard") app.blizzardSync()  // reads the games; app.blizzardOwned closes this
         else if (store === "humble") app.humbleWebDone(view.profile)  // reads the session cookie
+        else if (store === "steamweb") app.steamWebDone(view.profile)
         else app.loginFinish(store, payload)
     }
 
@@ -55,6 +57,8 @@ Window {
                 finish(u)
         }
         else if (store === "humble" && u.indexOf("https://www.humblebundle.com/home/library") === 0 && !view.loading)
+            finish(u)
+        else if (store === "steamweb" && u.indexOf("https://store.steampowered.com/account") === 0 && !view.loading)
             finish(u)
         else if (store === "gog" && u.indexOf("on_login_success") !== -1 && u.indexOf("code=") !== -1)
             finish(u)
@@ -112,6 +116,7 @@ Window {
                 }
                 Button {
                     id: altButton
+                    visible: w.store !== "steamweb"  // the session lives in this window only
                     text: qsTr("Use my browser instead")
                     font.pixelSize: 12
                     onClicked: { w.close(); w.fallback() }
