@@ -126,6 +126,9 @@ def begin(want: dict) -> dict:
     if want.get("clips"):  # the replay buffer for "Save a clip" (clips.py)
         from . import clips
         undo["clips"] = clips.start(want["clips"])
+    if want.get("audio"):  # the game's own sound output (audioout.py)
+        from . import audioout
+        undo.update(audioout.begin(want["audio"]))
     return undo
 
 
@@ -147,3 +150,6 @@ def end(undo: dict):
     if undo.get("clips") is not None:
         from . import clips
         clips.stop(undo["clips"])
+    if undo.get("audio_was"):
+        from . import audioout
+        audioout.end(undo)

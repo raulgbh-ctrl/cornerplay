@@ -539,3 +539,46 @@ def test_screen_off_leaves_touch_bar_alone(tmp_path):
 def test_tests_never_touch_the_real_backlight():
     from cornerplay import stream
     assert str(stream.BACKLIGHT_DIR) != "/sys/class/backlight"
+
+
+def test_bottles_programs_are_read_and_quoted(tmp_path, monkeypatch):
+    import shlex
+    from cornerplay import importer
+    b = tmp_path / "My Games"
+    b.mkdir()
+    (b / "bottle.yml").write_text("Name: My Games\nExternal_Programs:\n  a1:\n    name: Witcher 3\n    executable: w3.exe\n"
+                                  "  a2:\n    name: Gone\n    removed: true\n")
+    monkeypatch.setattr(importer, "BOTTLES_DIRS", (str(tmp_path),))
+    games = importer.bottles_games()
+    assert [g["title"] for g in games] == ["Witcher 3"]
+    exe, args = importer.bottles_command(games[0])
+    assert shlex.split(args) == ["run", "-b", "My Games", "-p", "Witcher 3"]
+
+
+def test_tv_screen_pick():
+    from cornerplay import tvscreen
+    assert tvscreen.pick(["eDP-1"], "eDP-1", "auto") == ""                 # no TV: stay
+    assert tvscreen.pick(["eDP-1", "HDMI-A-1"], "eDP-1", "auto") == "HDMI-A-1"
+    assert tvscreen.pick(["eDP-1", "HDMI-A-1"], "eDP-1", "") == ""         # "this screen"
+    assert tvscreen.pick(["eDP-1", "DP-2"], "eDP-1", "HDMI-A-1") == ""     # the chosen one is unplugged
+    assert tvscreen.pick(["DP-1", "DP-2"], "DP-2", "auto") == "DP-2"       # desktop: already on one
+
+
+def test_audio_output_env_and_undo(monkeypatch):
+    from cornerplay import audioout
+    calls = []
+    monkeypatch.setattr(audioout, "outputs", lambda: [{"name": "hdmi", "label": "TV"}, {"name": "spk", "label": "Speakers"}])
+    monkeypatch.setattr(audioout, "default", lambda: "spk")
+    monkeypatch.setattr(audioout, "set_default", lambda n: calls.append(n) or True)
+    assert audioout.env("hdmi") == {"PULSE_SINK": "hdmi", "PIPEWIRE_NODE": "hdmi"}
+    undo = audioout.begin("hdmi")
+    assert undo == {"audio_was": "spk"} and calls == ["hdmi"]
+    audioout.end(undo)
+    assert calls == ["hdmi", "spk"]
+    assert audioout.begin("headphones-unplugged") == {}  # gone: left alone
+
+
+def test_compress_needs_btrfs(tmp_path, monkeypatch):
+    from cornerplay import compress
+    monkeypatch.setattr(compress, "filesystem", lambda p: {"btrfs": False, "auto": ""})
+    assert compress.compress(str(tmp_path))["ok"] is False

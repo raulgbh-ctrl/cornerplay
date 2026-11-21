@@ -8,6 +8,7 @@
 import glob
 import json
 import os
+import shlex
 import shutil
 
 from .config import HOME, read_json, settings
@@ -112,3 +113,43 @@ def lutris_command(game):
     if game["flatpak"]:
         return shutil.which("flatpak") or "/usr/bin/flatpak", f"run net.lutris.Lutris lutris:rungameid/{game['id']}"
     return shutil.which("lutris") or "/usr/bin/lutris", f"lutris:rungameid/{game['id']}"
+
+
+BOTTLES_DIRS = ("~/.local/share/bottles/bottles", "~/.var/app/com.usebottles.bottles/data/bottles/bottles")
+
+
+def bottles_games():
+    """The programs added to Bottles' bottles: [{"bottle", "program", "title", "flatpak"}], read
+    from each bottle's bottle.yml (read only). They join Cornerplay as games that start through
+    bottles-cli, so the bottle keeps its runner, DLLs and settings."""
+    try:
+        import yaml
+    except ImportError:
+        return []
+    out = []
+    for root in BOTTLES_DIRS:
+        base = os.path.expanduser(root)
+        if not os.path.isdir(base):
+            continue
+        for name in sorted(os.listdir(base)):
+            cfg = os.path.join(base, name, "bottle.yml")
+            try:
+                with open(cfg, encoding="utf-8") as f:
+                    data = yaml.safe_load(f) or {}
+            except (OSError, yaml.YAMLError, UnicodeDecodeError):
+                continue
+            bottle = str(data.get("Name") or name)
+            programs = data.get("External_Programs") or {}
+            for p in programs.values() if isinstance(programs, dict) else []:
+                if isinstance(p, dict) and p.get("name") and not p.get("removed"):
+                    out.append({"bottle": bottle, "program": str(p["name"]), "title": str(p["name"]),
+                                "flatpak": "/.var/app/" in base})
+    return out
+
+
+def bottles_command(game):
+    """The program and arguments that start a Bottles program (quoted: names have spaces)."""
+    run = f"run -b {shlex.quote(game['bottle'])} -p {shlex.quote(game['program'])}"
+    if game["flatpak"]:
+        return shutil.which("flatpak") or "/usr/bin/flatpak", "run --command=bottles-cli com.usebottles.bottles " + run
+    return shutil.which("bottles-cli") or "/usr/bin/bottles-cli", run

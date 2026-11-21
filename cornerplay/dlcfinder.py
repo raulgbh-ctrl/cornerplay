@@ -391,6 +391,11 @@ def group(rows, game_title):
             r["ownedOn"] = [n for n in owned_on if n != r.get("storeName")] if r["status"] not in HAVE else []
             r["cheapest"] = r is cheapest
             r["primary"] = False
+        # art: a store without a picture for this DLC borrows another store's
+        pic = next((r.get("image") for r in rs if r.get("image")), "")
+        for r in rs:
+            if not r.get("image") and pic:
+                r["image"] = pic
         lead = (next((r for r in rs if r["status"] in HAVE), None) or cheapest or rs[0])
         lead["primary"] = True
         lead["offers"] = [{"store": r.get("store", ""), "storeName": r.get("storeName", ""), "price": r.get("price", ""),

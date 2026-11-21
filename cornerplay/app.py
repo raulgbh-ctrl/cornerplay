@@ -1463,6 +1463,31 @@ class AioLaunch(QObject):
                         + (f"; {', '.join(failed[:3])}: " + _t("Lutris is not installed") if failed else ""))
         self.refresh("custom", False)
 
+    @Slot(result=int)
+    def bottlesCount(self):
+        from .stores import custom
+        have = {e.get("args") for e in custom.entries()}
+        return sum(1 for g in importer.bottles_games() if importer.bottles_command(g)[1] not in have)
+
+    @Slot()
+    def importBottles(self):
+        """Bottles' programs, as games that start through bottles-cli (added once each)."""
+        from .stores import custom
+        have = {e.get("args") for e in custom.entries()}
+        done, failed = 0, []
+        for g in importer.bottles_games():
+            exe, args = importer.bottles_command(g)
+            if args in have:
+                continue
+            try:
+                custom.add(exe, g["title"], args)
+                done += 1
+            except StoreError:
+                failed.append(g["title"])
+        self.toast.emit(_t("Imported %1 games from Bottles").replace("%1", str(done))
+                        + (f"; {', '.join(failed[:3])}: " + _t("Bottles is not installed") if failed else ""))
+        self.refresh("custom", False)
+
     # --- save backups -----------------------------------------------------------------
     savesReady = Signal(str, "QVariantList")
 
@@ -5181,6 +5206,11 @@ class AioLaunch(QObject):
         # then the same game's DLC on the other stores (Steam, GOG, Epic), each sold there
         rows = own + self._demo_other_dlcs(g) if self.demo else dlcfinder.rows(g, self.stores, own, _appid(g), mine)
         rows = dlcfinder.group(rows, g.title)
+        # no store has a picture for it: the game's own wide art, so the row is never a blank tile
+        art = next(iter(_heroes(g)), "") or _cover(g)
+        for r in rows:
+            if not r.get("image") and art:
+                r["image"], r["artFromGame"] = art, True
         key = str(settings.get("itad_key") or "").strip()
         if key and deals and not self.demo:
             dlcfinder.deals(rows, key, wishlist.country())
@@ -5459,6 +5489,117 @@ class AioLaunch(QObject):
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(log)))
         else:
             self.toast.emit("No log yet: it is written when the game runs")
+
+    # --- btrfs compression (compress.py) ------------------------------------------------------
+    _compressing = set()
+
+    canCompress = Property(bool, lambda s: not s.demo and __import__("cornerplay.compress", fromlist=["available"]).available(
+        str(settings.games_dir) if os.path.isdir(str(settings.games_dir)) else str(Path.home())), constant=True)
+
+    @Slot(str, result="QVariantMap")
+    def compressInfo(self, key):
+        """For a game's More menu: {"can", "done", "busy", "auto"} (auto: the drive's own compress option)."""
+        g = self.model.find(key)
+        if not g or not g.installed or not g.install_path or self.demo:
+            return {"can": False}
+        from . import compress
+        fs = compress.filesystem(g.install_path)
+        return {"can": fs["btrfs"] and bool(shutil.which("btrfs")), "auto": fs["auto"],
+                "done": bool(game_options.get(key).get("compressed")), "busy": key in self._compressing}
+
+    @Slot(str)
+    def compressGame(self, key):
+        self._compress([key])
+
+    @Slot()
+    def compressIdle(self):
+        """Storage: compress every installed game not played for a month (and not done before)."""
+        month = time.time() - 30 * 86400
+        keys = [g.key for g in self.model.games if g.installed and g.install_path
+                and not game_options.get(g.key).get("compressed")
+                and self.model.group_value(self.model.group_of(g.key) or [g], "lastPlayed") < month]
+        if not keys:
+            self.toast.emit("Nothing to compress: every game you have not played lately is done")
+            return
+        self._compress(keys)
+
+    def _compress(self, keys):
+        from . import compress
+        todo = []
+        for k in keys:
+            g = self.model.find(k)
+            if (g and g.installed and k not in self._compressing and k not in self.procs
+                    and not any(p.get("key") == k for p in self._now_playing())):
+                todo.append(g)
+        if not todo:
+            return
+        self._compressing.update(g.key for g in todo)
+        self.toast.emit(f"Compressing {todo[0].title}…" if len(todo) == 1 else f"Compressing {len(todo)} games, one at a time…")
+
+        def work():
+            total, failed = 0, []
+            for g in todo:
+                if getattr(self, "_quitting", False):
+                    break
+                if self._now_playing():  # a game started: never slow it down with disk work
+                    failed.append(g.title)
+                    continue
+                r = compress.compress(g.install_path)
+                total += r["saved"]
+                if r["ok"]:
+                    self._after.emit(lambda k=g.key: game_options.set(k, "compressed", int(time.time())))
+                else:
+                    failed.append(g.title)
+
+            def done():
+                self._compressing.difference_update(g.key for g in todo)
+                for g in todo:
+                    self._touch(g.key)
+                if total > 0:
+                    self.toast.emit(f"Compressed: about {storage.nice(total)} freed")
+                else:
+                    self.toast.emit("Compressed (the drive was already compressing these files)")
+                if failed:
+                    self.toast.emit(f"Not compressed: {', '.join(failed[:3])}")
+                self._notify(_t("Compression finished"), storage.nice(total) if total > 0 else "")
+            return done
+        # its own thread: it can take long, and the system pool must stay free for game starts
+        import threading
+        threading.Thread(target=lambda: self._after.emit(work()), daemon=True, name="compress").start()
+
+    # --- TV mode on the TV (tvscreen.py) -------------------------------------------------------
+    _tv_screen_undo = {}
+
+    @Slot("QVariantList", str, result=str)
+    def tvScreenFor(self, names, current):
+        """The screen TV mode should open on ("" = stay), from Settings > TV mode > Screen."""
+        from . import tvscreen
+        return "" if self.demo else tvscreen.pick([str(n) for n in names or []], current, str(settings.get("tv_screen") or ""))
+
+    @Slot(str)
+    def tvScreenBest(self, name):
+        """Hyprland: that screen at its best resolution and refresh rate while TV mode is on."""
+        if self.demo or not name:
+            return
+        from . import tvscreen
+
+        def work():
+            undo = tvscreen.best(name)
+            return lambda: setattr(self, "_tv_screen_undo", undo)
+        self._bg(work)
+
+    @Slot()
+    def tvScreenRestore(self):
+        undo, self._tv_screen_undo = self._tv_screen_undo, {}
+        if undo:
+            from . import tvscreen
+            self._sys_pool.submit(lambda: tvscreen.restore(undo))
+
+    @Slot(result="QVariantList")
+    def audioOutputs(self):
+        """The sound outputs a game can use (Options > Sound output): [{label, value}]."""
+        from . import audioout
+        return [{"label": o["label"], "value": o["name"]} for o in audioout.outputs()]
 
     @Slot(str, str, "QVariant")
     def setGameOption(self, key, name, value):
@@ -5988,6 +6129,9 @@ class AioLaunch(QObject):
             first = self._now_playing()[0]
             own = game_options.get(first["key"])
             want["tdp"] = int((own["tdp"] if "tdp" in own else settings.get("tdp")) or 0)
+            sink = own.get("audio_out") or ""
+            if sink and sink != "default":
+                want["audio"] = sink
             if settings.get("clips"):
                 want["clips"] = first.get("title") or "Game"
             self.lightsFor(self.gameColour(first["key"]))

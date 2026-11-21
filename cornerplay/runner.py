@@ -45,6 +45,10 @@ def user_env() -> dict:
     game's on top (so a hand-set SDL_GAMECONTROLLERCONFIG still wins)."""
     from . import padlayout
     env = padlayout.env(opt("pad_layout") or "")
+    sink = opt("audio_out") or ""
+    if sink and sink != "default":  # this game's sound output (audioout.py)
+        from . import audioout
+        env.update(audioout.env(sink))
     env.update(parse_env(settings.get("env")))
     env.update(parse_env(_overrides.get("env", "")))
     return env

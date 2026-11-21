@@ -21,11 +21,32 @@ ApplicationWindow {
     readonly property var theme: app.theme
     property bool tv: startTv
     property bool hiddenAtStart: startHidden  // started with the PC: in the tray until opened (tray.py)
-    visibility: hiddenAtStart ? Window.Hidden : tv ? Window.FullScreen : Window.Windowed
+    visibility: hiddenAtStart ? Window.Hidden : tv && tvPlaced ? Window.FullScreen : Window.Windowed
     // Leaving or entering TV mode counts as a pop-up closing: the click on Exit TV mode (or its
     // double) must not land on a cover of the library that fades in underneath.
-    onTvChanged: { app.setTvActive(tv); if (tv) tvUsed = true; else grid.forceActiveFocus()
+    onTvChanged: { app.setTvActive(tv); if (tv) { tvUsed = true; placeForTv() } else { leaveTvScreen(); grid.forceActiveFocus() }
                    quietUntil = Date.now() + 500; justClosed = true; closeGuard.restart() }
+    // TV mode on the TV (Settings > TV mode > Screen, tvscreen.py): the window moves to that screen
+    // before it goes full screen, and comes back to where it was after.
+    property bool tvPlaced: false
+    property var screenBeforeTv: null
+    function placeForTv() {
+        const screens = Qt.application.screens
+        const want = app.tvScreenFor(screens.map(x => x.name), win.screen ? win.screen.name : "")
+        if (want) {
+            const target = screens.find(x => x.name === want)
+            if (target && target !== win.screen) { screenBeforeTv = win.screen; win.screen = target }
+            app.tvScreenBest(want)
+        }
+        tvPlaced = true
+    }
+    function leaveTvScreen() {
+        tvPlaced = false
+        app.tvScreenRestore()
+        if (screenBeforeTv && Qt.application.screens.indexOf(screenBeforeTv) !== -1) win.screen = screenBeforeTv
+        screenBeforeTv = null
+    }
+    Component.onCompleted: if (tv) placeForTv()   // started straight in TV mode (--tv)
     property string selectedKey: ""
     property var selected: ({})
 
@@ -4203,6 +4224,16 @@ ApplicationWindow {
                     iconName: "download"
                     onClicked: { if (!armed) { armed = true; return } armed = false; app.putAway(keys); storage.tidy = false }
                 }
+                // btrfs: compress every installed game not played for a month (compress.py).
+                KButton {
+                    theme: win.theme
+                    visible: app.canCompress && !storage.tidy
+                    text: qsTr("Compress unplayed games")
+                    iconName: "hard-drive"
+                    ToolTip.visible: hovered; ToolTip.delay: 400
+                    ToolTip.text: qsTr("Rewrites the files of games you have not played for a month with btrfs compression: often 20–40% less space, the games run as before. With btrfs snapshots of your games folder it uses more space until those go.")
+                    onClicked: app.compressIdle()
+                }
                 KButton {
                     theme: win.theme
                     text: storage.tidy ? qsTr("Show all") : qsTr("Free up space")
@@ -4542,6 +4573,14 @@ ApplicationWindow {
                 icon: "folder-open"; text: qsTr("Open folder")
                 onPicked: { app.openFolder(gameMenu.g.installPath); gameMenu.close() }
             }
+            // btrfs: rewrite the game's files compressed (compress.py); the same game plays as before.
+            MenuRow {
+                readonly property var ci: gameMenu.opened && gameMenu.g.installed ? app.compressInfo(gameMenu.key) : ({})
+                visible: !!ci.can && !gameMenu.g.job
+                icon: "hard-drive"
+                text: ci.busy ? qsTr("Compressing…") : ci.done ? qsTr("Compress files again") : qsTr("Compress files (saves space)")
+                onPicked: { if (!ci.busy) app.compressGame(gameMenu.key); gameMenu.close() }
+            }
             MenuRow {
                 icon: gameMenu.g.hidden ? "eye" : "eye-off"
                 text: gameMenu.g.hidden ? qsTr("Unhide") : qsTr("Hide")
@@ -4698,7 +4737,8 @@ ApplicationWindow {
         property string importStore: "epic"
         property int heroic: 0
         property int lutris: 0
-        function show() { exe = ""; addName.text = ""; addArgs.text = ""; heroic = app.heroicCount(); lutris = app.lutrisCount(); open() }
+        property int bottles: 0
+        function show() { exe = ""; addName.text = ""; addArgs.text = ""; heroic = app.heroicCount(); lutris = app.lutrisCount(); bottles = app.bottlesCount(); open() }
         width: Math.min(win.width - 60, 620)
         contentItem: ColumnLayout {
             spacing: 16
@@ -4758,6 +4798,15 @@ ApplicationWindow {
                 Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
                        text: qsTr("Lutris has %1 installed games that are not here yet. Add them: they start through Lutris, with its own settings.").arg(addBox.lutris) }
                 KButton { theme: win.theme; primary: true; text: qsTr("Import from Lutris"); onClicked: { app.importLutris(); addBox.close() } }
+            }
+            // 5. Bottles: its programs start through bottles-cli (the bottle keeps its runner and DLLs)
+            RowLayout {
+                visible: addBox.bottles > 0
+                Layout.fillWidth: true
+                spacing: 8
+                Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
+                       text: qsTr("Bottles has %1 programs that are not here yet. Add them: they start in their bottle, with its own settings.").arg(addBox.bottles) }
+                KButton { theme: win.theme; primary: true; text: qsTr("Import from Bottles"); onClicked: { app.importBottles(); addBox.close() } }
             }
         }
     }
@@ -6169,8 +6218,16 @@ ApplicationWindow {
                                 fillMode: Image.PreserveAspectCrop
                                 asynchronous: true
                                 sourceSize.width: 256
-                                opacity: status === Image.Ready ? (dlcRow.modelData.status === "available" ? 0.7 : 1) : 0
+                                // the game's own art standing in (no store had a picture): quieter
+                                opacity: status === Image.Ready ? (dlcRow.modelData.artFromGame ? 0.45 : dlcRow.modelData.status === "available" ? 0.7 : 1) : 0
                                 Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 200 } }
+                            }
+                            Rectangle {
+                                visible: !!dlcRow.modelData.artFromGame && dlcArt.status === Image.Ready
+                                anchors { right: parent.right; bottom: parent.bottom; margins: 5 }
+                                width: 22; height: 22; radius: 11
+                                color: Qt.alpha("black", 0.6)
+                                Icon { anchors.centerIn: parent; name: "puzzle"; size: 12; color: "white" }
                             }
                         }
                         ColumnLayout {
@@ -6305,6 +6362,18 @@ ApplicationWindow {
                 color: theme.outline
                 font.pixelSize: 12
                 text: dlc.note
+            }
+            // Steam does not say which of its DLC you own until you sign in to Steam here.
+            Text {
+                Layout.fillWidth: true
+                visible: dlc.rows.some(r => r.store === "steam" && r.status === "missing")
+                wrapMode: Text.WordWrap
+                color: theme.primary
+                font.pixelSize: 12
+                font.underline: steamHint.hovered
+                text: qsTr("Sign in to Steam to see which of its DLC you own")
+                HoverHandler { id: steamHint; cursorShape: Qt.PointingHandCursor }
+                TapHandler { onTapped: { dlc.close(); app.steamWebLink() } }
             }
         }
     }
@@ -7225,6 +7294,20 @@ ApplicationWindow {
                             color: app.remoteInfo.error ? theme.error : theme.onSurfaceVariant
                             text: app.remoteInfo.error || qsTr("On a phone or another PC: %1  ·  code %2  (the web library is at %1web)").arg(app.remoteInfo.url).arg(app.remoteInfo.code)
                         }
+                        // Which screen TV mode opens on (tvscreen.py): the TV when one is plugged in.
+                        Row2 {
+                            label: qsTr("Screen for TV mode")
+                            hint: qsTr("Automatic: a TV or monitor plugged in next to this PC's own screen, at its best resolution and refresh rate on Hyprland; everything goes back when you leave TV mode.")
+                            KCombo {
+                                theme: win.theme
+                                Layout.preferredWidth: 260
+                                model: [{ label: qsTr("Automatic (a TV when one is plugged in)"), value: "auto" },
+                                        { label: qsTr("The screen the window is on"), value: "" }]
+                                       .concat(Qt.application.screens.map(x => ({ label: x.name + (x.model ? "  ·  " + x.model : ""), value: x.name })))
+                                Component.onCompleted: select(app.settingsMap.tv_screen === undefined ? "auto" : app.settingsMap.tv_screen)
+                                onActivated: app.setSetting("tv_screen", currentValue)
+                            }
+                        }
                         Row2 {
                             label: qsTr("TV mode screensaver")
                             hint: qsTr("Your recently played games' art drifts by with the clock after a few quiet minutes. Any button wakes it.")
@@ -8045,6 +8128,7 @@ ApplicationWindow {
         property string key: ""
         property var game: ({})
         property var opts: ({})
+        property var outputs: []   // the PC's sound outputs (Sound output)
         property var steamProton: ({ choices: [], current: "" })
         readonly property bool compat: ["epic", "gog", "amazon", "custom", "humble"].includes(game.store) || key === "battlenet:battlenet-app"
         // Runs without Proton: a GOG Linux version, or a Linux program added by hand.
@@ -8068,6 +8152,8 @@ ApplicationWindow {
             optCap.select(opts.fps_cap === undefined ? "default" : opts.fps_cap)
             optTdp.select(opts.tdp === undefined ? "default" : opts.tdp)
             optPad.select(opts.pad_layout === undefined ? "default" : opts.pad_layout)
+            outputs = app.audioOutputs()
+            optAudio.select(opts.audio_out === undefined ? "default" : opts.audio_out)
             optKeys.select(opts.pad_keys === undefined ? "default" : opts.pad_keys)
             optScope.select(opts.gamescope === undefined ? "default" : opts.gamescope)
             optHdr.select(opts.gamescope_hdr === undefined ? "default" : opts.gamescope_hdr)
@@ -8224,6 +8310,15 @@ ApplicationWindow {
                                  onActivated: app.setGameOption(gameOpts.key, "pad_keys", currentValue) }
                         KButton { theme: win.theme; text: qsTr("Edit my layout"); iconName: "gamepad-2"; onClicked: keysEdit.show() }
                     }
+                }
+                // Sound output: this game's sound on headphones, speakers or the TV (audioout.py).
+                Row2 {
+                    visible: optAudio.count > 2 || (gameOpts.opts.audio_out || "default") !== "default"
+                    label: qsTr("Sound output")
+                    hint: qsTr("While this game plays, its sound goes here; the usual output comes back when it closes.")
+                    KCombo { id: optAudio; theme: win.theme; Layout.fillWidth: true
+                             model: [{ label: qsTr("The usual output"), value: "default" }].concat(gameOpts.outputs)
+                             onActivated: app.setGameOption(gameOpts.key, "audio_out", currentValue) }
                 }
                 Row2 {
                     visible: gameOpts.game.store !== "steam"

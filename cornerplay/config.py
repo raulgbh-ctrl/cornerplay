@@ -179,6 +179,7 @@ DEFAULTS = {
     "tv_sounds": False,        # TV mode makes soft clicks when moving and choosing
     "tv_rumble": False,        # TV mode: the controller buzzes lightly when moving and choosing
     "tv_music": False,         # TV mode: a calm, original ambient loop (fades out for trailers and games)
+    "tv_screen": "auto",       # TV mode opens on: "auto" a TV/monitor when one is plugged in, "" this screen, or a name (tvscreen.py)
     "tv_screensaver": 3,       # TV mode: minutes without input before the slideshow of your games (0 = never)
     "tv_who": True,            # TV mode: "Who's playing?" at start when there are several people
     "show_protondb": True,     # ProtonDB rating badge on covers
