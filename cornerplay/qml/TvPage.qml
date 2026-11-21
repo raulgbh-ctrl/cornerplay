@@ -40,10 +40,25 @@ Rectangle {
         game = g; info = details || {}; ach = achievements || {}
         shots = []; row = 0; button = 0; shot = 0; viewing = false
         app.loadScreenshots(g.key)
+        hiding.stop()
         visible = true
+        appear.restart()
         forceActiveFocus()
     }
-    function close() { app.uiSound("back"); visible = false; viewing = false; closed() }
+    function close() { app.uiSound("back"); viewing = false; hiding.restart(); closed() }
+    // Opening: the page settles in from slightly larger, as if the cover came forward; closing
+    // fades it away (the home screen has the focus again at once).
+    transformOrigin: Item.Center
+    ParallelAnimation {
+        id: appear
+        NumberAnimation { target: page; property: "opacity"; from: app.still ? 1 : 0; to: 1; duration: 220; easing.type: Easing.OutCubic }
+        NumberAnimation { target: page; property: "scale"; from: app.still ? 1 : 1.04; to: 1; duration: 300; easing.type: Easing.OutCubic }
+    }
+    SequentialAnimation {
+        id: hiding
+        NumberAnimation { target: page; property: "opacity"; to: 0; duration: app.still ? 0 : 160 }
+        ScriptAction { script: { page.visible = false; page.opacity = 1 } }
+    }
     function press() {
         const b = buttons[button]
         app.uiSound("select")

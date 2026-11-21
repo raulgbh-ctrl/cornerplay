@@ -51,6 +51,11 @@ Item {
     readonly property bool hovered: hover.hovered
     readonly property point hoverAt: hover.point.scenePosition  // where the pointer is (TV: did it really move?)
     readonly property bool lit: hover.hovered || current
+    property real focusScale: 1.03
+    // One colour per status, the same everywhere a card shows: NEW the theme's own, an update
+    // green, new DLC amber (outlined, so it never reads as NEW), downloads the theme's.
+    readonly property color updateColour: "#3fb27f"
+    readonly property color dlcColour: "#f0a630"
     // Tilt: the cover tips toward the pointer, like a game case held in the hand (-1..1 each way).
     // The desktop library only (TV mode sets tilt: false); Settings > Appearance turns it off.
     property bool tilt: true
@@ -124,7 +129,8 @@ Item {
         anchors.bottomMargin: card.style === "box" ? card.gap + 18 : card.caption ? card.gap + 46 : card.gap
         radius: card.cornerRadius
         color: theme.surfaceContainerHigh
-        scale: card.lit && !app.still ? 1.03 : 1.0
+        // TV mode's focus reads from across the room: a bigger step than the desktop's hover.
+        scale: !card.lit || app.still ? 1.0 : card.focusScale
         Behavior on scale { enabled: !app.still; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         transform: [
             Rotation {
@@ -518,13 +524,14 @@ Item {
             x: 10; y: 10
             height: 20; radius: 10
             width: newDlcRow.implicitWidth + 16
-            color: card.theme.primary
+            color: Qt.alpha("black", 0.62)
+            border.width: 1.5; border.color: card.dlcColour
             Row {
                 id: newDlcRow
                 anchors.centerIn: parent
                 spacing: 4
-                Icon { name: "puzzle"; size: 11; color: card.theme.onPrimary; anchors.verticalCenter: parent.verticalCenter }
-                Text { text: qsTr("NEW DLC"); color: card.theme.onPrimary; font.pixelSize: 10; font.weight: Font.Black
+                Icon { name: "puzzle"; size: 11; color: card.dlcColour; anchors.verticalCenter: parent.verticalCenter }
+                Text { text: qsTr("NEW DLC"); color: card.dlcColour; font.pixelSize: 10; font.weight: Font.Black
                        font.letterSpacing: 1.0; anchors.verticalCenter: parent.verticalCenter }
             }
         }
@@ -539,7 +546,7 @@ Item {
             width: dlcChipText.implicitWidth + 31
             color: Qt.alpha("black", 0.58)
             border.width: 1; border.color: Qt.alpha("white", 0.14)
-            Icon { x: 7; anchors.verticalCenter: parent.verticalCenter; name: "puzzle"; size: 12; color: "white" }
+            Icon { x: 7; anchors.verticalCenter: parent.verticalCenter; name: "puzzle"; size: 12; color: card.dlcColour }
             Text { id: dlcChipText; x: 23; anchors.verticalCenter: parent.verticalCenter; text: qsTr("%1 DLC to get").arg(card.dlcToBuy)
                    color: "white"; font.pixelSize: 11 }
         }
@@ -587,8 +594,8 @@ Item {
             visible: card.installed && card.update && card.job === ""
             anchors { right: parent.right; top: parent.top; margins: 10 }
             width: 22; height: 22; radius: 11
-            color: theme.primary
-            Text { anchors.centerIn: parent; text: "↑"; color: theme.onPrimary; font.pixelSize: 13; font.bold: true }
+            color: card.updateColour
+            Text { anchors.centerIn: parent; text: "↑"; color: "white"; font.pixelSize: 13; font.bold: true }
         }
 
         Rectangle {

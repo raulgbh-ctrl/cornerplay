@@ -215,6 +215,7 @@ ApplicationWindow {
     readonly property bool lkWide: !!app.settingsMap.look_wide
     readonly property bool lkSearch: !!app.settingsMap.look_search
     readonly property bool lkSidebar: !!app.settingsMap.look_sidebar
+    readonly property bool topLabels: win.width >= 1280   // room for words next to the top bar's icons
     readonly property bool lkExpand: !!app.settingsMap.look_expand && !app.light
     readonly property bool lkSkeleton: !!app.settingsMap.look_skeleton && !app.still
     readonly property bool lkPlayring: !!app.settingsMap.look_playring && !app.still
@@ -490,7 +491,7 @@ ApplicationWindow {
                     readonly property var dl: (app.downloads || []).find(d => d.state === "running") || (app.downloads || [])[0] || null
                     readonly property var item: playing || dl
                     readonly property var g: item ? app.game(item.key) : ({})
-                    visible: win.lkSidebar && !win.rail && !!item && !!g.key
+                    visible: !win.rail && !!item && !!g.key  // always: what runs or downloads is worth a glance
                     Layout.fillWidth: true
                     Layout.bottomMargin: 6
                     implicitHeight: 64; radius: 14
@@ -775,6 +776,31 @@ ApplicationWindow {
                     }
                 }
 
+                // Shelves: ready-made views of the library, always there (the sidebar was empty without lists).
+                Text {
+                    visible: !win.rail
+                    Layout.fillWidth: true
+                    Layout.topMargin: 14; Layout.leftMargin: 14; Layout.bottomMargin: 2
+                    text: qsTr("SHELVES"); color: theme.outline; font.pixelSize: 11; font.weight: Font.DemiBold; font.letterSpacing: 1.2
+                }
+                Repeater {
+                    model: [{ id: "playing", label: qsTr("Recently played"), icon: "history" },
+                            { id: "added", label: qsTr("Recently added"), icon: "sparkles" },
+                            { id: "together", label: qsTr("Play together"), icon: "gamepad-2" }]
+                    NavItem {
+                        required property var modelData
+                        label: modelData.label
+                        icon: modelData.icon
+                        active: library.shelf === modelData.id && !library.showHidden && !win.smartActive
+                        onPicked: { storePage.close(); library.showHidden = false; library.storeFilter = ""; library.shelf = modelData.id }
+                    }
+                }
+                NavItem {
+                    label: qsTr("Play with friends")
+                    icon: "user-round"
+                    onPicked: friendsPage.show()
+                }
+
                 // Your lists: favourites, collections, and backlog statuses that have games.
                 RowLayout {
                     // Shown once there is a list (make the first one from a game's More > Add to a collection).
@@ -942,6 +968,7 @@ ApplicationWindow {
                 // Filters: the chip row shows while this is on, or while a filter is set.
                 TopButton {
                     icon: "filter"; tip: qsTr("Filters")
+                    label: win.topLabels ? qsTr("Filters") : ""
                     badge: ((library && library.tags) || []).length
                     on: win.showFilters || ((library && library.tags) || []).length > 0
                     onPicked: win.showFilters = !win.showFilters
@@ -950,6 +977,7 @@ ApplicationWindow {
                 TopButton {
                     id: viewButton
                     icon: ({ list: "list", logos: "tv", boxes: "library", shelves: "bookmark" })[app.settingsMap.view] || "layout-grid"; tip: qsTr("View")
+                    label: win.topLabels ? qsTr("View") : ""
                     badge: library.installedOnly ? 1 : 0
                     onPicked: viewMenu.opened ? viewMenu.close() : viewMenu.open()
                     Popup {
@@ -996,7 +1024,7 @@ ApplicationWindow {
                         }
                     }
                 }
-                TopButton { icon: "plus"; tip: qsTr("Add a game"); onPicked: addBox.show() }
+                TopButton { icon: "plus"; tip: qsTr("Add a game"); label: win.topLabels ? qsTr("Add") : ""; onPicked: addBox.show() }
                 // Downloads: only while something downloads, waits or is paused.
                 // While one runs it shows how far it is, with a thin bar along the bottom (as Heroic does).
                 Rectangle {
@@ -1010,7 +1038,16 @@ ApplicationWindow {
                            : dlButton.pct >= 0 ? Qt.alpha(theme.surfaceContainerHigh, 0.6) : "transparent"
                     clip: true
                     Icon { x: dlButton.pct >= 0 ? 12 : (parent.width - width) / 2; anchors.verticalCenter: parent.verticalCenter
+                           visible: !dlCover.visible
                            name: "download"; size: 17; color: theme.primary }
+                    // What is downloading: its cover, small, in place of the icon.
+                    RoundedArt {
+                        id: dlCover
+                        visible: dlButton.pct >= 0 && dlCoverImg.status === Image.Ready
+                        x: 10; anchors.verticalCenter: parent.verticalCenter
+                        width: 18; height: 24; radius: 4
+                        ArtImage { id: dlCoverImg; anchors.fill: parent; sources: dlButton.running ? (dlButton.running.covers || []) : []; sourceSize.width: 48 }
+                    }
                     Text { id: dlPct; visible: dlButton.pct >= 0; x: 34; anchors.verticalCenter: parent.verticalCenter
                            text: Math.floor(dlButton.pct) + "%"; color: theme.onSurface; font.pixelSize: 12; font.weight: Font.DemiBold
                            font.features: { "tnum": 1 } }
@@ -1375,8 +1412,9 @@ ApplicationWindow {
                                 x: 8
                                 width: parent.width - 16
                                 // A short window (a laptop) keeps the banner low, so the library still shows under it.
-                                height: win.showcase ? Math.round(Math.max(260, Math.min(470, width * 0.36, win.height * 0.48)))
-                                                     : Math.round(Math.max(210, Math.min(340, width * 0.28, win.height * 0.36)))
+                                // About a quarter of the window, so a full row of covers shows under it.
+                                height: win.showcase ? Math.round(Math.max(240, Math.min(420, width * 0.30, win.height * 0.40)))
+                                                     : Math.round(Math.max(180, Math.min(290, width * 0.22, win.height * 0.27)))
                                 Behavior on height { enabled: !app.still; NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
 
                                 Item {
@@ -1584,10 +1622,12 @@ ApplicationWindow {
                                                     else { app.preferCopy(hero.info.key); win.install(hero.info.key) }
                                                 }
                                             }
+                                            // One strong action; the update and the details stay quiet beside it.
                                             KButton {
                                                 theme: hero.tint
+                                                quiet: true; ink: "#3fb27f"   // an update's green, as on the cards
                                                 visible: !hero.game.job && !!hero.game.update
-                                                text: qsTr("Update")
+                                                text: qsTr("Update ready")
                                                 iconName: "arrow-up"
                                                 onClicked: if (win.pointerOk()) app.update(hero.info.key)
                                             }
@@ -1600,6 +1640,7 @@ ApplicationWindow {
                                             }
                                             KButton {
                                                 theme: hero.tint
+                                                quiet: true
                                                 text: qsTr("Details")
                                                 onClicked: if (win.pointerOk()) win.select(hero.info.key)
                                             }
@@ -1628,10 +1669,13 @@ ApplicationWindow {
                                 delegate: Rectangle {
                                     id: recentTile
                                     required property var modelData
-                                    width: win.lkWide ? 440 : 300; height: win.lkWide ? 200 : 132
+                                    // The tiles share the row: few games get wider tiles, not an empty half-row.
+                                    readonly property int fits: Math.max(1, Math.floor((recentRow.width + recentRow.spacing) / ((win.lkWide ? 400 : 270) + recentRow.spacing)))
+                                    width: Math.max(win.lkWide ? 400 : 270, (recentRow.width - recentRow.spacing * (Math.min(fits, recentRow.count) - 1)) / Math.min(fits, recentRow.count))
+                                    height: win.lkWide ? 200 : 132
                                     radius: win.lkWide ? 18 : 14
                                     color: theme.surfaceContainerHigh
-                                    readonly property var g: win.lkWide ? app.game(modelData.key) : ({})
+                                    readonly property var g: app.game(modelData.key)
                                     scale: recentHover.hovered && !app.still ? 1.02 : 1
                                     Behavior on scale { enabled: !app.still; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
                                     // The cover takes the tile's left corners; the border is drawn over it.
@@ -1660,10 +1704,21 @@ ApplicationWindow {
                                             }
                                         }
                                         ArtImage {
+                                            id: recentCover
                                             width: win.lkWide ? 134 : 88; height: parent.height
                                             sources: recentTile.modelData.covers || []
                                             sourceSize.width: 268
                                         }
+                                    }
+                                    // How far you are (achievements), as a thin line along the bottom.
+                                    Rectangle {
+                                        visible: !win.lkWide && (recentTile.g.achieved || 0) > 0
+                                        z: 2
+                                        anchors { left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: 88 + 16; rightMargin: 14; bottomMargin: 10 }
+                                        height: 3; radius: 2
+                                        color: Qt.alpha(theme.onSurface, 0.12)
+                                        Rectangle { width: parent.width * Math.min(1, recentTile.g.achieved || 0); height: parent.height; radius: 2
+                                                    color: (recentTile.g.achieved || 0) >= 1 ? "#f2c230" : theme.primary }
                                     }
                                     Rectangle {
                                         anchors.fill: parent; radius: recentTile.radius; color: "transparent"; z: 1
@@ -1717,7 +1772,7 @@ ApplicationWindow {
                                     HoverHandler { id: recentHover; enabled: win.cardsLive; cursorShape: Qt.PointingHandCursor }
                                     TapHandler {
                                         enabled: win.cardsLive
-                                        onSingleTapped: if (win.pointerOk()) win.select(recentTile.modelData.key)
+                                        onSingleTapped: if (win.pointerOk()) { flyer.from(recentTile.modelData.key, recentCover, 0); win.select(recentTile.modelData.key) }
                                         onDoubleTapped: if (win.pointerOk()) win.activate(recentTile.modelData.key)
                                         onLongPressed: if (win.pointerOk()) gameMenu.showFor(recentTile.modelData.key, recentTile, point.position)
                                     }
@@ -1736,6 +1791,9 @@ ApplicationWindow {
                                 textFormat: Text.StyledText
                                 text: (library.shelf === "" ? (win.smartActive ? win.smartActive.name : qsTr("Library")) + qsTr("  <font color='") + theme.outline + "'>\u00B7  " + grid.count + qsTr(" games</font>")
                                       : library.shelf === "fav" ? qsTr("Favourites")
+                                      : library.shelf === "playing" ? qsTr("Recently played")
+                                      : library.shelf === "added" ? qsTr("Recently added")
+                                      : library.shelf === "together" ? qsTr("Play together")
                                       : library.shelf.startsWith("s:") ? ((app.statusNames.find(s => "s:" + s.id === library.shelf) || {}).name || "")
                                       : library.shelf.replace(/^c:/, ""))
                                 color: theme.onSurface
@@ -2083,10 +2141,27 @@ ApplicationWindow {
                     }
                 }
 
+                // The first load (nothing yet): a wall of placeholder covers, the library's own shape.
+                Flow {
+                    visible: grid.count === 0 && app.refreshing && app.totalCount === 0
+                    anchors { fill: parent; margins: 18; topMargin: 24 }
+                    spacing: 22
+                    clip: true
+                    Repeater {
+                        model: 18
+                        Skeleton {
+                            required property int index
+                            theme: win.theme
+                            width: Math.max(130, app.settingsMap.card_size || 170)
+                            height: Math.round(width * 1.5)
+                            radius: app.settingsMap.card_radius || 12
+                        }
+                    }
+                }
                 // Empty state: says why, and offers the way back. (Not over Humble's shop window: the
                 // Humble page has something to show even with no DRM-free games in the library.)
                 Column {
-                    visible: grid.count === 0 && !(library.storeFilter === "humble" && !library.search
+                    visible: grid.count === 0 && !(app.refreshing && app.totalCount === 0) && !(library.storeFilter === "humble" && !library.search
                                                    && ((app.humbleShop.games || []).length || (app.humbleShop.bundles || []).length))
                     anchors.centerIn: parent
                     spacing: 14
@@ -6001,6 +6076,23 @@ ApplicationWindow {
                 wrapMode: Text.WordWrap
                 text: dlc.loading ? qsTr("Looking up DLC…") : (dlc.error || qsTr("No DLC found for this game."))
             }
+            // While it loads: the shape of the list to come.
+            Repeater {
+                model: dlc.loading ? 3 : 0
+                RowLayout {
+                    required property int index
+                    Layout.fillWidth: true
+                    spacing: 14
+                    opacity: 1 - index * 0.25
+                    Skeleton { theme: win.theme; Layout.preferredWidth: 128; Layout.preferredHeight: 60; radius: 8 }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Skeleton { theme: win.theme; Layout.preferredWidth: 220 - index * 30; Layout.preferredHeight: 14; radius: 7 }
+                        Skeleton { theme: win.theme; Layout.preferredWidth: 120; Layout.preferredHeight: 12; radius: 6 }
+                    }
+                }
+            }
             Text {
                 Layout.fillWidth: true
                 visible: dlc.searching
@@ -7061,7 +7153,7 @@ ApplicationWindow {
                             Toggle { label: qsTr("Home as rows: Continue, Ready to play, Recently added, Not played yet"); settingKey: "look_shelves" }
                             Toggle { label: qsTr("Big Continue playing cards, with hours and achievements"); settingKey: "look_wide" }
                             Toggle { label: qsTr("Floating search with quick filters"); settingKey: "look_search" }
-                            Toggle { label: qsTr("Sidebar in the game's colour, with what is running or downloading at its foot"); settingKey: "look_sidebar" }
+                            Toggle { label: qsTr("Sidebar in the game's colour"); settingKey: "look_sidebar" }
                             Toggle { label: qsTr("Covers open up into a wide card with art, trailer and Play"); settingKey: "look_expand" }
                             Toggle { label: qsTr("Covers shimmer while their art loads"); settingKey: "look_skeleton" }
                             Toggle { label: qsTr("Play turns into a ring while the game starts"); settingKey: "look_playring" }
@@ -8434,20 +8526,29 @@ ApplicationWindow {
             // (detail.x reads 0 until the page has opened: it always sits right of the sidebar)
             return Qt.rect(sidebar.width + detail.leftPadding, detail.topPadding - detailFlick.contentY, 220, 320)
         }
-        function from(key, card) {
+        // inset: a grid card's cover sits 8 px inside it; any other cover (Continue playing) is the item.
+        property var fromItem: null
+        property int fromInset: 8
+        function from(key, card, inset) {
             if (!on || !card) return
-            const r = card.mapToItem(null, 8, 8, card.width - 16, card.height - 16)
-            gridRect = r; flyer.key = key
+            fromInset = inset === undefined ? 8 : inset
+            const r = card.mapToItem(null, fromInset, fromInset, card.width - 2 * fromInset, card.height - 2 * fromInset)
+            gridRect = r; flyer.key = key; fromItem = card
             covers = app.game(key).covers || []
-            fromRadius = card.cornerRadius
+            fromRadius = card.cornerRadius || 14
             fly(r, pageRect(), true)
         }
         function back() {
             if (!on || !key || key !== win.selectedKey) return
-            const card = grid.itemAtIndex(grid.currentIndex)
-            if (!card || card.key !== key) return
-            const r = card.mapToItem(null, 8, 8, card.width - 16, card.height - 16)
-            if (r.y + r.height < 0 || r.y > win.height) return  // scrolled out of sight
+            // Back where it came from: the same cover if it is still there, else the grid's card.
+            let card = fromItem, inset = fromInset
+            try { if (!card || !card.visible || !card.parent) card = null } catch (e) { card = null }
+            if (!card) {
+                card = grid.itemAtIndex(grid.currentIndex); inset = 8
+                if (!card || card.key !== key) return
+            }
+            const r = card.mapToItem(null, inset, inset, card.width - 2 * inset, card.height - 2 * inset)
+            if (r.y + r.height < 0 || r.y > win.height || r.width <= 0) return  // scrolled out of sight
             fly(pageRect(), r, false)
         }
         function fly(a, b, opening) {

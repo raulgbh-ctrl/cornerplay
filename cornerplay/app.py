@@ -4247,8 +4247,12 @@ class AioLaunch(QObject):
             out.append({"id": sid, "name": name, "count": sum(1 for g in groups if test(g))})
         add("playing", _t("Continue playing"), lambda g: self.model.group_value(g, "lastPlayed") > 0)
         because = self._because()
-        if because:
-            add("because", _t("Because you played %1").replace("%1", because["title"]), lambda g: self._because_has(g, because))
+        # One match looks random (a lone Terraria after Elden Ring): the row needs two, and says
+        # what they share.
+        if because and sum(1 for g in groups if self._because_has(g, because)) >= 2:
+            why = " · ".join(sorted(because["genres"])[:2])
+            add("because", _t("Because you played %1").replace("%1", because["title"]) + (f"  ·  {why}" if why else ""),
+                lambda g: self._because_has(g, because))
         add("news", _t("News from your games"), _has_news)
         add("s:playing", _t("Playing"), lambda g: shelves.meta(g, "status") == "playing")
         add("fav", _t("Favourites"), lambda g: shelves.in_group(g, shelves.FAV))

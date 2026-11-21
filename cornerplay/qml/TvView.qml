@@ -659,10 +659,13 @@ FocusScope {
                     visible: text !== ""
                     color: theme.onSurfaceVariant
                     font.pixelSize: 19
+                    textFormat: Text.StyledText
                     text: {
                         if (!tv.cur.key) return ""
                         const stores = tv.cur.copies.length ? tv.cur.copies.map(c => c.storeName).join(", ") : tv.cur.storeName
-                        const state = tv.cur.job ? "" : !tv.cur.installed ? qsTr("Not installed") : tv.cur.update ? qsTr("Update available") : ""
+                        // an update in its green, as on the covers and the desktop
+                        const state = tv.cur.job ? "" : !tv.cur.installed ? qsTr("Not installed")
+                                    : tv.cur.update ? "<font color='#3fb27f'>" + qsTr("Update available") + "</font>" : ""
                         const played = app.playedText(tv.cur.playtime, tv.cur.lastPlayed)
                         return [stores, state, tv.cur.playtime ? played : ""].filter(t => !!t).join("   \u00B7   ")
                     }
@@ -788,6 +791,7 @@ FocusScope {
                 showBadge: false      // the focused game's store and ProtonDB rating are shown above the row
                 showProtonDb: false
                 showTitle: false
+                focusScale: 1.07
                 dim: app.settingsMap.dim_uninstalled
                 current: GridView.isCurrentItem && !libBtn.activeFocus
                 // Pointing at a cover focuses it, so its artwork fills the screen.
@@ -819,13 +823,15 @@ FocusScope {
                         }
                     }
                 }
-                // Arcade Night: a neon glow in the game's colour around the cover in focus.
+                // A glow in the game's own colour around the cover in focus (Arcade Night: a neon one).
                 RectangularShadow {
                     z: -1
-                    visible: tv.skin === "arcade" && tvCard.current && GraphicsInfo.api !== GraphicsInfo.Software
+                    visible: tvCard.current && GraphicsInfo.api !== GraphicsInfo.Software && tv.skin !== "gallery"
                     anchors.fill: parent; anchors.margins: 8
-                    radius: app.settingsMap.card_radius; blur: 40; spread: 6
-                    color: Qt.alpha(tv.accent, 0.85)
+                    scale: tvCard.focusScale
+                    radius: app.settingsMap.card_radius
+                    blur: tv.skin === "arcade" ? 40 : 28; spread: tv.skin === "arcade" ? 6 : 2
+                    color: Qt.alpha(tv.accent, tv.skin === "arcade" ? 0.85 : 0.5)
                 }
                 // The focused game's animated cover, over its still one.
                 RoundedArt {

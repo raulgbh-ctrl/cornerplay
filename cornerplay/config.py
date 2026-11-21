@@ -97,7 +97,7 @@ DEFAULTS = {
     "look_search": False,    # a floating search pill, with quick filters under it
     "look_sidebar": False,   # the sidebar's selection in the game's colour, and what is running or downloading at its foot
     "look_expand": False,    # resting on a cover opens it into a wide card with art, trailer and Play
-    "look_skeleton": False,  # covers shimmer while their art loads
+    "look_skeleton": True,   # covers shimmer while their art loads (on by default: screens keep their shape)
     "look_playring": False,  # Play turns into a ring while the game starts, then a tick
     "look_aurora": False,    # three colours from the game's cover drift behind the library like an aurora
     "look_pagetabs": True,   # a game's page: section tabs, a slim header that stays when you scroll, a playtime chart
