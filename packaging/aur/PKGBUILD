@@ -1,6 +1,6 @@
 # Maintainer: raulgbh-ctrl <https://github.com/raulgbh-ctrl>
 pkgname=cornerplay
-pkgver=0.18.6
+pkgver=0.19.0
 pkgrel=1
 pkgdesc="Your cosy corner for every game you own: Steam, Epic, GOG, Amazon, Battle.net and Humble Bundle in one library, with a TV mode"
 arch=('any')
@@ -19,7 +19,7 @@ optdepends=(
   'legendary: Epic Games (otherwise Cornerplay downloads its own copy)'
 )
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('0cded8d4c8392ee0f4c4f18d6da70e97423e1d66c9c37f34128493cb1d23ac23')
+sha256sums=('65ede91f5d869422966d9d165fd273055e35d7c556fbf0793b74a2d3ac544afa')
 
 package() {
   cd "$pkgname-$pkgver"
