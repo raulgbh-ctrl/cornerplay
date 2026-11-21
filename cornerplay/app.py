@@ -2250,7 +2250,7 @@ class AioLaunch(QObject):
     def _load_epic_free(self, force=False):
         def work():
             games = epicfree.get(force)
-            return lambda: (setattr(self, "_epic_free", games), self.epicFreeChanged.emit())
+            return lambda: (setattr(self, "_epic_free", games), self.epicFreeChanged.emit(), self._epic_free_remind())
         self._bg(work)
 
     def _epic_free_info(self, home=True):
@@ -2264,9 +2264,22 @@ class AioLaunch(QObject):
                 continue  # the offer ran out since the list was fetched
             live = g["now"] or (g.get("start") and g["start"] <= now)
             when = g["end"] if live else g.get("start", 0)
-            out.append(dict(g, now=bool(live), owned=covers.norm(g["title"]) in owned,
+            mine = covers.norm(g["title"]) in owned
+            out.append(dict(g, now=bool(live), owned=mine, page=g.get("url", ""),
+                            # free now and not claimed: Get goes straight to Epic's checkout (one click)
+                            url=g.get("checkout") if live and not mine and g.get("checkout") else g.get("url", ""),
                             when=_short_date(when) if when else ""))
         return out
+
+    def _epic_free_remind(self):
+        """Once per game: a free Epic game you have not claimed ends within a day."""
+        if self.demo or not self.stores["epic"].logged_in():
+            return
+        owned = {epicfree._norm(g.title) for g in self.model.games if g.store == "epic"}
+        if not owned:
+            return  # the Epic library has not come in yet: every game would look unclaimed
+        for g in epicfree.due_reminders(self._epic_free, owned):
+            self.toast.emit(f"{g['title']} is free on Epic until {_short_date(g['end'])}. Get it from Home or the Store page.")
 
     epicFree = Property("QVariantList", _epic_free_info, notify=epicFreeChanged)
     epicFreeAll = Property("QVariantList", lambda s: s._epic_free_info(False), notify=epicFreeChanged)  # the Store page
@@ -3175,6 +3188,7 @@ class AioLaunch(QObject):
             shelves.note(store_id, [g.key for g in games])
         if store_id == "epic":
             self.epicFreeChanged.emit()  # "In your library" marks
+            self._epic_free_remind()
         if store_id == "steam":
             self._load_couch()
         if games is not None and self.model.replace_store(store_id, games):

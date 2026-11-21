@@ -1,7 +1,10 @@
 """Epic's free games: this week's and the next ones, from the store's public promotions feed.
 
-Epic does not let other apps claim them, so "Get" opens the game's store page (a click on
-"Get" there adds it to the account; it then shows up in Cornerplay on the next refresh).
+Epic does not let other apps claim them (its checkout has a captcha, and its terms forbid
+automated use of the store), so claiming stays one click of yours: for a game free right now,
+"Get" opens Epic's checkout for that offer straight away (store.epicgames.com/purchase), where
+"Place order" adds it to the account; it then shows up in Cornerplay on the next refresh.
+Cornerplay reminds you once when a free game you have not claimed ends within a day.
 """
 import time
 from datetime import datetime
@@ -51,6 +54,8 @@ def fetch():
             continue
         images = {i.get("type"): i.get("url") for i in e.get("keyImages") or []}
         slug = _slug(e)
+        checkout = (f"https://store.epicgames.com/purchase?offers=1-{e['namespace']}-{e['id']}"
+                    if now and e.get("namespace") and e.get("id") else "")
         out.append({
             "title": (e.get("title") or "").strip(),
             "url": f"https://store.epicgames.com/p/{slug}" if slug else "https://store.epicgames.com/free-games",
@@ -58,6 +63,7 @@ def fetch():
             "wide": images.get("OfferImageWide") or images.get("featuredMedia") or "",
             "start": _stamp(offer.get("startDate")), "end": _stamp(offer.get("endDate")),
             "now": bool(now),
+            "checkout": checkout,
         })
     out.sort(key=lambda g: (not g["now"], g["start"]))
     return out
@@ -100,3 +106,21 @@ def giveaway(title, arrived):
     seen = {_norm(t): w for t, w in (read_json(HISTORY) or {}).items()}
     start, end = seen.get(_norm(title)) or (0, 0)
     return bool(start) and start - 86400 <= arrived <= end + 7 * 86400  # a refresh can come days later
+
+
+REMINDED = CACHE_DIR / "epic_free_reminded.json"  # {title: end} already reminded about
+SOON = 24 * 3600
+
+
+def due_reminders(games, owned, now=None):
+    """Free-now games not claimed yet that end within a day and were not reminded about.
+    owned: normalised titles in the Epic library. Marks the returned ones as reminded."""
+    now = now or time.time()
+    done = read_json(REMINDED) or {}
+    due = [g for g in games
+           if g.get("now") and g.get("end") and now < g["end"] <= now + SOON
+           and _norm(g["title"]) not in owned and done.get(g["title"]) != g["end"]]
+    if due:
+        done.update({g["title"]: g["end"] for g in due})
+        write_json(REMINDED, {t: e for t, e in done.items() if e > now - 30 * 86400})
+    return due
