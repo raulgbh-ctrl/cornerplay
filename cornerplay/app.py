@@ -23,7 +23,7 @@ from . import __version__
 from .config import CACHE_DIR, CONFIG_DIR as CONFIG_DIR_STREAM, DATA_DIR as DATA_DIR_STREAM, DEFAULTS, LANGUAGES, LOG_DIR, game_options, read_json, settings, write_json
 from .net import redact
 from .runner import StoreError
-from .stores.base import Command, Game, PartialResult, run as store_run
+from .stores.base import Command, Game, PartialResult, drop_side_builds, run as store_run
 from .stores import battlenet
 from .stores.battlenet import LAUNCHER_COVER
 from .stores import custom as custom_games
@@ -3013,6 +3013,10 @@ class AioLaunch(QObject):
         except Exception as e:
             error = f"{store.name}: {type(e).__name__}: {e}"
         error = redact(error)
+        if games and store.id != "custom":  # test servers, betas, soundtracks listed as games
+            kept = {i: g for i, g in enumerate(games)}
+            drop_side_builds(kept)
+            games = list(kept.values())
         if games:
             try:
                 error = error or covers.fill(games)

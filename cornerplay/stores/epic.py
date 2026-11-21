@@ -88,6 +88,9 @@ class Epic(Store):
             for g in listing:
                 if not g.get("asset_infos"):
                     continue  # third-party-store titles legendary cannot install
+                cats = {c.get("path") for c in (g.get("metadata") or {}).get("categories") or [] if isinstance(c, dict)}
+                if "digitalextras" in cats and not installed.get(g["app_name"]):
+                    continue  # soundtracks, art books, wallpapers (Death Stranding Content)
                 app = g["app_name"]
                 tall, wide, hero, logo = _images(g.get("metadata") or {})
                 inst = installed.get(app)

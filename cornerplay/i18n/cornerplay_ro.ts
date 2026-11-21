@@ -2743,8 +2743,8 @@
     </message>
     <message>
         <location filename="../qml/Main.qml" line="6134"/>
-        <source>Showing installed games and games you have played. For every game you own, </source>
-        <translation>Se arată jocurile instalate și cele jucate. Pentru toate jocurile deținute, </translation>
+        <source>Showing the games installed on this PC. For every game on your account, </source>
+        <translation>Se arată jocurile instalate pe acest PC. Pentru toate jocurile din contul tău, </translation>
     </message>
     <message>
         <location filename="../qml/Main.qml" line="6143"/>

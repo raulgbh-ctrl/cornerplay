@@ -9,7 +9,7 @@ from .. import host, pkgs
 from .. import vdf
 import json
 
-from ..config import CACHE_DIR, HOME, read_json, settings, write_json
+from ..config import HOME, settings
 from ..runner import StoreError
 from .base import Command, Game, PartialResult, Store
 
@@ -26,7 +26,6 @@ ROOTS = [
 TOOL_IDS = {"228980", "1070560", "1391110", "1628350", "1493710"}
 TOOL_PREFIXES = ("Proton ", "Steam Linux Runtime", "Steamworks Common", "Steam Controller Configs")
 CDN = "https://cdn.cloudflare.steamstatic.com/steam/apps"
-NAMES_FILE = CACHE_DIR / "steam_names.json"  # appid -> name ("" = not a game: tools, runtimes)
 
 
 class Steam(Store):
@@ -157,12 +156,13 @@ class Steam(Store):
                 games[appid].extra["dlc_installed"] = sorted(
                     {d["dlcappid"] for d in depots.values() if isinstance(d, dict) and d.get("dlcappid")})
 
-        # Owned-but-not-installed games need the Web API (optional key in Settings). Without
-        # a key, the games this account has played (on any PC) are listed from Steam's own files.
+        # Owned-but-not-installed games come only from the account itself, through the Web
+        # API (optional key in Settings). Steam's local caches are not used for this: appinfo.vdf
+        # also names every store page, wishlisted or friend's game the client has looked at,
+        # and packageinfo.vdf keeps giveaways that were never claimed, so they listed games
+        # the account does not own.
         key = settings.get("steam_api_key").strip()
         steamid = settings.get("steam_id").strip() or self._recent_user()[0]
-        if not key:
-            self._add_library(games, steamid)
         if key and steamid:
             try:
                 r = requests.get(
@@ -174,8 +174,8 @@ class Steam(Store):
                 r.raise_for_status()
                 for g in r.json().get("response", {}).get("games", []):
                     appid = str(g["appid"])
-                    if appid not in games and appid not in TOOL_IDS:
-                        games[appid] = self._game(appid, g.get("name") or f"App {appid}")
+                    if appid not in games and appid not in TOOL_IDS and g.get("name"):
+                        games[appid] = self._game(appid, g["name"])
             except (requests.RequestException, ValueError) as e:
                 self._add_playtime(games)
                 self._mark_hidden(games, steamid)
@@ -208,53 +208,6 @@ class Steam(Store):
         for appid, g in games.items():
             if appid in hidden:
                 g.extra["steam_hidden"] = True
-
-    def _local_apps(self, steamid):
-        """The "apps" section of the account's localconfig.vdf (every app it has run, with playtime)."""
-        root = self.root()
-        try:
-            account = int(steamid) - 76561197960265728
-        except (TypeError, ValueError):
-            return {}
-        if not root:
-            return {}
-        node = vdf.load(root / "userdata" / str(account) / "config" / "localconfig.vdf")
-        for name in ("UserLocalConfigStore", "Software", "Valve", "Steam", "apps"):
-            node = next((v for k, v in node.items() if k.lower() == name.lower() and isinstance(v, dict)), {})
-        return node
-
-    def _add_library(self, games, steamid):
-        """The Library tab's games, without a Web API key: every app Steam's own cache
-        (appinfo.vdf) has as a "game" for this account. Falls back to the played games when
-        that cache cannot be read."""
-        from .. import steamappinfo
-        known = steamappinfo.apps(self.root()) if self.root() else {}
-        if not known:
-            self._add_played(games, steamid)
-            return
-        lent = steamappinfo.free_weekend_only(self.root())  # free weekends long over (Black Ops III, DayZ)
-        for appid, app in known.items():
-            if app.get("type") != "game" or not app.get("name") or appid in games or appid in TOOL_IDS or appid in lent:
-                continue
-            main = app.get("variant_of", "")
-            if main and (known.get(main) or {}).get("type") == "game":
-                continue  # a regional edition of a game that is listed already (Borderlands 2 RU)
-            games[appid] = self._game(appid, app["name"])
-
-    def _add_played(self, games, steamid):
-        """Games this account has played, though not installed here: listed without a Web API key."""
-        played = []
-        for appid, app in self._local_apps(steamid).items():
-            if appid in games or appid in TOOL_IDS or not isinstance(app, dict):
-                continue
-            try:
-                if int(app.get("Playtime", 0) or 0) > 0 or int(app.get("LastPlayed", 0) or 0) > 0:
-                    played.append(appid)
-            except ValueError:
-                pass
-        for appid, name in _names(played).items():
-            if name:
-                games[appid] = self._game(appid, name)
 
     def _add_playtime(self, games):
         """Steam's own playtime record (localconfig.vdf of the signed-in account)."""
@@ -329,27 +282,3 @@ def _price(p):
     cur = p.get("currency", "")
     text = f"{CURRENCY.get(cur, '')}{final:.2f}" + ("" if cur in CURRENCY else f" {cur}")
     return text + (f" (-{p['discount_percent']}%)" if p.get("discount_percent") else "")
-
-
-def _names(appids):
-    """{appid: store name, or "" for things that are not games}. From Steam's store, 50 per
-    request, remembered in steam_names.json (names do not change)."""
-    cache = read_json(NAMES_FILE) or {}
-    todo = [a for a in appids if a not in cache and str(a).isdigit()]
-    for i in range(0, len(todo), 50):
-        chunk = todo[i:i + 50]
-        query = {"ids": [{"appid": int(a)} for a in chunk],
-                 "context": {"country_code": "US", "language": "english"}, "data_request": {}}
-        try:
-            r = requests.get("https://api.steampowered.com/IStoreBrowseService/GetItems/v1",
-                             params={"input_json": json.dumps(query)}, timeout=20)
-            items = r.json().get("response", {}).get("store_items") or []
-        except (requests.RequestException, ValueError):
-            break  # offline: try again next refresh
-        got = {str(it.get("appid")): it.get("name", "") for it in items
-               if it.get("success") == 1 and it.get("type") == 0}
-        for a in chunk:
-            cache[a] = got.get(a, "")
-    if todo:
-        write_json(NAMES_FILE, cache)
-    return {a: cache.get(a, "") for a in appids}

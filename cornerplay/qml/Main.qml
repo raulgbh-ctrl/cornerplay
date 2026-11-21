@@ -6131,7 +6131,7 @@ ApplicationWindow {
                                 font.pixelSize: 11
                                 color: theme.outline
                                 linkColor: theme.primary
-                                text: qsTr("Showing installed games and games you have played. For every game you own, ")
+                                text: qsTr("Showing the games installed on this PC. For every game on your account, ")
                                       + "<a href=\"key\">add a Steam Web API key</a>."
                                 onLinkActivated: { accounts.close(); prefs.tab = 3; prefs.open() }
                                 HoverHandler { cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor }

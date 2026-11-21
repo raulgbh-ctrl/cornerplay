@@ -1,4 +1,5 @@
 """Common shape of a store backend."""
+import re
 import subprocess
 from dataclasses import dataclass, field, asdict
 
@@ -121,3 +122,37 @@ def run(argv, timeout=120, env=None) -> subprocess.CompletedProcess:
         raise StoreError(f"{argv[0].rsplit('/', 1)[-1]} timed out")
     except OSError as e:
         raise StoreError(str(e))
+
+
+# Side builds a store lists next to the real game: test servers, betas, playtests, demos.
+_SIDE = re.compile(r"""(?:[\s:\-\u2013\u2014(]+|(?<=[a-z0-9])(?=[A-Z]))(?:
+      public\s+test(?:ing|\s+server|\s+branch|\s+client)?
+    | test\s+(?:server|branch|client|realm)
+    | experimental(?:\s+server|\s+branch)?
+    | (?:public\s+|tech\s+|open\s+|closed\s+)?beta(?:\s+client|\s+branch|\s+test)?
+    | playtest | demo | pts
+    )\)?\s*$""", re.I | re.X)
+# Things sold as items that are not games: soundtracks, art books, wallpapers.
+_EXTRA = re.compile(r"(?:\bsoundtrack|\bost|\bart\s*book|\bwallpapers?)\s*$", re.I)
+
+
+def _norm(title):
+    return re.sub(r"[^a-z0-9]", "", title.lower())
+
+
+def side_build_of(title, others):
+    """True when title is a test server, beta, playtest or demo of a game among others
+    ("PUBG: Test Server" next to "PUBG: BATTLEGROUNDS", "KillingFloor2Beta")."""
+    m = _SIDE.search(title)
+    if not m:
+        return False
+    base = _norm(title[:m.start()])
+    return len(base) >= 3 and any(o != title and not _SIDE.search(o) and _norm(o).startswith(base) for o in others)
+
+
+def drop_side_builds(games):
+    """Remove side builds and non-game extras from {id: Game} in place."""
+    titles = [g.title for g in games.values()]
+    for key in [k for k, g in games.items()
+                if not g.installed and (_EXTRA.search(g.title) or side_build_of(g.title, titles))]:
+        del games[key]
