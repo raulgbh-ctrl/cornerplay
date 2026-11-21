@@ -159,13 +159,63 @@ def latest(force=False):
             "sha256": cached.get("sha256", ""), "kind": "flatpak" if bundle else "run"}
 
 
-def download(asset, sha256=""):
-    """Fetch the installer and check it is the file GitHub published (its SHA-256, which GitHub
-    lists for each release file). Only this project's own release downloads are fetched."""
+# Releases from 0.19.1 on are signed with the project's own key (ssh-keygen -Y sign), kept off
+# GitHub: a release file is installed only when its .sig matches this public key, so a GitHub
+# account or release page taken over cannot ship an update. The SHA-256 GitHub lists is checked too.
+SIGNER = "cornerplay-release"
+PUBLIC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDAZPt3vmpJOzn8rfES7yCq7XXRi80NcY9+K2ygLw74S"
+SIGNED_FROM = (0, 19, 1)
+
+
+def _ssh_keygen():
+    import shutil
+    if shutil.which("ssh-keygen"):
+        return ["ssh-keygen"]
+    if host.IN_FLATPAK:
+        return host.argv(["ssh-keygen"])
+    return None
+
+
+def verify_signature(path, sig_path, keygen=None) -> bool:
+    """True when sig_path is this project's signature of the file at path."""
+    import subprocess
+    import tempfile
+    keygen = keygen if keygen is not None else _ssh_keygen()
+    if not keygen:
+        raise RuntimeError("Cannot check the update's signature: install OpenSSH (ssh-keygen)")
+    with tempfile.NamedTemporaryFile("w", suffix=".signers", delete=False) as f:
+        f.write(f'{SIGNER} namespaces="{SIGNER}" {PUBLIC_KEY}\n')
+        signers = f.name
+    try:
+        with open(path, "rb") as data:
+            r = subprocess.run([*keygen, "-Y", "verify", "-f", signers, "-I", SIGNER, "-n", SIGNER, "-s", str(sig_path)],
+                               stdin=data, capture_output=True, timeout=60)
+        return r.returncode == 0
+    finally:
+        os.unlink(signers)
+
+
+def download(asset, sha256="", version=""):
+    """Fetch the installer and check it is the file this project published: GitHub's SHA-256 of
+    it, and (from 0.19.1) the project's signature. Only this project's own release downloads
+    are fetched."""
     if not asset.startswith(ASSET_PREFIX) or "/" in asset[len(ASSET_PREFIX):].split("/", 1)[-1]:
         raise RuntimeError("Not a Cornerplay release download")
     path = CACHE_DIR / os.path.basename(asset)
     download_checked(asset, path, sha256, mode=0o600)
+    if version and _ver(version) >= SIGNED_FROM:
+        sig = path.with_name(path.name + ".sig")
+        try:
+            download_checked(asset + ".sig", sig, mode=0o600)
+            ok = verify_signature(path, sig)
+        except Exception:
+            path.unlink(missing_ok=True)
+            raise
+        finally:
+            sig.unlink(missing_ok=True)
+        if not ok:
+            path.unlink(missing_ok=True)
+            raise RuntimeError("The update is not signed by Cornerplay's key, so it was not installed")
     return path
 
 

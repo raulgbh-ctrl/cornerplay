@@ -175,3 +175,49 @@ def test_synced_settings_cannot_preload_code():
                                        "args": ["--x"], "before": "rm -rf ~"}}}
     o = gamesync._clean(remote)["steam:1"]["o"]
     assert o == {"env": "DXVK_HUD=fps"}
+
+
+def test_update_signature(tmp_path, monkeypatch):
+    """Only a file signed with the project's key passes; another key, or a changed file, does not."""
+    import shutil
+    import subprocess
+    from cornerplay import updates
+    if not shutil.which("ssh-keygen"):
+        pytest.skip("no ssh-keygen")
+    keys = {}
+    for name in ("ours", "theirs"):
+        k = tmp_path / name
+        subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(k)], check=True)
+        keys[name] = k
+    monkeypatch.setattr(updates, "PUBLIC_KEY", " ".join((tmp_path / "ours.pub").read_text().split()[:2]))
+    f = tmp_path / "cornerplay.run"
+    f.write_bytes(b"#!/bin/sh\necho hi\n")
+
+    def sign(key):
+        (tmp_path / "cornerplay.run.sig").unlink(missing_ok=True)
+        subprocess.run(["ssh-keygen", "-Y", "sign", "-q", "-f", str(key), "-n", "cornerplay-release", str(f)], check=True)
+        return tmp_path / "cornerplay.run.sig"
+
+    assert updates.verify_signature(f, sign(keys["ours"]))
+    assert not updates.verify_signature(f, sign(keys["theirs"]))
+    sig = sign(keys["ours"])
+    f.write_bytes(b"#!/bin/sh\nrm -rf ~\n")
+    assert not updates.verify_signature(f, sig)
+
+
+def test_signed_releases_need_their_signature(tmp_path, monkeypatch):
+    from cornerplay import updates
+    monkeypatch.setattr(updates, "CACHE_DIR", tmp_path)
+    got = []
+
+    def fake_download(url, dest, sha256="", mode=0o644, progress=None):
+        got.append(url)
+        dest.write_bytes(b"x")
+        return str(dest)
+    monkeypatch.setattr(updates, "download_checked", fake_download)
+    monkeypatch.setattr(updates, "verify_signature", lambda p, s: False)
+    url = updates.ASSET_PREFIX + "v0.19.1/cornerplay.run"
+    with pytest.raises(RuntimeError, match="not signed"):
+        updates.download(url, "", "0.19.1")
+    assert got[-1] == url + ".sig" and not (tmp_path / "cornerplay.run").exists()
+    updates.download(updates.ASSET_PREFIX + "v0.18.6/cornerplay.run", "", "0.18.6")  # before signing began

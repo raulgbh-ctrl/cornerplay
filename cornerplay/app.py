@@ -1978,7 +1978,7 @@ class AioLaunch(QObject):
 
         def work():
             try:
-                path = updates.download(info["asset"], info.get("sha256", ""))
+                path = updates.download(info["asset"], info.get("sha256", ""), info.get("version", ""))
             except Exception as e:
                 def failed(msg=redact(e)):
                     self._updating = False
