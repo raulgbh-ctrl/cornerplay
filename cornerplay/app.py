@@ -5219,9 +5219,12 @@ class AioLaunch(QObject):
 
     @Slot(str)
     def dlcsSeen(self, key):
-        """The DLC window was opened: the game's new DLC are not new any more."""
-        if dlcfinder.seen(key):
-            self.model.touch(key)
+        """The DLC window was opened: the game's new DLC are not new any more, on every copy of it
+        (the card shows the most of its copies, so one left over would keep the badge)."""
+        g = self.model.find(key)
+        for k in [key] + ([c.key for c in self._copies(g)] if g else []):
+            if dlcfinder.seen(k):
+                self.model.touch(k)
 
     DLC_WATCH = 40          # games checked for new DLC in the background, the ones you care about most
     DLC_RECHECK = 86400     # each at most once a day

@@ -116,3 +116,14 @@ def test_cancel_drops_waiting_dlc(fx):
     A.settings  # noqa: B018 - the real settings object answers night_queue
     fx.f.cancel("epic:a")
     assert "epic:a" not in fx.f._dlc_pending
+
+
+def test_opening_the_window_clears_new_dlc_on_every_copy(monkeypatch):
+    from cornerplay import dlcfinder
+    cleared, touched = [], []
+    monkeypatch.setattr(dlcfinder, "seen", lambda k: cleared.append(k) or True)
+    games = {"epic:a": NS(key="epic:a", title="A"), "steam:a": NS(key="steam:a", title="A")}
+    f = NS(model=NS(find=games.get, touch=touched.append))
+    f._copies = lambda g: [games["steam:a"]]
+    C.dlcsSeen(f, "epic:a")
+    assert cleared == ["epic:a", "steam:a"] and touched == ["epic:a", "steam:a"]

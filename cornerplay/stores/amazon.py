@@ -105,7 +105,8 @@ class Amazon(Store):
         for entry in read_json(NILE_DIR / "library.json") or []:
             product = entry.get("product") or {}
             line, title = str(product.get("productLine") or ""), product.get("title") or ""
-            if line == "Sonic:Game" or not title or product.get("id") == game.id:
+            # Games are "Sonic:Game"; add-ons have their own line. No line at all: not known to be DLC.
+            if not line or line.startswith("Sonic:") or not title or product.get("id") == game.id:
                 continue
             if want and norm(title).startswith(want + " "):
                 detail = product.get("productDetail") or {}
