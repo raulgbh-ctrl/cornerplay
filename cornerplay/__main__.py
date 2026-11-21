@@ -269,6 +269,7 @@ def main():
                     help="install a mod from a Nexus Mods \"Mod Manager Download\" link (nxm://...)")
     ap.add_argument("--stream-display", nargs="+", metavar="start|stop",
                     help="fit the display to a Sunshine stream and back (Sunshine runs this; start takes W H FPS too)")
+    ap.add_argument("--steam-sync", action="store_true", help=argparse.SUPPRESS)  # Game Mode: restart Steam with the games added
     ap.add_argument("--demo", action="store_true", help="open with sample games (nothing is launched)")
     ap.add_argument("--check", action="store_true", help="compile every QML file and report errors, then exit")
     ap.add_argument("--fetch-umu", action="store_true", help=argparse.SUPPRESS)  # install.sh: a portable umu-launcher
@@ -308,6 +309,15 @@ def main():
         return status()
     if args.play:
         return play(args.play)
+    if args.steam_sync:
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PySide6.QtGui import QGuiApplication
+        _app = QGuiApplication(sys.argv[:1])  # artwork is drawn for games without any
+        from . import steamgames
+        from .config import LOG_DIR
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(LOG_DIR / steamgames.GAMEMODE_LOG, "a") as f:
+            return steamgames.run_helper(log=lambda m: (f.write(m + "\n"), f.flush()))
     if args.add_to_steam:
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         from PySide6.QtGui import QGuiApplication

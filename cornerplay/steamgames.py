@@ -251,3 +251,63 @@ def sync_games(games, remove_missing=True, progress=None):
         tmp.write_bytes(dumps(data))
         os.replace(tmp, f)
     return done, removed
+
+
+# --- Game Mode (SteamOS, gamescope sessions) ---------------------------------------------------
+# Steam never closes there, and Cornerplay itself runs as one of Steam's games: when Steam quits
+# it ends everything it started. So the work goes to a helper outside Steam's process tree (a
+# transient systemd user unit): it asks Steam to quit, writes shortcuts.vdf, and starts Steam
+# again if the session has not already done so.
+GAMEMODE_LOG = "gamemode-steam-sync.log"
+
+
+def candidates_from_cache():
+    """The games to have in Steam, from the library Cornerplay saved last (the helper has no window)."""
+    from .config import CACHE_DIR, game_options, read_json
+    from .stores.base import Game
+    games = [Game.from_dict(d) for d in read_json(CACHE_DIR / "library.json") or [] if isinstance(d, dict)]
+    return [g for g in games if eligible(g) and not game_options.get(g.key).get("hidden")]
+
+
+def helper_argv(exe=None) -> list:
+    """How the helper is started: a systemd user unit, so it outlives Steam (and Cornerplay)."""
+    import sys
+    if host.IN_FLATPAK:
+        cmd = ["flatpak", "run", host.APP_ID, "--steam-sync"]
+    else:
+        exe = exe or launcher_path() or sys.executable
+        cmd = [exe] + ([] if exe.endswith("cornerplay") else ["-m", "cornerplay"]) + ["--steam-sync"]
+    if shutil.which("systemd-run"):
+        return ["systemd-run", "--user", "--collect", "--quiet", "--unit", f"cornerplay-steam-sync-{os.getpid()}", *cmd]
+    return ["setsid", *cmd]
+
+
+def start_helper():
+    import subprocess
+    subprocess.Popen(host.argv(helper_argv()), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     start_new_session=True)
+
+
+def run_helper(log=print, wait_back=25, close=None, start=None, running=None):
+    """--steam-sync: quit Steam, bring its non-Steam list in line with Cornerplay, start it again."""
+    import time
+    from . import steamshortcut
+    close = close or steamshortcut.close_steam
+    start = start or steamshortcut.start_steam
+    running = running or steamshortcut.steam_running
+    games = candidates_from_cache()
+    time.sleep(1.5)  # let Cornerplay finish what it was doing
+    if not close(timeout=60):
+        log("Steam did not close; nothing changed")
+        return 1
+    try:
+        added, removed = sync_games(games)
+        log(f"Steam library updated: {added} games, {removed} removed")
+    except Exception as e:
+        log(f"Could not update Steam: {e}")
+    end = time.time() + wait_back  # a gamescope session starts Steam again by itself
+    while time.time() < end and not running():
+        time.sleep(1)
+    if not running():
+        start()
+    return 0

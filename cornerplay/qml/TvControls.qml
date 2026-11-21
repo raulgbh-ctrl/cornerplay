@@ -126,6 +126,18 @@ QtObject {
             out.push(setting(group, qsTr("Clips"), "images", "clips", qsTr("The last 30 seconds, saved from quick access")))
         out.push(setting(w, qsTr("Checks before a game"), "info", "prelaunch_checks", qsTr("Low battery, a download, no controller, a full drive")))
         out.push(setting(w, qsTr("Controller battery alerts"), "battery", "pad_battery_alerts", qsTr("At 20 %, also over a game")))
+        // Epic, GOG, Amazon and Battle.net games as Steam shortcuts with their art (Game Mode, Big Picture)
+        const sg = qsTr("In Steam")
+        const sc = app.steamShortcut || {}
+        if (sc.steam) {
+            out.push({ group: sg, label: armed === "steamgames" ? qsTr("Press again to restart Steam")
+                                         : sc.inSync ? qsTr("Refresh games in Steam") : qsTr("Add games to Steam"), icon: "library",
+                       sub: sc.gameMode ? qsTr("Steam restarts to show them (about 20 seconds)")
+                                        : qsTr("%1 of %2 installed games are in Steam").arg(sc.gamesInSteam || 0).arg(sc.games || 0),
+                       act: "steamgames" })
+            out.push(setting(sg, qsTr("Keep installed games in Steam"), "refresh-cw", "steam_games",
+                             sc.gameMode ? qsTr("Tells you when new ones are waiting") : qsTr("Whenever Steam is closed")))
+        }
         if (app.hasGamescope && !g.active)
             out.push({ group: group, kind: "choice", label: qsTr("gamescope"), icon: "monitor", cur: st.gamescope || "",
                        options: [{ v: "", t: qsTr("Off") }, { v: "fullscreen", t: qsTr("Full screen") }, { v: "fsr", t: qsTr("FSR upscaling") }],
@@ -361,6 +373,7 @@ QtObject {
         else if (row.act === "leave") leave(row.how)
         else if (row.act === "wifiscan") app.scanNetworks()
         else if (row.act === "padtest") padTest()
+        else if (row.act === "steamgames") { if (!(app.steamShortcut || {}).gameMode || arm("steamgames")) app.addGamesToSteam() }
         else if (row.act === "getvoice") app.getVoice()
         else if (row.act === "buzz") pad.buzz(80)
         else if (row.act === "wifi") {

@@ -5427,6 +5427,8 @@ class AioLaunch(QObject):
     def addGamesToSteam(self):
         """Add every installed (not hidden) Epic, GOG, Amazon and Battle.net game to Steam with artwork."""
         games = self._steam_candidates()
+        if steamshortcut.in_game_mode() and not self.demo:
+            return self._game_mode_sync(len(games))
 
         def report(n, total):
             self._after.emit(lambda: self._set_shortcut(progress=f"{n} of {total}"))
@@ -5444,16 +5446,44 @@ class AioLaunch(QObject):
         self._steam_job(lambda: f"Cornerplay is in Steam ({steamshortcut.add(theme)} account(s))",
                         "Adding Cornerplay to Steam…")
 
+    def _game_mode_sync(self, count):
+        """Game Mode: Steam has to restart to show new non-Steam games, and Cornerplay is one of
+        Steam's games, so a helper outside Steam does it (steamgames.run_helper)."""
+        write_json(LIBRARY_CACHE, [g.to_dict() for g in self.model.games])  # what the helper reads
+        try:
+            steamgames.start_helper()
+        except OSError as e:
+            self.toast.emit(f"Could not update Steam: {e}")
+            return
+        self._game_mode_asked = True
+        self.toast.emit(f"Steam restarts now to add {count} games to Game Mode (about 20 seconds). "
+                        "Open Cornerplay again from your library afterwards.")
+
     def _auto_steam(self):
-        """With the setting on: bring Steam's list in line with installed games, only while Steam is closed."""
+        """With the setting on: bring Steam's list in line with installed games while Steam is closed.
+        In Game Mode Steam never closes: say once that a restart would add the new ones."""
         if self.demo or not settings.get("steam_games") or self._shortcut.get("busy"):
             return
         games = self._steam_candidates()
+        game_mode = steamshortcut.in_game_mode()
 
         def work():
-            if steamshortcut.steam_running() or steamshortcut.in_game_mode() or not steamshortcut.accounts():
+            if not steamshortcut.accounts():
                 return None
-            if steamgames.in_steam_keys() == {g.key for g in games}:
+            have, want = steamgames.in_steam_keys(), {g.key for g in games}
+            if have == want:
+                return None
+            if game_mode:
+                new = len(want - have)
+                if not new or getattr(self, "_game_mode_told", None) == want:
+                    return None
+
+                def tell():
+                    self._game_mode_told = want
+                    self.toast.emit(f"{new} installed games are not in Game Mode yet. Settings > Games > "
+                                    "Add games to Steam restarts Steam to add them.")
+                return tell
+            if steamshortcut.steam_running():
                 return None
             try:
                 added, removed = steamgames.sync_games(games)

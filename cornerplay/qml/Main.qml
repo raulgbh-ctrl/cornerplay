@@ -7458,14 +7458,15 @@ ApplicationWindow {
                                                       : st.games === 0 ? qsTr("No installed Epic, GOG, Amazon or Battle.net games yet.")
                                                       : st.inSync ? qsTr("All ") + st.games + qsTr(" installed games are in Steam with cover, banner, background and logo.")
                                                       : st.gamesInSteam + " of " + st.games + qsTr(" installed games are in Steam. Adding them gives each its cover, banner, background and logo in Game Mode.")
-                                                        + (st.running ? qsTr(" Steam is closed and reopened to do this.") : "")
+                                                        + (st.gameMode ? qsTr(" Steam restarts to do this (about 20 seconds).")
+                                                           : st.running ? qsTr(" Steam is closed and reopened to do this.") : "")
                                             }
                                         }
                                         KButton {
                                             theme: win.theme
                                             readonly property var st: parent.parent.parent.st
                                             primary: !st.inSync
-                                            enabled: !st.busy && st.accounts > 0 && st.games > 0 && !st.gameMode
+                                            enabled: !st.busy && st.accounts > 0 && st.games > 0
                                             text: st.inSync ? qsTr("Refresh in Steam") : qsTr("Add games to Steam")
                                             onClicked: app.addGamesToSteam()
                                         }
@@ -7476,7 +7477,7 @@ ApplicationWindow {
                                         wrapMode: Text.WordWrap
                                         font.pixelSize: 11
                                         color: theme.outline
-                                        text: qsTr("Automatic adds newly installed games and removes uninstalled or hidden ones whenever Steam is closed; it never closes Steam by itself. Games bought on Steam are already there.")
+                                        text: qsTr("Automatic adds newly installed games and removes uninstalled or hidden ones whenever Steam is closed; it never closes Steam by itself (in Game Mode it tells you when new games are waiting). Games bought on Steam are already there.")
                                     }
                                     Rectangle { Layout.fillWidth: true; height: 1; color: theme.outlineVariant }
                                     RowLayout {
