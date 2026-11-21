@@ -167,6 +167,9 @@ class Epic(Store):
                          "canInstall": status == "owned" and game.installed})
         return rows
 
+    def changed(self):
+        self._inst_cache = (0.0, {})
+
     def install_dlc(self, game, dlc_id):
         self._inst_cache = (0.0, {})  # it changes now
         if not game.installed:

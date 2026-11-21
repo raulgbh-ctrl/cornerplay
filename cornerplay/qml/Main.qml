@@ -5898,7 +5898,20 @@ ApplicationWindow {
         property string note: ""
         property bool loading: false
         property string error: ""
-        property bool busy: false   // a DLC install for this game is running
+        // The copies these DLC go into: this game, and your copies of it on other stores.
+        readonly property var copyKeys: {
+            const out = [key]
+            for (const r of rows) if (r.gameKey && out.indexOf(r.gameKey) === -1) out.push(r.gameKey)
+            return out
+        }
+        property int tick: 0        // bumped when a copy's job changes: re-reads who is busy
+        readonly property var busyKeys: { tick; return copyKeys.filter(k => app.dlcBusy(k)) }
+        readonly property bool busy: busyKeys.length > 0   // a DLC install runs or waits on one of them
+        function copyOf(r) { return r.gameKey || key }
+        function installRows(list) {
+            app.installDlcs(list.map(r => ({ key: copyOf(r), id: r.id })))
+            tick++
+        }
         property string storeFilter: ""   // "" = every store
         property bool searching: false     // your own stores' lists are in; the others still coming
         // All stores: one row per DLC (the same DLC on several stores is one row with each store's
@@ -5918,7 +5931,6 @@ ApplicationWindow {
         function show(k, title) {
             key = k; rows = []; note = ""; error = ""; loading = true; storeFilter = ""; searching = false
             dlcList.tallest = 0
-            busy = app.game(k).job === "dlc"
             heading = qsTr("DLC · ") + title
             open()
             app.loadDlcs(k)
@@ -5936,7 +5948,11 @@ ApplicationWindow {
             function onDlcsSearching(key, on) { if (key === dlc.key) dlc.searching = on }
             function onGameChanged(key) {
                 // the DLC install finished: show the new state
-                if (key === dlc.key && dlc.busy && app.game(key).job !== "dlc") { dlc.busy = false; app.loadDlcs(key, true) }
+                if (dlc.copyKeys.indexOf(key) === -1) return
+                const was = dlc.busyKeys.indexOf(key) !== -1
+                dlc.tick++
+                // a DLC install on one of the copies finished: show the new state
+                if (was && !app.dlcBusy(key) && dlc.opened) app.loadDlcs(dlc.key, true)
             }
         }
         contentItem: ColumnLayout {
@@ -5998,16 +6014,18 @@ ApplicationWindow {
                 theme: win.theme
                 primary: true
                 iconName: "download"
-                visible: !dlc.busy && dlc.rows.filter(r => r.canInstall).length > 1
+                visible: !dlc.busy && dlc.shown.filter(r => r.canInstall).length > 1
                 text: qsTr("Install all owned DLC")
-                onClicked: { const r = dlc.rows.find(r => r.canInstall); if (r) { dlc.busy = true; app.installDlc(dlc.key, r.id) } }
+                onClicked: dlc.installRows(dlc.shown.filter(r => r.canInstall))
             }
             Text {
                 visible: dlc.busy
                 color: theme.primary
                 font.pixelSize: 13
                 font.weight: Font.DemiBold
-                text: qsTr("Installing DLC… ") + (win.selected.job === "dlc" && win.selected.progress >= 0 ? Math.floor(win.selected.progress) + "%" : "")
+                readonly property var g: { dlc.tick; return dlc.busyKeys.length ? app.game(dlc.busyKeys[0]) : ({}) }
+                text: qsTr("Installing DLC… ") + (g.key && g.key !== dlc.key ? qsTr("into your %1 copy ").arg(g.storeName) : "")
+                      + (g.job === "dlc" && g.progress >= 0 ? Math.floor(g.progress) + "%" : g.job === "queued" ? qsTr("(waiting for the current download)") : "")
             }
             ListView {
                 id: dlcList
@@ -6173,8 +6191,9 @@ ApplicationWindow {
                             primary: true
                             iconName: "download"
                             visible: !!dlcRow.modelData.canInstall && !dlc.busy
-                            text: qsTr("Install")
-                            onClicked: { dlc.busy = true; app.installDlc(dlc.key, dlcRow.modelData.id) }
+                            // a DLC of your copy on another store goes into that copy
+                            text: dlc.copyOf(dlcRow.modelData) !== dlc.key ? qsTr("Install (%1 copy)").arg(dlcRow.modelData.storeName) : qsTr("Install")
+                            onClicked: dlc.installRows([dlcRow.modelData])
                         }
                         KButton {
                             theme: win.theme

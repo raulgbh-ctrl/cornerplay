@@ -90,6 +90,9 @@ class Store:
         {"id", "title", "status": installed|owned|available, "url", "image", "price", "canInstall"}."""
         return None
 
+    def changed(self):
+        """Something was installed or removed: forget short-lived caches of what is on disk."""
+
     def install_dlc(self, game: Game, dlc_id: str) -> Command:
         """Install one owned DLC of an installed game."""
         raise StoreError("Installing DLC is not supported for this store")

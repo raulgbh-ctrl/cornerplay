@@ -5153,7 +5153,7 @@ class AioLaunch(QObject):
         except StoreError as e:
             own, error = [], str(e)
         for r in own:
-            r.update(store=g.store, storeName=store.name)
+            r.update(store=g.store, storeName=store.name, gameKey=g.key)
         mine = set()  # stores where you own it: their own list says what you own and have installed
         for c in [] if self.demo else self._copies(g):
             if c.store in mine:
@@ -5164,8 +5164,8 @@ class AioLaunch(QObject):
                 continue
             if got is not None:
                 mine.add(c.store)
-                # installing goes through that copy's own page (it is another game in the library)
-                own += [dict(r, store=c.store, storeName=self.stores[c.store].name, canInstall=False) for r in got]
+                # gameKey: Install puts the DLC into that copy (installDlcs checks it again first)
+                own += [dict(r, store=c.store, storeName=self.stores[c.store].name, gameKey=c.key) for r in got]
         if first is not None:
             first(dlcfinder.group([dict(r) for r in own], g.title))
         # then the same game's DLC on the other stores (Steam, GOG, Epic), each sold there
@@ -5274,29 +5274,97 @@ class AioLaunch(QObject):
             return finish
         self._bg(work)
 
+    _dlc_pending = {}  # copy key -> DLC ids still to install after the running/queued one
+
     @Slot(str, str)
     def installDlc(self, key, dlc_id):
-        """Install one owned DLC; it runs as a job on the game, with progress like an install."""
-        g, store = self._guard(key)
-        if not g or key in self.procs:
+        """Install one owned DLC into the copy `key` (the game's own, or your copy of it on another
+        store); it runs as a job on that copy, with progress like an install."""
+        self.installDlcs([{"key": key, "id": dlc_id}])
+
+    @Slot("QVariantList")
+    def installDlcs(self, items):
+        """Install owned DLC: [{"key": copy key, "id": DLC id}]. Each copy installs its DLC one
+        after another (GOG fetches all owned DLC in one go); a DLC asked for while that copy is
+        busy waits its turn. Everything is checked again here, as the window may be stale."""
+        want = {}
+        for it in items or []:
+            k, i = str((it or {}).get("key") or ""), str((it or {}).get("id") or "")
+            if k and i and i not in want.setdefault(k, []):
+                want[k].append(i)
+        for key, ids in want.items():
+            g, store = self._guard(key)
+            if not g:
+                continue
+            if not g.installed:
+                self.toast.emit(f"Install {g.title} on {store.name} first, then its DLC")
+                continue
+            if store.id == "gog":
+                ids = ids[:1]  # one update with --with-dlcs brings every owned DLC
+            pending = self._dlc_pending.setdefault(key, [])
+            if store.id == "gog" and pending:
+                continue  # already coming: it brings this one too
+            pending += [i for i in ids if i not in pending]
+            if key in self.procs or key in self.model.jobs or key in self._paused:  # after what runs or waits now
+                self.toast.emit(f"{g.title}: the DLC install starts when the current job finishes")
+                self._touch(key)
+                continue
+            self._dlc_next(key)
+
+    def _dlc_next(self, key):
+        """Start the next waiting DLC install of a copy, if it can run now."""
+        ids = self._dlc_pending.get(key) or []
+        if not ids:
+            self._dlc_pending.pop(key, None)
             return
+        if key in self.procs or key in self.model.jobs or key in self._paused:
+            return  # busy: _job_done calls again
+        g, store = self.model.find(key), None
+        if g:
+            store = self.stores.get(g.store)
+        if not g or not store or not g.installed:
+            self._dlc_pending.pop(key, None)  # gone or uninstalled meanwhile: nothing to put DLC into
+            return
+        dlc_id = ids.pop(0)
         try:
             with runner.using(self._options_for(g)):
                 cmd = store.install_dlc(g, dlc_id)
         except StoreError as e:
+            self._dlc_pending.pop(key, None)
             self.toast.emit(str(e))
+            self._touch(key)
             return
-        self._dlc_cache.pop(key, None)
+        self._forget_dlcs(key)
         self._start_job(g, "dlc", cmd)
+
+    @Slot(str, result=bool)
+    def dlcBusy(self, key):
+        """A DLC install runs, waits in line or waits its turn on this copy."""
+        job = (self.model.jobs.get(key) or {}).get("kind")
+        return job == "dlc" or bool(self._dlc_pending.get(key)) or any(
+            q[0].key == key and q[1] == "dlc" for q in self._queue)
+
+    def _forget_dlcs(self, key):
+        """Drop every DLC list that shows this copy (its own, and other copies' windows)."""
+        for k, (_t, rows) in list(self._dlc_cache.items()):
+            if k == key or any(r.get("gameKey") == key for r in rows):
+                self._dlc_cache.pop(k, None)
+        g = self.model.find(key)
+        if g and g.store in self.stores:
+            self.stores[g.store].changed()  # e.g. Epic's short-lived list of installed DLC
 
     @staticmethod
     def _demo_other_dlcs(g):
         others = [("gog", "GOG", "Digital Artbook", "€4.99"), ("epic", "Epic Games", "Expansion Pass", "€19.99 (-20%)"),
                   ("steam", "Steam", "Original Soundtrack", "€7.99"), ("gog", "GOG", "Original Soundtrack", "€6.49"),
                   ("steam", "Steam", "Expansion Pass", "€24.99")]
-        return [{"id": f"x{i}", "title": f"{g.title}: {t}", "status": "available", "image": "", "price": p,
+        rows = [{"id": f"x{i}", "title": f"{g.title}: {t}", "status": "available", "image": "", "price": p,
                  "url": "https://example.com", "canInstall": False, "store": sid, "storeName": name}
                 for i, (sid, name, t, p) in enumerate(others) if sid != g.store]
+        if g.store != "gog":  # a DLC of your GOG copy of the game: installs into that copy
+            rows.append({"id": "g9", "title": f"{g.title}: Farewell Chapter", "status": "owned", "image": "", "price": "",
+                         "url": "", "canInstall": True, "store": "gog", "storeName": "GOG", "gameKey": "gog:demo-copy"})
+        return rows
 
     @staticmethod
     def _demo_dlcs(g):
@@ -6335,6 +6403,7 @@ class AioLaunch(QObject):
 
     @Slot(str)
     def cancel(self, key):
+        self._dlc_pending.pop(key, None)  # cancelling stops the DLC waiting on this copy too
         if key in (settings.get("night_queue") or []) and key not in self.procs:
             self.installTonight(key, False)
             return
@@ -6559,14 +6628,21 @@ class AioLaunch(QObject):
             if kind in ("install", "update", "dlc"):
                 self._notify(done, "Ready to play" if kind != "dlc" else "")
             if kind in ("dlc", "update", "install"):
-                self._dlc_cache.pop(key, None)
+                self._forget_dlcs(key)
         else:
             detail = next((l for l in reversed(lines) if "error" in l.lower()), lines[-1] if lines else "")
             self.toast.emit(f"{kind.capitalize()} failed for {g.title}: {detail[-160:]}".rstrip(": "))
         p.deleteLater()
+        if kind == "uninstall" and self._dlc_pending.pop(key, None):
+            self.toast.emit(f"Not installing DLC for {g.title}: it was removed")
+        if kind == "dlc" and code != 0 and self._dlc_pending.pop(key, None):
+            self.toast.emit(f"Stopped installing DLC for {g.title}: the last one did not finish")
+        if kind == "dlc":
+            self._forget_dlcs(key)
         self._touch(key)
         self.refresh(g.store)
         QTimer.singleShot(0, self._next_in_queue)
+        QTimer.singleShot(0, lambda: self._dlc_next(key))  # the next DLC, or one that waited for this job
 
     def _touch(self, key):
         self.model.touch(key)
