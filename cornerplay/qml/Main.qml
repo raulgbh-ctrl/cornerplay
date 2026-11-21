@@ -4224,6 +4224,16 @@ ApplicationWindow {
                     iconName: "download"
                     onClicked: { if (!armed) { armed = true; return } armed = false; app.putAway(keys); storage.tidy = false }
                 }
+                // btrfs: identical Windows files shared between Proton prefixes (safety.py).
+                KButton {
+                    theme: win.theme
+                    visible: app.canCompress && !storage.tidy
+                    text: qsTr("Share prefix files")
+                    iconName: "copy"
+                    ToolTip.visible: hovered; ToolTip.delay: 400
+                    ToolTip.text: qsTr("Every Windows game has its own Proton prefix, mostly the same Windows files. Files that are exactly the same share their data on btrfs: the games see no change, the disk keeps one copy.")
+                    onClicked: app.sharePrefixFiles()
+                }
                 // btrfs: compress every installed game not played for a month (compress.py).
                 KButton {
                     theme: win.theme
@@ -4572,6 +4582,15 @@ ApplicationWindow {
                 visible: !!gameMenu.g.installed && !!gameMenu.g.installPath
                 icon: "folder-open"; text: qsTr("Open folder")
                 onPicked: { app.openFolder(gameMenu.g.installPath); gameMenu.close() }
+            }
+            // btrfs: the safety copy from before the last update goes back (safety.py).
+            MenuRow {
+                readonly property real copied: gameMenu.opened && gameMenu.g.installed ? app.updateCopyTime(gameMenu.key) : 0
+                property bool armed: false
+                visible: copied > 0 && !gameMenu.g.job
+                icon: "history"; danger: armed
+                text: armed ? qsTr("Really go back? (the update's files go)") : qsTr("Undo the last update")
+                onPicked: { if (!armed) { armed = true; return } armed = false; app.undoUpdate(gameMenu.key); gameMenu.close() }
             }
             // btrfs: rewrite the game's files compressed (compress.py); the same game plays as before.
             MenuRow {
@@ -7501,10 +7520,28 @@ ApplicationWindow {
                             Toggle { label: qsTr("MangoHud overlay"); settingKey: "mangohud" }
                             Toggle { label: qsTr("Feral GameMode"); settingKey: "gamemode" }
                             Toggle { label: qsTr("FPS counter in games"); settingKey: "show_fps" }
+                            // Linux extras: NTSYNC, the graphics card on two-card PCs, safety copies on btrfs.
+                            Toggle { visible: app.ntsyncAvailable; label: qsTr("NTSYNC for Proton games (smoother; the kernel has it)"); settingKey: "ntsync" }
+                            Toggle { visible: app.canCompress; label: qsTr("A free safety copy before a game updates (btrfs), to undo a bad update for a week"); settingKey: "update_safety" }
+                            Row2 {
+                                id: gpuRow
+                                readonly property var choices: app.gpuChoices()
+                                visible: choices.length > 0
+                                label: qsTr("Graphics card for games")
+                                hint: qsTr("This PC has two. Each game can choose its own under Options. Steam games: Steam picks.")
+                                KCombo { theme: win.theme; Layout.fillWidth: true; model: gpuRow.choices
+                                         Component.onCompleted: select(app.settingsMap.gpu || "auto")
+                                         onActivated: app.setSetting("gpu", currentValue) }
+                            }
                             Text { text: qsTr("While you play"); color: theme.onSurface; font.pixelSize: 15; font.weight: Font.DemiBold; Layout.topMargin: 6 }
                             Toggle { label: qsTr("Do not disturb (on Ryoku: its Game Mode)"); settingKey: "focus_dnd" }
                             Toggle { label: qsTr("Keep the screen on and the PC awake"); settingKey: "focus_awake" }
                             Toggle { label: qsTr("Performance power mode, back to yours after"); settingKey: "focus_power" }
+                            // sched-ext LAVD (scx.py): turning it on asks for the administrator's password once.
+                            Toggle { visible: app.schedulerAvailable
+                                     label: qsTr("Gaming CPU scheduler (LAVD), back to yours after — asks for your password once")
+                                     state: !!app.settingsMap.focus_scheduler
+                                     act: on => app.setGamingScheduler(on) }
                             Toggle { label: qsTr("Pause downloads, carry on after"); settingKey: "focus_downloads" }
                             Toggle { label: qsTr("Checks before a game (low battery, a download running, a full drive)"); settingKey: "prelaunch_checks" }
                             Toggle { label: qsTr("Tell me when a wireless controller's battery is low"); settingKey: "pad_battery_alerts" }
@@ -8129,6 +8166,7 @@ ApplicationWindow {
         property var game: ({})
         property var opts: ({})
         property var outputs: []   // the PC's sound outputs (Sound output)
+        property var gpus: []      // the graphics cards a game can use (two-card PCs)
         property var steamProton: ({ choices: [], current: "" })
         readonly property bool compat: ["epic", "gog", "amazon", "custom", "humble"].includes(game.store) || key === "battlenet:battlenet-app"
         // Runs without Proton: a GOG Linux version, or a Linux program added by hand.
@@ -8161,6 +8199,11 @@ ApplicationWindow {
             optMode.select(opts.gamemode === undefined ? "default" : opts.gamemode)
             optSaves.select(opts.cloud_saves === undefined ? "default" : opts.cloud_saves)
             optEnv.text = opts.env || ""
+            gpus = app.gpuChoices()
+            optGpu.select(opts.gpu === undefined ? "default" : opts.gpu)
+            optNtsync.select(opts.ntsync === undefined ? "default" : opts.ntsync)
+            optWayland.select(opts.wayland === undefined ? "default" : opts.wayland)
+            optDlls.text = opts.dll_overrides || ""
             optArgs.text = opts.args || ""
             optBefore.text = opts.before || ""
             optAfter.text = opts.after || ""
@@ -8350,6 +8393,40 @@ ApplicationWindow {
                         KCombo { id: optHdr; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
                                  onActivated: app.setGameOption(gameOpts.key, "gamescope_hdr", currentValue) }
                     }
+                }
+                // Linux extras (gpu.py, runner.proton_extras): graphics card, NTSYNC, Wine's Wayland driver, DLL overrides.
+                Row2 {
+                    visible: gameOpts.gpus.length > 0
+                    label: qsTr("Graphics card")
+                    hint: qsTr("On PCs with two: games run on the fast one unless you choose here. Steam games: Steam picks.")
+                    KCombo { id: optGpu; theme: win.theme; Layout.fillWidth: true
+                             model: [{ label: qsTr("Use default"), value: "default" }].concat(gameOpts.gpus)
+                             onActivated: app.setGameOption(gameOpts.key, "gpu", currentValue) }
+                }
+                RowLayout {
+                    visible: gameOpts.compat
+                    Layout.fillWidth: true
+                    spacing: 12
+                    Row2 {
+                        visible: app.ntsyncAvailable
+                        label: qsTr("NTSYNC")
+                        hint: qsTr("Smoother Windows games (the kernel does their waiting). Off only if a game misbehaves.")
+                        KCombo { id: optNtsync; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
+                                 onActivated: app.setGameOption(gameOpts.key, "ntsync", currentValue) }
+                    }
+                    Row2 {
+                        label: qsTr("Wayland (no XWayland)")
+                        hint: qsTr("Wine's own Wayland driver: can help HDR, scaling and frame pacing; some games do not like it yet.")
+                        KCombo { id: optWayland; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
+                                 onActivated: app.setGameOption(gameOpts.key, "wayland", currentValue) }
+                    }
+                }
+                Row2 {
+                    visible: gameOpts.compat
+                    label: qsTr("DLL overrides")
+                    hint: qsTr("For mods that load as a DLL, e.g. dinput8=n,b;winhttp=n,b")
+                    KField { id: optDlls; theme: win.theme; Layout.fillWidth: true; placeholderText: "dinput8=n,b"
+                             onEditingFinished: app.setGameOption(gameOpts.key, "dll_overrides", text.trim()) }
                 }
                 Row2 {
                     visible: gameOpts.compat

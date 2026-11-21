@@ -45,6 +45,11 @@ def user_env() -> dict:
     game's on top (so a hand-set SDL_GAMECONTROLLERCONFIG still wins)."""
     from . import padlayout
     env = padlayout.env(opt("pad_layout") or "")
+    from . import gpu  # which graphics card (gpu.py): the fast one by default on two-card PCs
+    card = opt("gpu") or "auto"
+    if card == "default":  # the game follows Settings
+        card = settings.get("gpu") or "auto"
+    env.update(gpu.env(card))
     sink = opt("audio_out") or ""
     if sink and sink != "default":  # this game's sound output (audioout.py)
         from . import audioout
@@ -125,7 +130,31 @@ def wine_env(store: str, game_id: str, umu_id: str = "umu-default") -> dict:
         if proton:
             env["PROTONPATH"] = os.path.expanduser(proton)
     env.update(perf_env(store, game_id))
+    env.update(proton_extras())
     env.update(user_env())
+    return env
+
+
+def ntsync_ok() -> bool:
+    """The kernel's NT synchronisation driver (Linux 6.14+): Windows games' waiting and locking
+    done in the kernel, smoother than esync/fsync. Proton uses it when told it may."""
+    return os.access("/dev/ntsync", os.R_OK | os.W_OK)
+
+
+def proton_extras() -> dict:
+    """Proton switches from Settings and the game's Options: NTSYNC (on when the kernel has it),
+    Wine's own Wayland driver (off unless asked), and DLL overrides (mods that load as a DLL)."""
+    env = {}
+    nt = opt("ntsync")
+    if nt in (None, True, "default", "on") and settings.get("ntsync", True) and ntsync_ok():
+        env["PROTON_USE_NTSYNC"] = "1"
+    elif nt in (False, "off"):
+        env["PROTON_NO_NTSYNC"] = "1"
+    if opt("wayland") in (True, "on"):
+        env["PROTON_ENABLE_WAYLAND"] = "1"
+    dlls = (opt("dll_overrides") or "").strip()
+    if dlls and re.fullmatch(r"[A-Za-z0-9_.,;=\- ]+", dlls):
+        env["WINEDLLOVERRIDES"] = dlls.replace(" ", "")
     return env
 
 

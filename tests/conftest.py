@@ -16,6 +16,14 @@ import pytest  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
+def _one_graphics_card(monkeypatch):
+    """Never this PC's real graphics cards: a two-card laptop would add DRI_PRIME to every
+    launch environment a test checks. Tests about cards pass their own (gpu.env(choice, cards))."""
+    from cornerplay import gpu
+    monkeypatch.setattr(gpu, "gpus", lambda: [])
+
+
+@pytest.fixture(autouse=True)
 def _no_real_backlight(monkeypatch, tmp_path_factory):
     """Never this PC's real screen: a stream's "start" step darkens /sys/class/backlight, and a
     test once ran it for real and turned the developer's laptop screen off."""

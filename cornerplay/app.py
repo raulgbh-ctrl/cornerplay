@@ -3240,6 +3240,9 @@ class AioLaunch(QObject):
         if not self._pending:
             QTimer.singleShot(20000, self._prefetch_details)  # after the library settles; slow, in the background
             QTimer.singleShot(45000, self._refresh_save_index)
+            from . import safety  # safety copies from before updates go after a week
+            paths = [g.install_path for g in self.model.games if g.installed and g.install_path]
+            self._sys_pool.submit(lambda: safety.prune(paths))
             if not getattr(self, "_dlc_ticking", False):
                 self._dlc_ticking = True
                 QTimer.singleShot(3 * 60 * 1000, self._dlc_tick)
@@ -5595,6 +5598,51 @@ class AioLaunch(QObject):
             from . import tvscreen
             self._sys_pool.submit(lambda: tvscreen.restore(undo))
 
+    # --- gaming CPU scheduler (scx.py) -----------------------------------------------------------
+    schedulerAvailable = Property(bool, lambda s: __import__("cornerplay.scx", fromlist=["available"]).available(), constant=True)
+
+    @Slot(bool)
+    def setGamingScheduler(self, on):
+        """Settings > Games: LAVD while playing. Turning it on the first time installs the polkit
+        rule (one password), so later switches need none."""
+        if not on:
+            self.setSetting("focus_scheduler", False)
+            return
+        if settings.get("scx_rule"):
+            self.setSetting("focus_scheduler", True)
+            return
+        from . import scx
+
+        def work():
+            err = scx.install_rule()
+
+            def done():
+                if err:
+                    self.toast.emit(f"Gaming scheduler not turned on: {err}")
+                    self.settingsChanged.emit()  # the switch flips back
+                    return
+                settings.set("scx_rule", True)
+                self.setSetting("focus_scheduler", True)
+                self.toast.emit("Gaming scheduler on: LAVD runs while you play")
+            return done
+        self._bg(work)
+
+    @Slot(result="QVariantList")
+    def gpuChoices(self):
+        """Settings / Options > Graphics card, on PCs with two: [] on single-card PCs."""
+        from . import gpu
+        cards = gpu.gpus()
+        if len(cards) < 2:
+            return []
+        out = [{"label": _t("Automatic (the fast one for games)"), "value": "auto"}]
+        for kind in ("discrete", "integrated"):
+            c = gpu.pick(kind, cards) or next((c for c in cards if c["integrated"] == (kind == "integrated")), None)
+            if c:
+                out.append({"label": gpu.label(c), "value": kind})
+        return out
+
+    ntsyncAvailable = Property(bool, lambda s: runner.ntsync_ok(), constant=True)
+
     @Slot(result="QVariantList")
     def audioOutputs(self):
         """The sound outputs a game can use (Options > Sound output): [{label, value}]."""
@@ -6132,6 +6180,8 @@ class AioLaunch(QObject):
             sink = own.get("audio_out") or ""
             if sink and sink != "default":
                 want["audio"] = sink
+            # the rule that lets it switch without a password is installed with the setting
+            want["scheduler"] = bool(settings.get("focus_scheduler") and settings.get("scx_rule"))
             if settings.get("clips"):
                 want["clips"] = first.get("title") or "Game"
             self.lightsFor(self.gameColour(first["key"]))
@@ -6540,7 +6590,54 @@ class AioLaunch(QObject):
         except StoreError as e:
             self.toast.emit(str(e))
             return
+        if g.store in ("epic", "gog", "amazon"):  # btrfs: a free safety copy first (safety.py)
+            from . import safety
+            cmd = safety.wrap(key, g.install_path, cmd)
         self._start_job(g, "update", cmd)
+
+    @Slot(str, result=float)
+    def updateCopyTime(self, key):
+        """When the safety copy from before the last update was made (0: none)."""
+        g = self.model.find(key)
+        if not g or self.demo:
+            return 0.0
+        from . import safety
+        return float(safety.has_copy(key, g.install_path))
+
+    @Slot(str)
+    def undoUpdate(self, key):
+        """Put the game back as it was before its last update (the btrfs safety copy)."""
+        g, _store = self._guard(key)
+        if not g or key in self.procs or any(p.get("key") == key for p in self._now_playing()):
+            return
+        from . import safety
+
+        def work():
+            err = safety.roll_back(key, g.install_path)
+            return lambda: (self.toast.emit(f"Could not undo the update: {err}") if err
+                            else self.toast.emit(f"{g.title} is back as it was before the update"), self._touch(key))
+        self._bg(work)
+
+    @Slot()
+    def sharePrefixFiles(self):
+        """Storage: identical Windows files in the Proton prefixes share their data (btrfs)."""
+        if self.demo or self._now_playing():
+            self.toast.emit("Close the game first: its prefix is in use")
+            return
+        from . import safety
+        import threading
+        self.toast.emit("Sharing identical files between your Proton prefixes…")
+
+        def work():
+            r = safety.share_prefix_files(str(settings.games_dir / "prefixes"))
+
+            def done():
+                if r["error"]:
+                    self.toast.emit(f"Not shared: {r['error']}")
+                else:
+                    self.toast.emit(f"Shared {r['files']} files between prefixes: about {storage.nice(r['saved'])} freed")
+            return done
+        threading.Thread(target=lambda: self._after.emit(work()), daemon=True, name="share-prefixes").start()
 
     @Slot(str)
     def uninstall(self, key):

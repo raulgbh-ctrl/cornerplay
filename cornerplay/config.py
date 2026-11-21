@@ -179,6 +179,10 @@ DEFAULTS = {
     "tv_sounds": False,        # TV mode makes soft clicks when moving and choosing
     "tv_rumble": False,        # TV mode: the controller buzzes lightly when moving and choosing
     "tv_music": False,         # TV mode: a calm, original ambient loop (fades out for trailers and games)
+    "gpu": "auto",             # graphics card for games on two-card PCs: auto (the fast one) / discrete / integrated (gpu.py)
+    "ntsync": True,            # Proton uses the kernel's NTSYNC when /dev/ntsync is there (runner.proton_extras)
+    "focus_scheduler": False,  # a gaming CPU scheduler (sched-ext LAVD) while playing (scx.py)
+    "update_safety": True,     # btrfs: an instant copy of a game before it updates, to roll back (safety.py)
     "tv_screen": "auto",       # TV mode opens on: "auto" a TV/monitor when one is plugged in, "" this screen, or a name (tvscreen.py)
     "tv_screensaver": 3,       # TV mode: minutes without input before the slideshow of your games (0 = never)
     "tv_who": True,            # TV mode: "Who's playing?" at start when there are several people

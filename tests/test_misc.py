@@ -582,3 +582,33 @@ def test_compress_needs_btrfs(tmp_path, monkeypatch):
     from cornerplay import compress
     monkeypatch.setattr(compress, "filesystem", lambda p: {"btrfs": False, "auto": ""})
     assert compress.compress(str(tmp_path))["ok"] is False
+
+
+def test_gpu_choice():
+    from cornerplay import gpu
+    intel = {"pci": "0000:00:02.0", "vendor": gpu.INTEL, "driver": "i915", "boot": True, "integrated": True}
+    amd = {"pci": "0000:03:00.0", "vendor": gpu.AMD, "driver": "amdgpu", "boot": False, "integrated": False}
+    nv = {"pci": "0000:01:00.0", "vendor": gpu.NVIDIA, "driver": "nvidia", "boot": False, "integrated": False}
+    assert gpu.env("auto", [intel, amd]) == {"DRI_PRIME": "pci-0000_03_00_0"}
+    assert gpu.env("integrated", [intel, amd]) == {}           # the screen's card already
+    assert gpu.env("auto", [intel]) == {}                       # one card: nothing to choose
+    assert gpu.env("auto", [intel, nv])["__NV_PRIME_RENDER_OFFLOAD"] == "1"
+    boot_amd = dict(amd, boot=True)
+    assert gpu.env("integrated", [dict(intel, boot=False), boot_amd]) == {"DRI_PRIME": "pci-0000_00_02_0"}
+
+
+def test_proton_extras():
+    from cornerplay import runner
+    with runner.using({"dll_overrides": "dinput8=n,b; winhttp=n,b", "wayland": True, "ntsync": False}):
+        env = runner.proton_extras()
+    assert env == {"PROTON_NO_NTSYNC": "1", "PROTON_ENABLE_WAYLAND": "1", "WINEDLLOVERRIDES": "dinput8=n,b;winhttp=n,b"}
+    with runner.using({"dll_overrides": "x$(rm -rf ~)"}):
+        assert "WINEDLLOVERRIDES" not in runner.proton_extras()  # never anything shell-like
+
+
+def test_scx_reads_the_running_scheduler(monkeypatch):
+    from cornerplay import scx
+    monkeypatch.setattr(scx, "_scxctl", lambda *a, **k: "running Lavd in Gaming mode\n")
+    assert scx.current() == ("lavd", "gaming")
+    monkeypatch.setattr(scx, "_scxctl", lambda *a, **k: "no scx scheduler running\n")
+    assert scx.current() is None

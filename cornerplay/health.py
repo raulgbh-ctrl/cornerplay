@@ -134,6 +134,25 @@ def checks(stores, gamepad_available=True):
             f"{storage.nice(d['free'])} free on {d['label']} ({pct:.0f}%)",
             {} if pct >= 10 else {"kind": "action", "action": "openStorage", "label": "Free up space"})
 
+    # Open-file limit: esync (and Proton's fallbacks) open a file per waitable object; a low limit
+    # makes some Windows games crash at start. Steam asks for 524288; systemd's default is that.
+    try:
+        import resource
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        ok = hard == resource.RLIM_INFINITY or hard >= 524288
+        add("nofile", "Open-file limit (Proton)", ok,
+            f"{hard} files" if ok else f"Only {hard} open files allowed: some Windows games crash at start",
+            {} if ok else {"kind": "command", "command": "echo 'DefaultLimitNOFILE=1024:524288' | sudo tee /etc/systemd/user.conf.d/90-cornerplay-nofile.conf "
+                                   "/etc/systemd/system.conf.d/90-cornerplay-nofile.conf"})
+    except (ImportError, ValueError, OSError):
+        pass
+    # NTSYNC (Linux 6.14+): Windows games' synchronisation done in the kernel
+    if os.path.exists("/dev/ntsync"):
+        nt_ok = runner.ntsync_ok()
+        add("ntsync", "NTSYNC (smoother Windows games)", nt_ok,
+            "On for Proton games" if nt_ok else "The kernel has it, but /dev/ntsync is not open to you",
+            {} if nt_ok else {"kind": "command", "command": "echo 'KERNEL==\"ntsync\", MODE=\"0666\"' | sudo tee /etc/udev/rules.d/70-ntsync.rules && sudo udevadm trigger"})
+
     # Save backups read where games keep saves from a YAML manifest
     if settings.get("save_backups"):
         try:
