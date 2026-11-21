@@ -25,6 +25,8 @@ Item {
     required property bool favourite
     required property real achieved   // 0..1 of the game's achievements earned; -1 when unknown
     required property bool isNew      // bought or claimed this week and not played yet
+    required property int dlcToBuy    // DLC you don't own on any store (0 until looked up)
+    required property int dlcNew      // DLC that came out since you last looked
     required property var heroes
     required property var logos
     // "cover" (the box art), "logo" (wide art with the game's logo: the logo wall) or "box"
@@ -506,6 +508,40 @@ Item {
             color: card.theme.primary
             Text { id: newText; anchors.centerIn: parent; text: qsTr("NEW"); color: card.theme.onPrimary
                    font.pixelSize: 10; font.weight: Font.Black; font.letterSpacing: 1.0 }
+        }
+
+        // New DLC out since you last opened the game's DLC list (gives way like NEW does).
+        Rectangle {
+            visible: card.dlcNew > 0 && !card.isNew && opacity > 0
+            opacity: card.lit ? 0 : 1
+            Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 140 } }
+            x: 10; y: 10
+            height: 20; radius: 10
+            width: newDlcRow.implicitWidth + 16
+            color: card.theme.primary
+            Row {
+                id: newDlcRow
+                anchors.centerIn: parent
+                spacing: 4
+                Icon { name: "puzzle"; size: 11; color: card.theme.onPrimary; anchors.verticalCenter: parent.verticalCenter }
+                Text { text: qsTr("NEW DLC"); color: card.theme.onPrimary; font.pixelSize: 10; font.weight: Font.Black
+                       font.letterSpacing: 1.0; anchors.verticalCenter: parent.verticalCenter }
+            }
+        }
+
+        // DLC to get, under the store and ProtonDB chips while pointed at.
+        Rectangle {
+            visible: card.dlcToBuy > 0 && opacity > 0
+            opacity: card.lit ? 1 : 0
+            Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 140 } }
+            x: 10; y: 10 + (card.showBadge ? 28 : 0) + (card.showProtonDb && card.protondb !== "" ? 28 : 0)
+            height: 22; radius: 11
+            width: dlcChipText.implicitWidth + 31
+            color: Qt.alpha("black", 0.58)
+            border.width: 1; border.color: Qt.alpha("white", 0.14)
+            Icon { x: 7; anchors.verticalCenter: parent.verticalCenter; name: "puzzle"; size: 12; color: "white" }
+            Text { id: dlcChipText; x: 23; anchors.verticalCenter: parent.verticalCenter; text: qsTr("%1 DLC to get").arg(card.dlcToBuy)
+                   color: "white"; font.pixelSize: 11 }
         }
 
         // Not-installed marker.

@@ -69,7 +69,7 @@ def job_detail(job):
 ROLES = ["key", "store", "storeName", "storeColor", "title", "cover", "coverFallback",
          "installed", "job", "progress", "external", "installPath", "copies",
          "update", "playtime", "lastPlayed", "covers", "heroes", "logos", "protondb", "favourite",
-         "status", "rating", "sizeBytes", "achieved", "isNew"]
+         "status", "rating", "sizeBytes", "achieved", "isNew", "dlcToBuy", "dlcNew"]
 GROUP_ROLES = ("copies", "playtime", "lastPlayed", "favourite", "status", "rating", "isNew")
 SORTS = ("name", "recent", "playtime", "rating", "size")
 RECENT_ROW = 8  # games in the "Continue playing" row  # worked out over every store's copy of a game
@@ -290,6 +290,8 @@ def _job(m, g):
 
 _FIELDS = {
     "isNew": lambda m, g: m.group_value([g], "isNew"),
+    "dlcToBuy": lambda m, g: int(dlcfinder.summary(g.key).get("toBuy", 0)),
+    "dlcNew": lambda m, g: len(dlcfinder.summary(g.key).get("new") or []),
     "key": lambda m, g: g.key,
     "store": lambda m, g: g.store,
     "storeName": lambda m, g: m.stores[g.store].name,
@@ -555,6 +557,8 @@ class LibraryProxy(QSortFilterProxyModel):
             return any((details.cached(g.key) or {}).get("controller") == "full" for g in group)
         if tag == "couch":
             return any(couch.local(_appid(g)) for g in group)
+        if tag == "dlc":  # DLC to get, on any store (games whose DLC were looked up)
+            return any(dlcfinder.summary(g.key).get("toBuy") for g in group)
         if tag == "protondb":
             return any(protondb.rating(_appid(g)).get("tier") in ("platinum", "gold", "native") for g in group)
         if tag.startswith("genre:"):
@@ -3202,6 +3206,9 @@ class AioLaunch(QObject):
         if not self._pending:
             QTimer.singleShot(20000, self._prefetch_details)  # after the library settles; slow, in the background
             QTimer.singleShot(45000, self._refresh_save_index)
+            if not getattr(self, "_dlc_ticking", False):
+                self._dlc_ticking = True
+                QTimer.singleShot(3 * 60 * 1000, self._dlc_tick)
             self.checkSteamShortcut()
             self._auto_steam()
             self._announce_updates()
@@ -5126,6 +5133,29 @@ class AioLaunch(QObject):
 
     DLC_TTL = 30 * 60  # a game's DLC list is asked for again after half an hour (or after a DLC install)
 
+    def _dlc_rows(self, g):
+        """Blocking: (rows, error) for a game's DLC on its own store and every other store, grouped
+        (the same DLC on several stores), with IsThereAnyDeal's best deals when there is a key."""
+        store = self.stores[g.store]
+        error = ""
+        try:
+            own = self._demo_dlcs(g) if self.demo else (store.dlcs(g) or [])
+        except StoreError as e:
+            own, error = [], str(e)
+        rank = {"installed": 0, "owned": 1, "missing": 2, "available": 3}
+        own.sort(key=lambda r: (rank.get(r["status"], 3), r["title"].lower()))
+        for r in own:
+            r.update(store=g.store, storeName=store.name)
+        # then the same game's DLC on the other stores (Steam, GOG, Epic), each sold there
+        rows = own + self._demo_other_dlcs(g) if self.demo else dlcfinder.rows(g, self.stores, own, _appid(g))
+        others = rows[len(own):]
+        others.sort(key=lambda r: (r["store"], rank.get(r["status"], 3), r["title"].lower()))
+        rows = dlcfinder.group(own + others, g.title)
+        key = str(settings.get("itad_key") or "").strip()
+        if key and not self.demo:
+            dlcfinder.deals(rows, key, wishlist.country())
+        return rows, error
+
     @Slot(str)
     @Slot(str, bool)
     def loadDlcs(self, key, fresh=False):
@@ -5133,33 +5163,81 @@ class AioLaunch(QObject):
         if not g:
             return
         store = self.stores[g.store]
+        if dlcfinder.seen(key):  # looked at: its new DLC are not new any more
+            self._touch(key)
         hit = self._dlc_cache.get(key)
         if hit and not fresh and time.time() - hit[0] < self.DLC_TTL:
             self.dlcsReady.emit(key, hit[1], store.dlc_note if any(r.get("store") == g.store for r in hit[1]) else "")
             return
 
         def work():
-            error = ""
-            try:
-                own = self._demo_dlcs(g) if self.demo else (store.dlcs(g) or [])
-            except StoreError as e:
-                own, error = [], str(e)
-            rank = {"installed": 0, "owned": 1, "missing": 2, "available": 3}
-            own.sort(key=lambda r: (rank.get(r["status"], 3), r["title"].lower()))
-            for r in own:
-                r.update(store=g.store, storeName=store.name)
-            # then the same game's DLC on the other stores (Steam, GOG, Epic), each sold there
-            rows = own + self._demo_other_dlcs(g) if self.demo else dlcfinder.rows(g, self.stores, own, _appid(g))
-            others = rows[len(own):]
-            others.sort(key=lambda r: (r["store"], rank.get(r["status"], 3), r["title"].lower()))
-            rows = own + others
-            note = store.dlc_note if own else ""
+            rows, error = self._dlc_rows(g)
+            note = store.dlc_note if any(r.get("store") == g.store for r in rows) else ""
+            if rows or not error:
+                dlcfinder.remember(key, rows)
+                dlcfinder.seen(key)
 
             def done():
                 if rows or not error:
                     self._dlc_cache[key] = (time.time(), rows)
+                    self._touch(key)
                 self.dlcsReady.emit(key, rows, note if rows else error)
             return done
+        self._bg(work)
+
+    DLC_WATCH = 40          # games checked for new DLC in the background, the ones you care about most
+    DLC_RECHECK = 86400     # each at most once a day
+
+    def _dlc_tick(self):
+        """Every 6 hours: look up the DLC of your favourites, installed and recently played games
+        (slowly, one each few seconds), for the DLC counts on the cards and the "has DLC to get"
+        filter, and announce DLC that came out since the last look."""
+        QTimer.singleShot(6 * 3600 * 1000, self._dlc_tick)
+        if self.demo or getattr(self, "_dlc_watching", False) or not settings.get("dlc_watch", True):
+            return
+        now = time.time()
+        reps = [self.model.rep(grp) for grp in self.model.groups if not self.model.is_hidden(grp)]
+        reps = [g for g in reps if g.store not in ("retro", "prism") and g.id != "battlenet-app"]
+
+        def weight(g):
+            grp = self.model.group_of(g.key) or [g]
+            return (not shelves.in_group(grp, shelves.FAV), not any(c.installed for c in grp),
+                    -self.model.group_value(grp, "lastPlayed"))
+        reps.sort(key=weight)
+        todo = [g for g in reps[:self.DLC_WATCH] if now - dlcfinder.summary(g.key).get("t", 0) > self.DLC_RECHECK]
+        if not todo:
+            return
+        self._dlc_watching = True
+
+        def work():
+            news = []
+            for g in todo:
+                if getattr(self, "_quitting", False) or self._playing:
+                    break  # never while a game runs: it may need the network
+                try:
+                    rows, error = self._dlc_rows(g)
+                except Exception:  # noqa: BLE001 - one game failing must not stop the rest
+                    continue
+                if rows or not error:
+                    fresh = dlcfinder.remember(g.key, rows)
+                    if fresh:
+                        news.append((g.title, fresh))
+                    self._after.emit(lambda k=g.key: self._touch(k))
+                time.sleep(3)
+
+            def finish():
+                self._dlc_watching = False
+                if "dlc" in self.proxy._tags:
+                    self.proxy.refilter()
+                if len(news) == 1:
+                    title, items = news[0]
+                    more = f" (+{len(items) - 1})" if len(items) > 1 else ""
+                    self.toast.emit(f"New DLC for {title}: {items[0]}{more}")
+                    self._notify(f"New DLC for {title}", items[0] + more)
+                elif news:
+                    self.toast.emit(f"New DLC for {len(news)} games")
+                    self._notify(f"New DLC for {len(news)} games", ", ".join(t for t, _ in news[:4]))
+            return finish
         self._bg(work)
 
     @Slot(str, str)
@@ -5179,7 +5257,9 @@ class AioLaunch(QObject):
 
     @staticmethod
     def _demo_other_dlcs(g):
-        others = [("gog", "GOG", "Digital Artbook", "€4.99"), ("epic", "Epic Games", "Expansion Pass", "€19.99 (-20%)")]
+        others = [("gog", "GOG", "Digital Artbook", "€4.99"), ("epic", "Epic Games", "Expansion Pass", "€19.99 (-20%)"),
+                  ("steam", "Steam", "Original Soundtrack", "€7.99"), ("gog", "GOG", "Original Soundtrack", "€6.49"),
+                  ("steam", "Steam", "Expansion Pass", "€24.99")]
         return [{"id": f"x{i}", "title": f"{g.title}: {t}", "status": "available", "image": "", "price": p,
                  "url": "https://example.com", "canInstall": False, "store": sid, "storeName": name}
                 for i, (sid, name, t, p) in enumerate(others) if sid != g.store]

@@ -129,6 +129,7 @@ DEFAULTS = {
     "rom_dirs": [],             # folders with ROMs for Retro games (stores/retro.py)
     "screenshot_dirs": [],      # more folders to find your screenshots in (screenshots.py)
     "wishlist_sales": True,
+    "dlc_watch": True,          # look up favourite/installed/recent games' DLC daily: card counts, new-DLC toasts
     "itad_key": "",             # IsThereAnyDeal API key: the best price on any store for the wishlist (itad.py)
     "price_watch": {},          # wishlist "store:id" -> the discount to wait for (1: any sale, 25/50/75/90 % off)
     "price_watch_told": [],

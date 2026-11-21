@@ -152,3 +152,29 @@ def person(sid: str) -> str:
     names[sid] = name
     write_json(NAMES_FILE, names)
     return name
+
+
+_owned_apps = (0.0, None)
+
+
+def owned_apps() -> set:
+    """Every app id the account owns, DLC included, from the store's own userdata (the list the
+    store uses to show "In library"); asked for at most once an hour. Raises NotSignedIn."""
+    global _owned_apps
+    if time.time() - _owned_apps[0] < 3600 and _owned_apps[1] is not None:
+        return _owned_apps[1]
+    auth = _load()
+    if not auth.get("cookies"):
+        raise NotSignedIn("Not signed in to Steam")
+    s = _session(auth["cookies"])
+    r = s.get("https://store.steampowered.com/dynamicstore/userdata/", timeout=20)
+    r.raise_for_status()
+    apps = {str(a) for a in r.json().get("rgOwnedApps") or []}
+    if not apps:  # an expired store session answers with empty lists: renew it once
+        token()
+        s = _session(_load()["cookies"])
+        apps = {str(a) for a in s.get("https://store.steampowered.com/dynamicstore/userdata/", timeout=20).json().get("rgOwnedApps") or []}
+    if not apps:
+        raise NotSignedIn("Steam wants you to sign in again")
+    _owned_apps = (time.time(), apps)
+    return apps

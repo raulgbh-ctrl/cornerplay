@@ -1702,7 +1702,7 @@ FocusScope {
                    set: v => { P.showHidden = v === "hidden"; P.shelf = v === "hidden" ? "" : v; L.toTop(); again() } })
         out.push({ group: qsTr("Filters"), label: qsTr("Installed only"), icon: "download", on: P.installedOnly,
                    set: v => { P.installedOnly = v; L.toTop(); again() } })
-        for (const t of ["unplayed", "controller", "protondb", "couch", "linux", "dupes"]) {
+        for (const t of ["unplayed", "controller", "protondb", "couch", "linux", "dupes", "dlc"]) {
             const has = P.tags.indexOf(t) !== -1
             out.push({ group: qsTr("Filters"), label: L.tagNames[t], icon: "filter", on: has,
                        set: v => { P.tags = v ? P.tags.concat([t]) : P.tags.filter(x => x !== t); L.toTop(); again() } })

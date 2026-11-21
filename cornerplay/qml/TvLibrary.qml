@@ -35,7 +35,8 @@ FocusScope {
                                         added: qsTr("Recently added"), size: qsTr("Size"), rating: qsTr("Your rating") })
     readonly property var tagNames: ({ unplayed: qsTr("Not played yet"), controller: qsTr("Full controller support"),
                                        protondb: qsTr("ProtonDB Gold or better"), couch: qsTr("Play together"),
-                                       linux: qsTr("Native Linux"), fav: qsTr("Favourites"), dupes: qsTr("Owned on 2+ stores") })
+                                       linux: qsTr("Native Linux"), fav: qsTr("Favourites"), dupes: qsTr("Owned on 2+ stores"),
+                                       dlc: qsTr("Has DLC to get") })
     function shelfName(id) {
         if (tvAllLibrary.showHidden) return qsTr("Hidden games")
         if (!id) return ""

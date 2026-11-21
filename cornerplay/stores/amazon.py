@@ -96,6 +96,24 @@ class Amazon(Store):
             raise PartialResult(games, f"Amazon: {error}")
         return games
 
+    def dlcs(self, game):
+        """The add-ons your Amazon account holds for the game (in-game content: the game itself
+        unlocks it, nothing to install). Amazon has no public list of what else is sold."""
+        from ..dlcfinder import norm
+        want = norm(game.title)
+        rows = []
+        for entry in read_json(NILE_DIR / "library.json") or []:
+            product = entry.get("product") or {}
+            line, title = str(product.get("productLine") or ""), product.get("title") or ""
+            if line == "Sonic:Game" or not title or product.get("id") == game.id:
+                continue
+            if want and norm(title).startswith(want + " "):
+                detail = product.get("productDetail") or {}
+                rows.append({"id": product.get("id", ""), "title": title, "status": "owned",
+                             "image": (detail.get("details") or {}).get("backgroundUrl1") or detail.get("iconUrl") or "",
+                             "price": "", "url": "", "canInstall": False})
+        return rows
+
     def install(self, game, base=None):
         base = Path(base) if base else settings.games_dir / "amazon"
         base.mkdir(parents=True, exist_ok=True)

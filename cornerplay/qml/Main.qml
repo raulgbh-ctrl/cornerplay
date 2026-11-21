@@ -1115,7 +1115,7 @@ ApplicationWindow {
                 Repeater {
                     model: [{ t: "unplayed", l: qsTr("Never played"), i: "sparkles" }, { t: "linux", l: qsTr("Linux version"), i: "" },
                             { t: "controller", l: qsTr("Full controller support"), i: "gamepad-2" }, { t: "couch", l: qsTr("Play together (same screen)"), i: "user-round" }, { t: "protondb", l: qsTr("Runs well (ProtonDB Gold+)"), i: "check" },
-                            { t: "dupes", l: qsTr("Owned on 2+ stores"), i: "copy" }]
+                            { t: "dupes", l: qsTr("Owned on 2+ stores"), i: "copy" }, { t: "dlc", l: qsTr("Has DLC to get"), i: "puzzle" }]
                     Chip2 { required property var modelData; label: modelData.l; icon: modelData.i
                             on: ((library && library.tags) || []).indexOf(modelData.t) !== -1; onPicked: chips.toggle(modelData.t) }
                 }
@@ -5900,6 +5900,8 @@ ApplicationWindow {
         property string error: ""
         property bool busy: false   // a DLC install for this game is running
         property string storeFilter: ""   // "" = every store
+        // All stores: one row per DLC (the same DLC on several stores is one row with each store's
+        // price); one store: that store's rows.
         readonly property var stores: {   // [{id, name, count}] in list order
             const out = [], at = {}
             for (const r of rows) {
@@ -5908,7 +5910,7 @@ ApplicationWindow {
             }
             return out
         }
-        readonly property var shown: storeFilter ? rows.filter(r => r.store === storeFilter) : rows
+        readonly property var shown: storeFilter ? rows.filter(r => r.store === storeFilter) : rows.filter(r => r.primary !== false)
         heading: qsTr("DLC")
         headingIcon: "puzzle"
         width: Math.min(win.width - 60, 680)
@@ -5951,6 +5953,8 @@ ApplicationWindow {
                     if (c.installed) parts.push(c.installed + " installed")
                     if (c.owned) parts.push(c.owned + qsTr(" owned, not installed"))
                     if (c.available) parts.push(c.available + qsTr(" to buy"))
+                    const elsewhere = dlc.shown.filter(r => (r.ownedOn || []).length).length
+                    if (elsewhere) parts.push(elsewhere + qsTr(" owned on another store"))
                     return parts.join("  ·  ")
                 }
             }
@@ -5960,13 +5964,13 @@ ApplicationWindow {
                 spacing: 6
                 visible: dlc.stores.length > 1
                 Repeater {
-                    model: [{ id: "", name: qsTr("All stores"), count: dlc.rows.length }].concat(dlc.stores)
+                    model: [{ id: "", name: qsTr("All stores"), count: dlc.rows.filter(r => r.primary !== false).length }].concat(dlc.stores)
                     delegate: Rectangle {
                         required property var modelData
                         readonly property bool on: dlc.storeFilter === modelData.id
                         height: 28; radius: 14
                         width: chipText.implicitWidth + 22
-                        color: on ? theme.secondaryContainer : "transparent"
+                        color: on ? theme.primaryContainer : "transparent"
                         border.width: on ? 0 : 1
                         border.color: theme.outlineVariant
                         Text {
@@ -5975,7 +5979,7 @@ ApplicationWindow {
                             text: parent.modelData.name + "  " + parent.modelData.count
                             font.pixelSize: 12
                             font.weight: Font.DemiBold
-                            color: parent.on ? theme.onSecondaryContainer : theme.onSurfaceVariant
+                            color: parent.on ? theme.onPrimaryContainer : theme.onSurfaceVariant
                         }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: dlc.storeFilter = parent.modelData.id }
                     }
@@ -6023,8 +6027,10 @@ ApplicationWindow {
                         owned: { label: qsTr("Owned"), icon: "check" },
                         missing: { label: qsTr("Not installed"), icon: "" },
                         available: { label: qsTr("Not owned"), icon: "" } })[modelData.status] || { label: modelData.status, icon: "" }
+                    readonly property var offers: !dlc.storeFilter && (modelData.offers || []).length > 1 ? modelData.offers : []
+                    readonly property var ownedOn: modelData.ownedOn || []
                     width: dlcList.width - 10
-                    height: 76
+                    height: Math.max(76, dlcInfo.implicitHeight + 20)
                     radius: 12
                     color: theme.surfaceContainerHigh
                     RowLayout {
@@ -6052,6 +6058,7 @@ ApplicationWindow {
                             }
                         }
                         ColumnLayout {
+                            id: dlcInfo
                             Layout.fillWidth: true
                             spacing: 5
                             Text {
@@ -6086,20 +6093,72 @@ ApplicationWindow {
                                     }
                                 }
                                 Text {
-                                    visible: dlc.stores.length > 1 && !!dlcRow.modelData.storeName
+                                    visible: dlc.stores.length > 1 && !!dlcRow.modelData.storeName && dlcRow.offers.length === 0
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: dlcRow.modelData.storeName || ""
                                     color: theme.primary
                                     font.pixelSize: 12
                                     font.weight: Font.DemiBold
                                 }
+                                // Already yours on another store: don't buy it twice.
+                                Rectangle {
+                                    visible: dlcRow.ownedOn.length > 0
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    height: 22; radius: 11
+                                    width: ownTxt.implicitWidth + 18
+                                    color: Qt.alpha(theme.error, 0.16)
+                                    Text { id: ownTxt; anchors.centerIn: parent; font.pixelSize: 11; font.weight: Font.DemiBold
+                                           color: theme.error; text: qsTr("Owned on ") + dlcRow.ownedOn.join(", ") }
+                                }
                                 Text {
-                                    visible: !!dlcRow.modelData.price
+                                    visible: !!dlcRow.modelData.price && dlcRow.offers.length === 0 && dlcRow.ownedOn.length === 0
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: dlcRow.modelData.price || ""
                                     color: theme.onSurfaceVariant
                                     font.pixelSize: 12
                                 }
+                            }
+                            // The same DLC on each store that sells it; the cheapest marked.
+                            Flow {
+                                Layout.fillWidth: true
+                                visible: dlcRow.offers.length > 0 && dlcRow.ownedOn.length === 0
+                                spacing: 6
+                                Repeater {
+                                    model: dlcRow.offers
+                                    delegate: Rectangle {
+                                        required property var modelData
+                                        readonly property bool have: modelData.status === "installed" || modelData.status === "owned"
+                                        height: 22; radius: 11
+                                        width: offTxt.implicitWidth + 16
+                                        color: modelData.cheapest ? theme.primaryContainer : "transparent"
+                                        border.width: modelData.cheapest ? 0 : 1
+                                        border.color: theme.outlineVariant
+                                        Text {
+                                            id: offTxt
+                                            anchors.centerIn: parent
+                                            font.pixelSize: 11
+                                            font.weight: parent.modelData.cheapest ? Font.DemiBold : Font.Normal
+                                            color: parent.modelData.cheapest ? theme.onPrimaryContainer : theme.onSurfaceVariant
+                                            text: parent.modelData.storeName + "  " + (parent.have ? qsTr("owned") : (parent.modelData.price || "—"))
+                                                  + (parent.modelData.cheapest ? qsTr("  · cheapest") : "")
+                                        }
+                                        MouseArea { anchors.fill: parent; enabled: !!parent.modelData.url; cursorShape: Qt.PointingHandCursor
+                                                    onClicked: app.openUrl(parent.modelData.url) }
+                                    }
+                                }
+                            }
+                            // IsThereAnyDeal: the best deal on any shop it follows, and the lowest price ever.
+                            Text {
+                                Layout.fillWidth: true
+                                visible: !!dlcRow.modelData.deal && dlcRow.ownedOn.length === 0
+                                readonly property var d: dlcRow.modelData.deal || {}
+                                text: qsTr("Best deal: ") + (d.price || "") + qsTr(" at ") + (d.shop || "")
+                                      + (d.cut ? " (-" + d.cut + "%)" : "") + (d.low ? qsTr("  ·  lowest ever ") + d.low : "")
+                                color: theme.primary
+                                font.pixelSize: 12
+                                elide: Text.ElideRight
+                                MouseArea { anchors.fill: parent; enabled: !!parent.d.url; cursorShape: Qt.PointingHandCursor
+                                            onClicked: app.openUrl(parent.d.url) }
                             }
                         }
                         KButton {
@@ -7077,6 +7136,7 @@ ApplicationWindow {
                             }
                         }
                         Toggle { label: qsTr("Show games from my Steam and GOG wishlists that are on sale"); settingKey: "wishlist_sales" }
+                        Toggle { label: qsTr("Look for new DLC for my favourite, installed and recently played games once a day"); settingKey: "dlc_watch" }
                         Row2 {
                             visible: !!app.settingsMap.wishlist_sales
                             label: qsTr("Country for store prices")
@@ -7092,7 +7152,7 @@ ApplicationWindow {
                         Row2 {
                             visible: !!app.settingsMap.wishlist_sales
                             label: qsTr("Best price on any store (IsThereAnyDeal)")
-                            hint: qsTr("With a free IsThereAnyDeal API key, each wishlist game shows its cheapest deal on any store (Steam, GOG, Epic, Humble, Fanatical and more) and Cornerplay tells you when one is at least as much off as you choose here, or at its lowest price ever. Get one free: sign in at isthereanydeal.com and register an app (the Get a key button).")
+                            hint: qsTr("With a free IsThereAnyDeal API key, each wishlist game and each DLC you don't own shows its cheapest deal on any store (Steam, GOG, Epic, Humble, Fanatical and more) and Cornerplay tells you when one is at least as much off as you choose here, or at its lowest price ever. Get one free: sign in at isthereanydeal.com and register an app (the Get a key button).")
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: 8

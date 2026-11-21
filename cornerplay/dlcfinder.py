@@ -9,10 +9,21 @@ rows(game, own_rows, steam_appid) -> list of {"id", "title", "status", "url", "i
 "canInstall", "store", "storeName"}. Everything here is blocking; it runs on a worker thread.
 """
 import re
+import threading
+import time
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 
+from .config import CACHE_DIR, read_json, write_json
 from .net import requests
+
+MATCH_FILE = CACHE_DIR / "dlc_match.json"      # "steam:<title>" -> [store id or "", time]: a game's page on each store
+SUMMARY_FILE = CACHE_DIR / "dlc_summary.json"  # game key -> {"t", "total", "toBuy", "ids", "new"}
+MISS_TTL = 7 * 86400   # a game a store did not have is looked for again after a week
+_lock = threading.Lock()
+_match = None
+_summary = None
+_gog_owned = (0.0, set())  # (time, ids): your GOG games and DLC, for 10 minutes
 
 UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
                     "Chrome/130 Safari/537.36"}
@@ -34,12 +45,48 @@ def norm(title):
 
 
 def country():
-    from PySide6.QtCore import QLocale
-    name = QLocale.system().name()  # "en_AU"
-    return name.split("_")[1] if "_" in name else "US"
+    """Two letters: Settings > Country for store prices, else the GOG account's, else the system's."""
+    from .wishlist import country as c
+    return c()
+
+
+def variants(title):
+    """The title, then its head before " + " or " - " ("Besiege + The Splintered Sea DLC" -> "Besiege")."""
+    out = [title]
+    for sep in (" + ", " - ", " – "):
+        if sep in title:
+            out.append(title.split(sep)[0].strip())
+    return [v for i, v in enumerate(out) if v and v not in out[:i]]
+
+
+def find(store, title, finder):
+    """A game's id on a store by title, remembered on disk: a found page never changes, a miss is
+    asked again after a week. finder(title) -> id or ""."""
+    global _match
+    with _lock:
+        if _match is None:
+            _match = read_json(MATCH_FILE) or {}
+        hit = _match.get(f"{store}:{title}")
+    if hit and (hit[0] or time.time() - hit[1] < MISS_TTL):
+        return hit[0]
+    found = ""
+    for t in variants(title):
+        found = finder(t)
+        if found:
+            break
+    with _lock:
+        _match[f"{store}:{title}"] = [found, time.time()]
+        write_json(MATCH_FILE, _match)
+    return found
 
 
 # --- Steam -------------------------------------------------------------------
+def steam_owned():
+    """Your Steam app ids (games and DLC) when signed in to Steam in Cornerplay, else None."""
+    from . import steamweb
+    return steamweb.owned_apps() if steamweb.signed_in() else None
+
+
 def steam_find(title):
     """The Steam app id of the game with this title, or ""."""
     want = norm(title)
@@ -52,16 +99,22 @@ def steam_find(title):
 
 
 def steam_rows(appid, have=(), client=False):
-    """Every DLC Steam sells for this app. Steam does not say which you own, only which are installed."""
+    """Every DLC Steam sells for this app: installed, owned (when signed in to Steam in Cornerplay),
+    else "missing" (Steam did not say whether you own it)."""
     from .stores.steam import _price
     r = requests.get("https://store.steampowered.com/api/dlcforapp/",
-                     params={"appid": appid, "l": "english"}, timeout=20)
+                     params={"appid": appid, "l": "english", "cc": country()}, timeout=20)  # one currency on every store
     r.raise_for_status()
+    try:
+        mine = steam_owned()
+    except Exception:  # noqa: BLE001 - ownership is a nicety: the list still shows
+        mine = None
     rows = []
     for d in r.json().get("dlc") or []:
         did = str(d.get("id"))
-        rows.append({"id": did, "title": d.get("name", did),
-                     "status": "installed" if did in have else "missing",
+        status = ("installed" if did in have else "owned" if mine and did in mine
+                  else "available" if mine is not None else "missing")
+        rows.append({"id": did, "title": d.get("name", did), "status": status,
                      "image": d.get("header_image", ""), "price": _price(d.get("price_overview")),
                      "url": f"steam://store/{did}" if client else f"https://store.steampowered.com/app/{did}",
                      "canInstall": False})
@@ -104,17 +157,27 @@ def gog_items(pid):
     return items
 
 
-def gog_rows(pid, store):
-    """GOG's DLC for a game found by title (not the GOG copy you own: stores/gog.py lists that)."""
-    items = gog_items(pid)
+def gog_owned(store):
+    """Your GOG product ids (games and DLC), asked for at most every 10 minutes."""
+    global _gog_owned
+    if time.time() - _gog_owned[0] < 600:
+        return _gog_owned[1]
     owned = set()
-    if items and store.logged_in():
+    if store.logged_in():
         try:
             o = requests.get("https://embed.gog.com/user/data/games", timeout=20,
                              headers={"Authorization": "Bearer " + store._token()})
             owned = {str(i) for i in o.json().get("owned", [])} if o.ok else set()
         except Exception:  # noqa: BLE001 - ownership is a nicety here
-            owned = set()
+            return owned
+    _gog_owned = (time.time(), owned)
+    return owned
+
+
+def gog_rows(pid, store):
+    """GOG's DLC for a game found by title (not the GOG copy you own: stores/gog.py lists that)."""
+    items = gog_items(pid)
+    owned = gog_owned(store) if items else set()
     prices = store._prices([str(d.get("id")) for d in items])
     rows = []
     for d in items:
@@ -153,8 +216,22 @@ def epic_find(title):
 ADDONS = ("query($ns:String,$c:String!,$s:Int){Catalog{searchStore(namespace:$ns,category:\"addons\",count:100,"
           "start:$s,country:$c,locale:\"en-US\"){paging{total} elements{title id productSlug urlSlug "
           "keyImages{type url} offerMappings{pageSlug} catalogNs{mappings(pageType:\"productHome\"){pageSlug}} "
-          "items{id} price(country:$c){totalPrice{discountPrice originalPrice fmtPrice(locale:\"en-US\")"
-          "{discountPrice}}}}}}}")
+          "items{id} price(country:$c){totalPrice{discountPrice originalPrice currencyCode "
+          "currencyInfo{decimals}}}}}}}")
+
+
+def epic_price(p):
+    """{"discountPrice": 4499, "originalPrice": 4499, "currencyCode": "AUD", ...} -> "A$44.99" (-30%)."""
+    from .itad import money
+    if not p or p.get("discountPrice") is None:
+        return ""
+    if not p["discountPrice"]:
+        return "Free"
+    div = 10 ** int((p.get("currencyInfo") or {}).get("decimals", 2) or 0)
+    text = money({"amount": p["discountPrice"] / div, "currency": p.get("currencyCode") or ""})
+    if p.get("originalPrice") and p["discountPrice"] < p["originalPrice"]:
+        text += f" (-{round(100 - 100 * p['discountPrice'] / p['originalPrice'])}%)"
+    return text
 
 
 def epic_catalog(namespace):
@@ -181,12 +258,7 @@ def epic_rows(namespace, owned=None, installed=(), game_installed=False):
         slug = ((e.get("offerMappings") or [{}])[0] or {}).get("pageSlug") or e.get("productSlug") or ""
         if not slug:
             slug = ((((e.get("catalogNs") or {}).get("mappings")) or [{}])[0] or {}).get("pageSlug", "")
-        price = (e.get("price") or {}).get("totalPrice") or {}
-        fmt = (price.get("fmtPrice") or {}).get("discountPrice") or ""
-        if price and not price.get("discountPrice"):
-            fmt = "Free"
-        elif price.get("originalPrice") and price["discountPrice"] < price["originalPrice"]:
-            fmt += f" (-{round(100 - 100 * price['discountPrice'] / price['originalPrice'])}%)"
+        fmt = epic_price((e.get("price") or {}).get("totalPrice") or {})
         status = "installed" if app and app in installed else "owned" if app else "available"
         rows.append({"id": app or e.get("id", ""), "title": (e.get("title") or "").strip(), "status": status,
                      "image": imgs.get("OfferImageWide") or imgs.get("DieselStoreFrontWide") or imgs.get("Thumbnail", ""),
@@ -204,16 +276,17 @@ def rows(game, stores, own_rows, steam_appid=""):
     title = game.title
     if game.store != "steam" and "steam" in stores:
         def steam():
-            appid = steam_appid or steam_find(title)
+            appid = steam_appid or find("steam", title, steam_find)
             rows = steam_rows(appid, client=bool(stores["steam"].client())) if appid else []
             for r in rows:
-                r["status"] = "available"  # sold on Steam; your copy of the game is elsewhere
+                if r["status"] == "missing":
+                    r["status"] = "available"  # sold on Steam; your copy of the game is elsewhere
             return rows
         jobs["steam"] = steam
     if game.store != "gog" and "gog" in stores:
-        jobs["gog"] = lambda: (lambda pid: gog_rows(pid, stores["gog"]) if pid else [])(gog_find(title))
+        jobs["gog"] = lambda: (lambda pid: gog_rows(pid, stores["gog"]) if pid else [])(find("gog", title, gog_find))
     if game.store != "epic":
-        jobs["epic"] = lambda: (lambda ns: epic_rows(ns)[0] if ns else [])(epic_find(title))
+        jobs["epic"] = lambda: (lambda ns: epic_rows(ns)[0] if ns else [])(find("epic", title, epic_find))
     found = {}
     with ThreadPoolExecutor(max_workers=3) as pool:
         futs = {sid: pool.submit(fn) for sid, fn in jobs.items()}
@@ -228,3 +301,112 @@ def rows(game, stores, own_rows, steam_appid=""):
             r.update(store=sid, storeName=NAMES[sid])
             out.append(r)
     return out
+
+
+# --- one DLC on several stores ------------------------------------------------
+HAVE = ("installed", "owned")
+
+
+def dlc_key(title, game_title):
+    """What makes two stores' rows the same DLC: the title without the game's name in front."""
+    t, g = norm(title), norm(game_title)
+    if g and t.startswith(g + " "):
+        t = t[len(g) + 1:]
+    t = re.sub(r"^(dlc|expansion|add on)\s+", "", t)
+    t = re.sub(r"\s+(dlc|add on|pack)$", "", t)
+    return t or norm(title)
+
+
+def amount(price):
+    """("€", 9.99) from "€9.99 (-30%)"; None when there is no number (blank, Free counts as 0)."""
+    if price == "Free":
+        return ("", 0.0)
+    m = re.search(r"(\d+(?:[.,]\d{1,2})?)", price or "")
+    if not m:
+        return None
+    sign = re.sub(r"[\d.,\s()%-]", "", price.split("(")[0])
+    return (sign, float(m.group(1).replace(",", ".")))
+
+
+def group(rows, game_title):
+    """Mark which rows are the same DLC on several stores, in place, and return them.
+    Each row gets "group"; the first row of a group ("primary": True, the one you own, else the
+    cheapest, else the game's own store) carries "offers": every store's row of it, and each row
+    gets "ownedOn" (the stores where you own that DLC) and "cheapest"."""
+    groups = {}
+    for i, r in enumerate(rows):
+        r["group"] = dlc_key(r["title"], game_title)
+        groups.setdefault(r["group"], []).append(i)
+    for members in groups.values():
+        rs = [rows[i] for i in members]
+        owned_on = sorted({r.get("storeName", "") for r in rs if r["status"] in HAVE} - {""})
+        priced = [(amount(r.get("price", "")), r) for r in rs if r["status"] not in HAVE]
+        priced = [(a, r) for a, r in priced if a is not None]
+        cheapest = None
+        if len(priced) > 1 and len({a[0] for a, _ in priced}) == 1:  # comparable only in one currency
+            cheapest = min(priced, key=lambda x: x[0][1])[1]
+        for r in rs:
+            r["ownedOn"] = [n for n in owned_on if n != r.get("storeName")] if r["status"] not in HAVE else []
+            r["cheapest"] = r is cheapest
+            r["primary"] = False
+        lead = (next((r for r in rs if r["status"] in HAVE), None) or cheapest or rs[0])
+        lead["primary"] = True
+        lead["offers"] = [{"store": r.get("store", ""), "storeName": r.get("storeName", ""), "price": r.get("price", ""),
+                           "url": r.get("url", ""), "status": r["status"], "cheapest": r["cheapest"]} for r in rs]
+    return rows
+
+
+def deals(rows, key, country_code):
+    """With an IsThereAnyDeal key: the best deal on any shop it follows (Humble, Fanatical, GMG, ...)
+    and the lowest price ever, on each DLC you do not own. In place."""
+    from . import itad
+    want = [r for r in rows if r.get("primary") and r["status"] not in HAVE and not r.get("ownedOn")]
+    if not key or not want:
+        return ""
+    best, err = itad.prices(sorted({r["title"] for r in want}), key, country_code)
+    for r in want:
+        b = best.get(r["title"])
+        if b:
+            r["deal"] = {"shop": b["shop"], "price": b["price"], "url": b["url"], "cut": b["cut"], "low": b["lowPrice"]}
+    return err
+
+
+# --- what the library shows: DLC counts and new DLC ----------------------------
+def _load_summary():
+    global _summary
+    if _summary is None:
+        _summary = read_json(SUMMARY_FILE) or {}
+    return _summary
+
+
+def summary(key):
+    """{"total", "toBuy", "new", "t"} for a game whose DLC were looked up, else {}."""
+    with _lock:
+        return dict(_load_summary().get(key) or {})
+
+
+def remember(key, rows):
+    """Keep a game's DLC counts, and return the titles that are new since its last lookup."""
+    lead = [r for r in rows if r.get("primary", True)]
+    ids = sorted({r["group"] if "group" in r else norm(r["title"]) for r in lead})
+    with _lock:
+        all_ = _load_summary()
+        old = all_.get(key)
+        fresh = [r["title"] for r in lead if old is not None and (r.get("group") or norm(r["title"])) not in set(old.get("ids") or [])
+                 and r["status"] not in HAVE]
+        new = sorted(set((old or {}).get("new") or []) | set(fresh)) if old else []
+        all_[key] = {"t": time.time(), "total": len(lead), "ids": ids, "new": new,
+                     "toBuy": sum(1 for r in lead if r["status"] not in HAVE and not r.get("ownedOn"))}
+        write_json(SUMMARY_FILE, all_)
+    return fresh
+
+
+def seen(key):
+    """The DLC window was opened: the game's new DLC are not new any more."""
+    with _lock:
+        hit = _load_summary().get(key)
+        if hit and hit.get("new"):
+            hit["new"] = []
+            write_json(SUMMARY_FILE, _summary)
+            return True
+    return False
