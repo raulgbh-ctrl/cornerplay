@@ -8,7 +8,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from PySide6.QtCore import (QAbstractListModel, QByteArray, QFileSystemWatcher, QModelIndex, QCoreApplication, QObject,
+from PySide6.QtCore import (QAbstractListModel, QDate, QLocale, QByteArray, QFileSystemWatcher, QModelIndex, QCoreApplication, QObject,
                             QProcess, QProcessEnvironment, QSortFilterProxyModel, Qt, QTimer, QUrl,
                             Property, Signal, Slot)
 from PySide6.QtGui import QDesktopServices, QGuiApplication
@@ -82,7 +82,15 @@ def _t(text):
 
 def _translatable_names():
     """Never called: lists names that reach _t() through variables, so lupdate finds them."""
-    return (QCoreApplication.translate("app", "Ready to play"),
+    return (QCoreApplication.translate("app", "Added by you"),
+            QCoreApplication.translate("app", "The Battle.net app, so you can install Blizzard games"),
+            QCoreApplication.translate("app", "Lent to you by %1 through Steam Family"),
+            QCoreApplication.translate("app", "your family"),
+            QCoreApplication.translate("app", "Installed on this PC; your %1 account did not list it"),
+            QCoreApplication.translate("app", "Claimed free on Epic"),
+            QCoreApplication.translate("app", "In your %1 account"),
+            QCoreApplication.translate("app", "arrived %1"),
+            QCoreApplication.translate("app", "Ready to play"),
             QCoreApplication.translate("app", "Not played yet"),
             QCoreApplication.translate("app", "Playing"),
             QCoreApplication.translate("app", "Put away"),
@@ -1311,6 +1319,32 @@ class AioLaunch(QObject):
             return
         self.toast.emit(f"Added {e['title']} ({'Linux program' if e['kind'] == 'linux' else 'Windows program, runs through Proton'})")
         self.refresh("custom")
+
+    @Slot(str, result=str)
+    def whyHere(self, key):
+        """One line on the game page: where this game came from and when it arrived."""
+        g = self.model.find(key)
+        if g is None:
+            return ""
+        store = self.model.stores[g.store].name if g.store in self.model.stores else g.store
+        src = g.extra.get("source", "")
+        arrived = shelves._load()["keys"].get(key, 0)
+        if g.store == "custom":
+            text = _t("Added by you")
+        elif g.id == "battlenet-app":
+            text = _t("The Battle.net app, so you can install Blizzard games")
+        elif src == "lent":
+            text = _t("Lent to you by %1 through Steam Family").replace("%1", g.extra.get("lender") or _t("your family"))
+        elif src == "installed":
+            text = _t("Installed on this PC; your %1 account did not list it").replace("%1", store)
+        elif g.store == "epic" and epicfree.giveaway(g.title, arrived):
+            text = _t("Claimed free on Epic")
+        else:
+            text = _t("In your %1 account").replace("%1", store)
+        if arrived:
+            day = QDate.fromString(time.strftime("%Y-%m-%d", time.localtime(arrived)), "yyyy-MM-dd")
+            text += " \u00B7 " + _t("arrived %1").replace("%1", QLocale(self.uiLocale).toString(day, "d MMMM yyyy"))
+        return text
 
     @Slot(str, result=str)
     def customExe(self, key):

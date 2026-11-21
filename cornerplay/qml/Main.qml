@@ -2966,6 +2966,7 @@ ApplicationWindow {
                     property string label
                     property string value
                     property bool link: false
+                    property bool wrap: false
                     signal picked()
                     Layout.fillWidth: true
                     spacing: 2
@@ -2973,7 +2974,8 @@ ApplicationWindow {
                     Text {
                         Layout.fillWidth: true
                         text: value; color: link && linkHover.hovered ? theme.primary : theme.onSurface
-                        font.pixelSize: 13; elide: Text.ElideMiddle
+                        font.pixelSize: 13; elide: wrap ? Text.ElideNone : Text.ElideMiddle
+                        wrapMode: wrap ? Text.WordWrap : Text.NoWrap
                         font.underline: link && linkHover.hovered
                         HoverHandler { id: linkHover; enabled: link; cursorShape: Qt.PointingHandCursor }
                         TapHandler { enabled: link; onTapped: picked() }
@@ -2997,6 +2999,14 @@ ApplicationWindow {
                         visible: glance.size > 0
                         label: qsTr("SIZE ON DISK")
                         value: glance.size >= 1073741824 ? (glance.size / 1073741824).toFixed(1) + qsTr(" GB") : Math.max(1, Math.round(glance.size / 1048576)) + " MB"
+                    }
+                    GlanceRow {
+                        // Where the game came from (your account, this PC, a giveaway, a family member)
+                        readonly property string why: detail.visible && win.selected.key ? app.whyHere(win.selected.key) : ""
+                        visible: why !== ""
+                        label: qsTr("WHY IT'S HERE")
+                        value: why
+                        wrap: true
                     }
                     GlanceRow {
                         visible: glance.folder !== ""

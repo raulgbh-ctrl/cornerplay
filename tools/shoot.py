@@ -146,8 +146,8 @@ def run(*_):
                 from PySide6.QtCore import QMetaObject, QObject as _QO, Q_ARG
                 name, meth, arg = v.split(":", 2)
                 for x in QGuiApplication.topLevelWindows():
-                    obj = x.findChild(_QO, name) if hasattr(x, "findChild") else None
-                    if obj is not None:
+                    obj = x if name == "root" else x.findChild(_QO, name) if hasattr(x, "findChild") else None
+                    if obj is not None:  # call:root:select:steam:220 opens a game's page
                         QMetaObject.invokeMethod(obj, meth, Q_ARG("QVariant", arg))
                         break
             elif k == "mods":  # mods:KEY opens that game's mods page

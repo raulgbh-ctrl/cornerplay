@@ -148,6 +148,7 @@ class Steam(Store):
                     done = False
                 path = os.path.join(lib, "steamapps", "common", st.get("installdir", ""))
                 games[appid] = self._game(appid, name or f"App {appid}", done, path)
+                games[appid].extra["source"] = "installed"  # "account" once the Web API lists it
                 try:
                     games[appid].extra["size"] = int(st.get("SizeOnDisk", 0) or 0)
                 except ValueError:
@@ -174,8 +175,11 @@ class Steam(Store):
                 r.raise_for_status()
                 for g in r.json().get("response", {}).get("games", []):
                     appid = str(g["appid"])
-                    if appid not in games and appid not in TOOL_IDS and g.get("name"):
+                    if appid in games:
+                        games[appid].extra["source"] = "account"
+                    elif appid not in TOOL_IDS and g.get("name"):
                         games[appid] = self._game(appid, g["name"])
+                        games[appid].extra["source"] = "account"
             except (requests.RequestException, ValueError) as e:
                 self._add_playtime(games)
                 self._mark_hidden(games, steamid)

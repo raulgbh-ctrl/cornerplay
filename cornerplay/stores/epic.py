@@ -102,12 +102,14 @@ class Epic(Store):
                                      "image": _images(d.get("metadata") or {})[1]}
                                     for d in g.get("dlcs") or []],
                            "store_heroes": [hero] if hero else [], "store_logos": [logo] if logo else [],
-                           "description": ((g.get("metadata") or {}).get("description") or "")[:600]},
+                           "description": ((g.get("metadata") or {}).get("description") or "")[:600],
+                           "source": "account"},
                 )
         for app, inst in installed.items():
             if app not in games and not inst.get("is_dlc"):
                 games[app] = Game(store=self.id, id=app, title=inst.get("title", app),
-                                  installed=True, install_path=inst.get("install_path", ""))
+                                  installed=True, install_path=inst.get("install_path", ""),
+                                  extra={"source": "installed"})
         for app, inst in installed.items():
             if app in games:
                 games[app].extra["size"] = int(inst.get("install_size", 0) or 0)
