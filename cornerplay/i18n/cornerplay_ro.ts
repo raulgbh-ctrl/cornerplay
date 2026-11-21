@@ -4,7 +4,7 @@
 <context>
     <name></name>
     <message>
-        <location filename="../app.py" line="1585"/>
+        <location filename="../app.py" line="1586"/>
         <source>It needs %1. </source>
         <translation>Are nevoie de %1. </translation>
     </message>
@@ -9426,611 +9426,616 @@
     <name>app</name>
     <message>
         <location filename="../app.py" line="85"/>
+        <source>Too many wrong PINs: try again in %1 s</source>
+        <translation>Prea multe PIN-uri greșite: încearcă din nou peste %1 s</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="86"/>
         <source>Added by you</source>
         <translation>Adăugat de tine</translation>
     </message>
     <message>
-        <location filename="../app.py" line="86"/>
+        <location filename="../app.py" line="87"/>
         <source>The Battle.net app, so you can install Blizzard games</source>
         <translation>Aplicația Battle.net, ca să poți instala jocurile Blizzard</translation>
     </message>
     <message>
-        <location filename="../app.py" line="87"/>
+        <location filename="../app.py" line="88"/>
         <source>Lent to you by %1 through Steam Family</source>
         <translation>Împrumutat de %1 prin Steam Family</translation>
     </message>
     <message>
-        <location filename="../app.py" line="88"/>
+        <location filename="../app.py" line="89"/>
         <source>your family</source>
         <translation>familia ta</translation>
     </message>
     <message>
-        <location filename="../app.py" line="89"/>
+        <location filename="../app.py" line="90"/>
         <source>Installed on this PC; your %1 account did not list it</source>
         <translation>Instalat pe acest PC; contul tău %1 nu îl listează</translation>
     </message>
     <message>
-        <location filename="../app.py" line="90"/>
+        <location filename="../app.py" line="91"/>
         <source>Claimed free on Epic</source>
         <translation>Luat gratuit de pe Epic</translation>
     </message>
     <message>
-        <location filename="../app.py" line="91"/>
+        <location filename="../app.py" line="92"/>
         <source>In your %1 account</source>
         <translation>În contul tău %1</translation>
     </message>
     <message>
-        <location filename="../app.py" line="92"/>
+        <location filename="../app.py" line="93"/>
         <source>arrived %1</source>
         <translation>venit pe %1</translation>
     </message>
     <message>
-        <location filename="../app.py" line="93"/>
+        <location filename="../app.py" line="94"/>
         <source>Ready to play</source>
         <translation>Gata de jucat</translation>
     </message>
     <message>
-        <location filename="../app.py" line="94"/>
+        <location filename="../app.py" line="95"/>
         <source>Not played yet</source>
         <translation>Nejucat încă</translation>
     </message>
     <message>
-        <location filename="../app.py" line="95"/>
+        <location filename="../app.py" line="96"/>
         <source>Playing</source>
         <translation>Se joacă</translation>
     </message>
     <message>
-        <location filename="../app.py" line="96"/>
+        <location filename="../app.py" line="97"/>
         <source>Put away</source>
         <translation>Puse deoparte</translation>
     </message>
     <message>
-        <location filename="../app.py" line="97"/>
+        <location filename="../app.py" line="98"/>
         <source>Out now</source>
         <translation>A apărut</translation>
     </message>
     <message>
-        <location filename="../app.py" line="98"/>
+        <location filename="../app.py" line="99"/>
         <source>Out today</source>
         <translation>Apare azi</translation>
     </message>
     <message>
-        <location filename="../app.py" line="99"/>
+        <location filename="../app.py" line="100"/>
         <source>Tomorrow</source>
         <translation>Mâine</translation>
     </message>
     <message>
-        <location filename="../app.py" line="100"/>
+        <location filename="../app.py" line="101"/>
         <source>%1 days</source>
         <translation>%1 zile</translation>
     </message>
     <message>
-        <location filename="../app.py" line="101"/>
+        <location filename="../app.py" line="102"/>
         <source>Coming soon</source>
         <translation>În curând</translation>
     </message>
     <message>
-        <location filename="../app.py" line="102"/>
+        <location filename="../app.py" line="103"/>
         <source>Later</source>
         <translation>Mai târziu</translation>
     </message>
     <message>
-        <location filename="../app.py" line="103"/>
+        <location filename="../app.py" line="104"/>
         <source>Your package manager keeps Cornerplay up to date</source>
         <translation>Managerul de pachete ține Cornerplay la zi</translation>
     </message>
     <message>
-        <location filename="../app.py" line="104"/>
+        <location filename="../app.py" line="105"/>
         <source>You have the newest Cornerplay</source>
         <translation>Ai cel mai nou Cornerplay</translation>
     </message>
     <message>
-        <location filename="../app.py" line="105"/>
+        <location filename="../app.py" line="106"/>
         <source>under a minute left</source>
         <translation>mai puțin de un minut</translation>
     </message>
     <message>
-        <location filename="../app.py" line="106"/>
+        <location filename="../app.py" line="107"/>
         <source>%1 min left</source>
         <translation>încă %1 min</translation>
     </message>
     <message>
-        <location filename="../app.py" line="107"/>
+        <location filename="../app.py" line="108"/>
         <source>%1 h %2 min left</source>
         <translation>încă %1 h %2 min</translation>
     </message>
     <message>
-        <location filename="../app.py" line="108"/>
+        <location filename="../app.py" line="109"/>
         <source>Launch options copied: paste them in Steam &gt; Properties &gt; Launch options</source>
         <translation>Opțiuni de lansare copiate: lipește-le în Steam &gt; Proprietăți &gt; Opțiuni de lansare</translation>
     </message>
     <message>
-        <location filename="../app.py" line="109"/>
+        <location filename="../app.py" line="110"/>
         <source>Settings used in this game&apos;s Options</source>
         <translation>Setările au fost puse în Opțiunile jocului</translation>
     </message>
     <message>
-        <location filename="../app.py" line="110"/>
+        <location filename="../app.py" line="111"/>
         <source>This game already has these settings</source>
         <translation>Jocul are deja aceste setări</translation>
     </message>
     <message>
-        <location filename="../app.py" line="111"/>
+        <location filename="../app.py" line="112"/>
         <source>A command before the game did not work:</source>
         <translation>O comandă de dinaintea jocului nu a mers:</translation>
     </message>
     <message>
-        <location filename="../app.py" line="112"/>
+        <location filename="../app.py" line="113"/>
         <source>Windows games can start now</source>
         <translation>Jocurile Windows pot porni acum</translation>
     </message>
     <message>
-        <location filename="../app.py" line="113"/>
+        <location filename="../app.py" line="114"/>
         <source>Program changed</source>
         <translation>Program schimbat</translation>
     </message>
     <message>
-        <location filename="../app.py" line="114"/>
+        <location filename="../app.py" line="115"/>
         <source>Not allowed. In a terminal: </source>
         <translation>Nu s-a permis. Într-un terminal: </translation>
     </message>
     <message>
-        <location filename="../app.py" line="115"/>
+        <location filename="../app.py" line="116"/>
         <source>Games</source>
         <translation>Jocuri</translation>
     </message>
     <message>
-        <location filename="../app.py" line="116"/>
+        <location filename="../app.py" line="117"/>
         <source>added to Favourites</source>
         <translation>adăugate la Favorite</translation>
     </message>
     <message>
-        <location filename="../app.py" line="117"/>
+        <location filename="../app.py" line="118"/>
         <source>removed from Favourites</source>
         <translation>scoase din Favorite</translation>
     </message>
     <message>
-        <location filename="../app.py" line="118"/>
+        <location filename="../app.py" line="119"/>
         <source>marked</source>
         <translation>marcate</translation>
     </message>
     <message>
-        <location filename="../app.py" line="119"/>
+        <location filename="../app.py" line="120"/>
         <source>hidden</source>
         <translation>ascunse</translation>
     </message>
     <message>
-        <location filename="../app.py" line="120"/>
+        <location filename="../app.py" line="121"/>
         <source>back in the library</source>
         <translation>înapoi în bibliotecă</translation>
     </message>
     <message>
-        <location filename="../app.py" line="121"/>
+        <location filename="../app.py" line="122"/>
         <source>queued to install</source>
         <translation>puse la instalat</translation>
     </message>
     <message>
-        <location filename="../app.py" line="122"/>
+        <location filename="../app.py" line="123"/>
         <source>queued to update</source>
         <translation>puse la actualizat</translation>
     </message>
     <message>
-        <location filename="../app.py" line="123"/>
+        <location filename="../app.py" line="124"/>
         <source>Graphics driver updated: getting games&apos; shaders ready in the background</source>
         <translation>Driverul video s-a actualizat: pregătesc shaderele jocurilor în fundal</translation>
     </message>
     <message>
-        <location filename="../app.py" line="124"/>
+        <location filename="../app.py" line="125"/>
         <source>Shaders are ready again for games:</source>
         <translation>Shadere pregătite din nou pentru jocuri:</translation>
     </message>
     <message>
-        <location filename="../app.py" line="125"/>
+        <location filename="../app.py" line="126"/>
         <source>Could not reach GitHub to check for a new Cornerplay</source>
         <translation>GitHub nu a putut fi contactat pentru a căuta un Cornerplay nou</translation>
     </message>
     <message>
-        <location filename="../app.py" line="126"/>
+        <location filename="../app.py" line="127"/>
         <source>Checking for a new Cornerplay…</source>
         <translation>Se caută un Cornerplay mai nou…</translation>
     </message>
     <message>
-        <location filename="../app.py" line="127"/>
+        <location filename="../app.py" line="128"/>
         <source>The Cornerplay folder has changes of its own: update it with git yourself</source>
         <translation>Folderul Cornerplay are modificări proprii: actualizează-l tu cu git</translation>
     </message>
     <message>
-        <location filename="../app.py" line="128"/>
+        <location filename="../app.py" line="129"/>
         <source>Cornerplay does not know your Steam account yet: open Steam once</source>
         <translation>Cornerplay nu-ți știe încă contul Steam: deschide Steam o dată</translation>
     </message>
     <message>
-        <location filename="../app.py" line="129"/>
+        <location filename="../app.py" line="130"/>
         <source>No friends to show (is your friends list public?)</source>
         <translation>Niciun prieten de arătat (lista ta de prieteni e publică?)</translation>
     </message>
     <message>
-        <location filename="../app.py" line="130"/>
+        <location filename="../app.py" line="131"/>
         <source>Add a Steam Web API key in Settings &gt; Library to see your friends</source>
         <translation>Adaugă o cheie Steam Web API în Setări &gt; Bibliotecă ca să-ți vezi prietenii</translation>
     </message>
     <message>
-        <location filename="../app.py" line="131"/>
+        <location filename="../app.py" line="132"/>
         <source>Steam did not accept the Web API key, or your friends list is private</source>
         <translation>Steam nu a acceptat cheia Web API sau lista ta de prieteni e privată</translation>
     </message>
     <message>
-        <location filename="../app.py" line="132"/>
+        <location filename="../app.py" line="133"/>
         <source>Want to play</source>
         <translation>Vreau să joc</translation>
     </message>
     <message>
-        <location filename="../app.py" line="133"/>
+        <location filename="../app.py" line="134"/>
         <source>Finished</source>
         <translation>Terminat</translation>
     </message>
     <message>
-        <location filename="../app.py" line="134"/>
+        <location filename="../app.py" line="135"/>
         <source>Dropped</source>
         <translation>Abandonat</translation>
     </message>
     <message>
-        <location filename="../app.py" line="135"/>
+        <location filename="../app.py" line="136"/>
         <source>Continue playing</source>
         <translation>Continuă să joci</translation>
     </message>
     <message>
-        <location filename="../app.py" line="136"/>
+        <location filename="../app.py" line="137"/>
         <source>News from your games</source>
         <translation>Noutăți din jocurile tale</translation>
     </message>
     <message>
-        <location filename="../app.py" line="137"/>
+        <location filename="../app.py" line="138"/>
         <source>Because you played %1</source>
         <translation>Pentru că ai jucat %1</translation>
     </message>
     <message>
-        <location filename="../app.py" line="138"/>
+        <location filename="../app.py" line="139"/>
         <source>%1 is %2% off (%3): the price you were waiting for</source>
         <translation>%1 are -%2% (%3): prețul pe care îl așteptai</translation>
     </message>
     <message>
-        <location filename="../app.py" line="139"/>
+        <location filename="../app.py" line="140"/>
         <source>Price watch</source>
         <translation>Urmărire preț</translation>
     </message>
     <message>
-        <location filename="../app.py" line="140"/>
+        <location filename="../app.py" line="141"/>
         <source>never played</source>
         <translation>niciodată jucat</translation>
     </message>
     <message>
-        <location filename="../app.py" line="141"/>
+        <location filename="../app.py" line="142"/>
         <source>Battery at %1%: plug in for a long session</source>
         <translation>Baterie la %1%: conectează încărcătorul pentru o sesiune lungă</translation>
     </message>
     <message>
-        <location filename="../app.py" line="142"/>
+        <location filename="../app.py" line="143"/>
         <source>Downloads pause while you play</source>
         <translation>Descărcările stau cât joci</translation>
     </message>
     <message>
-        <location filename="../app.py" line="143"/>
+        <location filename="../app.py" line="144"/>
         <source>A download is running: the game may stutter</source>
         <translation>Rulează o descărcare: jocul poate sacada</translation>
     </message>
     <message>
-        <location filename="../app.py" line="144"/>
+        <location filename="../app.py" line="145"/>
         <source>No controller connected: this game is made for one</source>
         <translation>Niciun controler conectat: jocul e făcut pentru unul</translation>
     </message>
     <message>
-        <location filename="../app.py" line="145"/>
+        <location filename="../app.py" line="146"/>
         <source>Your home drive is almost full: the game may not save</source>
         <translation>Discul home e aproape plin: jocul s-ar putea să nu salveze</translation>
     </message>
     <message>
-        <location filename="../app.py" line="146"/>
+        <location filename="../app.py" line="147"/>
         <source>%1 battery is low</source>
         <translation>Bateria %1 e slabă</translation>
     </message>
     <message>
-        <location filename="../app.py" line="147"/>
+        <location filename="../app.py" line="148"/>
         <source>Controller</source>
         <translation>Controler</translation>
     </message>
     <message>
-        <location filename="../app.py" line="148"/>
+        <location filename="../app.py" line="149"/>
         <source>%1 battery is low (%2%)</source>
         <translation>Bateria %1 e slabă (%2%)</translation>
     </message>
     <message>
-        <location filename="../app.py" line="149"/>
+        <location filename="../app.py" line="150"/>
         <source>Controller battery</source>
         <translation>Bateria controlerului</translation>
     </message>
     <message>
-        <location filename="../app.py" line="150"/>
+        <location filename="../app.py" line="151"/>
         <source>The PC sleeps in %1 min</source>
         <translation>PC-ul intră în repaus în %1 min</translation>
     </message>
     <message>
-        <location filename="../app.py" line="151"/>
+        <location filename="../app.py" line="152"/>
         <source>Sleep timer: closing games, then the PC sleeps</source>
         <translation>Temporizator: se închid jocurile, apoi PC-ul intră în repaus</translation>
     </message>
     <message>
-        <location filename="../app.py" line="152"/>
+        <location filename="../app.py" line="153"/>
         <source>Sleep timer: the PC sleeps in a minute. Save your game.</source>
         <translation>Temporizator: PC-ul intră în repaus într-un minut. Salvează jocul.</translation>
     </message>
     <message>
-        <location filename="../app.py" line="153"/>
+        <location filename="../app.py" line="154"/>
         <source>Sleep timer</source>
         <translation>Temporizator de somn</translation>
     </message>
     <message>
-        <location filename="../app.py" line="154"/>
+        <location filename="../app.py" line="155"/>
         <source>Finish games</source>
         <translation>Termină jocuri</translation>
     </message>
     <message>
-        <location filename="../app.py" line="155"/>
+        <location filename="../app.py" line="156"/>
         <source>Start games you never played</source>
         <translation>Începe jocuri pe care nu le-ai jucat</translation>
     </message>
     <message>
-        <location filename="../app.py" line="156"/>
+        <location filename="../app.py" line="157"/>
         <source>Play hours</source>
         <translation>Joacă ore</translation>
     </message>
     <message>
-        <location filename="../app.py" line="157"/>
+        <location filename="../app.py" line="158"/>
         <source>Challenge done: %1 (%2 of %3) this month</source>
         <translation>Provocare reușită: %1 (%2 din %3) luna asta</translation>
     </message>
     <message>
-        <location filename="../app.py" line="158"/>
+        <location filename="../app.py" line="159"/>
         <source>Challenge done</source>
         <translation>Provocare reușită</translation>
     </message>
     <message>
-        <location filename="../app.py" line="159"/>
+        <location filename="../app.py" line="160"/>
         <source>Power limit not set: </source>
         <translation>Limita de putere nu a fost setată: </translation>
     </message>
     <message>
-        <location filename="../app.py" line="160"/>
+        <location filename="../app.py" line="161"/>
         <source>Clips need gpu-screen-recorder</source>
         <translation>Clipurile au nevoie de gpu-screen-recorder</translation>
     </message>
     <message>
-        <location filename="../app.py" line="161"/>
+        <location filename="../app.py" line="162"/>
         <source>Clip saved: the last %1 seconds</source>
         <translation>Clip salvat: ultimele %1 secunde</translation>
     </message>
     <message>
-        <location filename="../app.py" line="162"/>
+        <location filename="../app.py" line="163"/>
         <source>Clip saved</source>
         <translation>Clip salvat</translation>
     </message>
     <message>
-        <location filename="../app.py" line="163"/>
+        <location filename="../app.py" line="164"/>
         <source>Clips are off: Settings &gt; Games &gt; Clips</source>
         <translation>Clipurile sunt oprite: Setări &gt; Jocuri &gt; Clipuri</translation>
     </message>
     <message>
-        <location filename="../app.py" line="164"/>
+        <location filename="../app.py" line="165"/>
         <source>No game is recording right now</source>
         <translation>Niciun joc nu se înregistrează acum</translation>
     </message>
     <message>
-        <location filename="../app.py" line="165"/>
+        <location filename="../app.py" line="166"/>
         <source>No such game</source>
         <translation>Jocul nu există</translation>
     </message>
     <message>
-        <location filename="../app.py" line="166"/>
+        <location filename="../app.py" line="167"/>
         <source>Making your year&apos;s video…</source>
         <translation>Se face videoclipul anului tău…</translation>
     </message>
     <message>
-        <location filename="../app.py" line="167"/>
+        <location filename="../app.py" line="168"/>
         <source>Your year&apos;s video is ready: </source>
         <translation>Videoclipul anului tău e gata: </translation>
     </message>
     <message>
-        <location filename="../app.py" line="168"/>
+        <location filename="../app.py" line="169"/>
         <source>Could not make the video: </source>
         <translation>Videoclipul nu a putut fi făcut: </translation>
     </message>
     <message>
-        <location filename="../app.py" line="169"/>
+        <location filename="../app.py" line="170"/>
         <source>Lights did not answer: </source>
         <translation>Luminile nu au răspuns: </translation>
     </message>
     <message>
-        <location filename="../app.py" line="170"/>
+        <location filename="../app.py" line="171"/>
         <source>No Hue bridge there: </source>
         <translation>Niciun bridge Hue acolo: </translation>
     </message>
     <message>
-        <location filename="../app.py" line="171"/>
+        <location filename="../app.py" line="172"/>
         <source>Press the round button on the Hue bridge, then Pair again</source>
         <translation>Apasă butonul rotund de pe bridge-ul Hue, apoi Asociază din nou</translation>
     </message>
     <message>
-        <location filename="../app.py" line="172"/>
+        <location filename="../app.py" line="173"/>
         <source>Paired with the Hue bridge</source>
         <translation>Asociat cu bridge-ul Hue</translation>
     </message>
     <message>
-        <location filename="../app.py" line="173"/>
+        <location filename="../app.py" line="174"/>
         <source>Imported %1 games from Lutris</source>
         <translation>%1 jocuri importate din Lutris</translation>
     </message>
     <message>
-        <location filename="../app.py" line="174"/>
+        <location filename="../app.py" line="175"/>
         <source>Lutris is not installed</source>
         <translation>Lutris nu e instalat</translation>
     </message>
     <message>
-        <location filename="../app.py" line="175"/>
+        <location filename="../app.py" line="176"/>
         <source>That PIN is not right</source>
         <translation>PIN-ul nu e corect</translation>
     </message>
     <message>
-        <location filename="../app.py" line="176"/>
+        <location filename="../app.py" line="177"/>
         <source>A PIN is 4 or more digits</source>
         <translation>Un PIN are 4 sau mai multe cifre</translation>
     </message>
     <message>
-        <location filename="../app.py" line="177"/>
+        <location filename="../app.py" line="178"/>
         <source>PIN saved</source>
         <translation>PIN salvat</translation>
     </message>
     <message>
-        <location filename="../app.py" line="178"/>
+        <location filename="../app.py" line="179"/>
         <source>PIN removed</source>
         <translation>PIN șters</translation>
     </message>
     <message>
-        <location filename="../app.py" line="179"/>
+        <location filename="../app.py" line="180"/>
         <source>It is past bedtime: games are done for today</source>
         <translation>A trecut ora de culcare: gata cu jocurile pe azi</translation>
     </message>
     <message>
-        <location filename="../app.py" line="180"/>
+        <location filename="../app.py" line="181"/>
         <source>Today&apos;s play time is used up</source>
         <translation>Timpul de joc de azi s-a terminat</translation>
     </message>
     <message>
-        <location filename="../app.py" line="181"/>
+        <location filename="../app.py" line="182"/>
         <source>Play time is over for today</source>
         <translation>Timpul de joc s-a terminat pe azi</translation>
     </message>
     <message>
-        <location filename="../app.py" line="182"/>
+        <location filename="../app.py" line="183"/>
         <source>Family limits</source>
         <translation>Limite pentru familie</translation>
     </message>
     <message>
-        <location filename="../app.py" line="183"/>
+        <location filename="../app.py" line="184"/>
         <source>%1 minutes of play left: time to save</source>
         <translation>Au mai rămas %1 minute de joc: e timpul să salvezi</translation>
     </message>
     <message>
-        <location filename="../app.py" line="184"/>
+        <location filename="../app.py" line="185"/>
         <source>This game is not in the games allowed for %1</source>
         <translation>Jocul ăsta nu e printre cele permise pentru %1</translation>
     </message>
     <message>
-        <location filename="../app.py" line="185"/>
+        <location filename="../app.py" line="186"/>
         <source>Favourites</source>
         <translation>Favorite</translation>
     </message>
     <message>
-        <location filename="../app.py" line="186"/>
+        <location filename="../app.py" line="187"/>
         <source>Recently added</source>
         <translation>Adăugate recent</translation>
     </message>
     <message>
-        <location filename="../app.py" line="187"/>
+        <location filename="../app.py" line="188"/>
         <source>Library</source>
         <translation>Bibliotecă</translation>
     </message>
     <message>
-        <location filename="../app.py" line="188"/>
+        <location filename="../app.py" line="189"/>
         <source>You&apos;re in the middle of it</source>
         <translation>Ești la jumătatea lui</translation>
     </message>
     <message>
-        <location filename="../app.py" line="189"/>
+        <location filename="../app.py" line="190"/>
         <source>It&apos;s on your Want to play list</source>
         <translation>E pe lista Vreau să joc</translation>
     </message>
     <message>
-        <location filename="../app.py" line="190"/>
+        <location filename="../app.py" line="191"/>
         <source>You haven&apos;t started it yet</source>
         <translation>Nu l-ai început încă</translation>
     </message>
     <message>
-        <location filename="../app.py" line="191"/>
+        <location filename="../app.py" line="192"/>
         <source>played so far</source>
         <translation>jucate până acum</translation>
     </message>
     <message>
-        <location filename="../app.py" line="192"/>
+        <location filename="../app.py" line="193"/>
         <source>You left it </source>
         <translation>L-ai lăsat acum </translation>
     </message>
     <message>
-        <location filename="../app.py" line="193"/>
+        <location filename="../app.py" line="194"/>
         <source>months ago</source>
         <translation>luni</translation>
     </message>
     <message>
-        <location filename="../app.py" line="194"/>
+        <location filename="../app.py" line="195"/>
         <source>a month ago</source>
         <translation>o lună</translation>
     </message>
     <message>
-        <location filename="../app.py" line="195"/>
+        <location filename="../app.py" line="196"/>
         <source>at</source>
         <translation>la</translation>
     </message>
     <message>
-        <location filename="../app.py" line="196"/>
+        <location filename="../app.py" line="197"/>
         <source>pick it back up?</source>
         <translation>îl reiei?</translation>
     </message>
     <message>
-        <location filename="../app.py" line="197"/>
+        <location filename="../app.py" line="198"/>
         <source>you often play it at this time</source>
         <translation>des îl joci la ora asta</translation>
     </message>
     <message>
-        <location filename="../app.py" line="198"/>
+        <location filename="../app.py" line="199"/>
         <source>plays on one screen together</source>
         <translation>se joacă împreună pe un ecran</translation>
     </message>
     <message>
-        <location filename="../app.py" line="199"/>
+        <location filename="../app.py" line="200"/>
         <source>usually about </source>
         <translation>de obicei cam </translation>
     </message>
     <message>
-        <location filename="../app.py" line="200"/>
+        <location filename="../app.py" line="201"/>
         <source>a session</source>
         <translation>pe sesiune</translation>
     </message>
     <message>
-        <location filename="../app.py" line="1256"/>
+        <location filename="../app.py" line="1257"/>
         <source>%1 h played</source>
         <translation>%1 h jucate</translation>
     </message>
     <message>
-        <location filename="../app.py" line="1258"/>
+        <location filename="../app.py" line="1259"/>
         <source>%1 min played</source>
         <translation>%1 min jucate</translation>
     </message>
     <message>
-        <location filename="../app.py" line="1261"/>
+        <location filename="../app.py" line="1262"/>
         <source>today</source>
         <translation>azi</translation>
     </message>
     <message>
-        <location filename="../app.py" line="1261"/>
+        <location filename="../app.py" line="1262"/>
         <source>yesterday</source>
         <translation>ieri</translation>
     </message>
     <message>
-        <location filename="../app.py" line="1262"/>
+        <location filename="../app.py" line="1263"/>
         <source>%1 days ago</source>
         <translation>acum %1 zile</translation>
     </message>
     <message>
-        <location filename="../app.py" line="1264"/>
+        <location filename="../app.py" line="1265"/>
         <source>last played %1</source>
         <translation>jucat ultima dată %1</translation>
     </message>

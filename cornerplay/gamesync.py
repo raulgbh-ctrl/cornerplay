@@ -9,6 +9,8 @@ name is there; otherwise that PC keeps its own choice. Custom covers stay (they 
     <sync folder>/Cornerplay/game-settings.json   {key: {"t": changed, "o": {name: value}}}
 """
 import os
+import re
+import shlex
 
 from .config import game_options, read_json, write_json
 
@@ -38,13 +40,34 @@ def local_proton(value, builds=None):
     return next((b for b in builds if os.path.basename(b.rstrip("/")) == name), None)
 
 
+# Variables that make every program the game starts load or run something else: a synced
+# setting must never carry them (a shared or compromised sync folder would run code here).
+RISKY_ENV = re.compile(r"^(LD_\w+|BASH_ENV|ENV|PATH|PYTHON\w*|PERL5\w*|RUBY\w*|NODE_OPTIONS|GIO_\w+|GTK_MODULES|"
+                       r"QT_PLUGIN_PATH|VK_LAYER_PATH|VK_ADD_LAYER_PATH|VK_ICD_FILENAMES|VK_DRIVER_FILES|"
+                       r"WINEDLLPATH|WINESERVER|WINELOADER|PROTON_\w*PATH\w*|STEAM_COMPAT_\w+|PRESSURE_VESSEL_\w+)$", re.I)
+
+
+def safe_env(text):
+    """A synced env line without the variables above (kept as typed otherwise)."""
+    from .runner import parse_env
+    if not isinstance(text, str):
+        return ""
+    keep = {k: v for k, v in parse_env(text).items() if not RISKY_ENV.match(k)}
+    return " ".join(f"{k}={shlex.quote(v)}" for k, v in keep.items())
+
+
 def _clean(remote):
     """The shared file comes from other PCs: keep only well-formed entries."""
     out = {}
     for k, v in (remote if isinstance(remote, dict) else {}).items():
         if isinstance(k, str) and ":" in k and isinstance(v, dict) and isinstance(v.get("t"), (int, float)) \
                 and isinstance(v.get("o"), dict):
-            out[k] = {"t": float(v["t"]), "o": {n: x for n, x in v["o"].items() if n in SYNCED}}
+            o = {n: x for n, x in v["o"].items() if n in SYNCED}
+            if "env" in o:
+                o["env"] = safe_env(o["env"])
+            if "args" in o and not isinstance(o["args"], str):
+                o.pop("args")
+            out[k] = {"t": float(v["t"]), "o": o}
     return out
 
 

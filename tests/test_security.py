@@ -136,3 +136,42 @@ def test_flatpak_update_installs_with_the_hosts_flatpak(monkeypatch):
     assert cmd[:2] == ["flatpak-spawn", "--host"] and "--bundle" in cmd and "--user" in cmd
     monkeypatch.setattr(updates, "_bundle", {})
     assert not updates.offered() or not updates.managed()
+
+
+def test_backup_leaves_out_every_sign_in(tmp_path, monkeypatch):
+    for name in ("humble_auth.json", "steam_web.json", "sunshine-login.json", "gog_auth.json", "new_store_auth.json"):
+        write_private(CONFIG_DIR / name, "{}")
+    try:
+        names = {n for _, n in backup._files()}
+        assert not any(n.endswith(("_auth.json", "steam_web.json", "sunshine-login.json")) for n in names)
+    finally:
+        for name in ("humble_auth.json", "steam_web.json", "sunshine-login.json", "gog_auth.json", "new_store_auth.json"):
+            (CONFIG_DIR / name).unlink(missing_ok=True)
+
+
+def test_family_pin_is_slow_hashed_and_locks_out(monkeypatch):
+    from cornerplay import family
+    family._tries.update(wrong=0, until=0, rounds=0)
+    family.set_pin("1234")
+    stored = settings.get("family_pin")
+    assert stored.startswith("scrypt$") and "1234" not in stored
+    assert family.pin_ok("1234")
+    for _ in range(family.MAX_WRONG):
+        assert not family.pin_ok("0000")
+    assert family.pin_wait() > 0
+    assert not family.pin_ok("1234")  # even the right PIN waits
+    family._tries.update(wrong=0, until=0, rounds=0)
+    assert family.pin_ok("1234")
+    # an old salted SHA-256 PIN still works once and becomes scrypt
+    import hashlib
+    settings.set("family_pin", "ab$" + hashlib.sha256(b"ab9876").hexdigest())
+    assert family.pin_ok("9876") and settings.get("family_pin").startswith("scrypt$")
+    family.set_pin("")
+
+
+def test_synced_settings_cannot_preload_code():
+    from cornerplay import gamesync
+    remote = {"steam:1": {"t": 5, "o": {"env": "LD_PRELOAD=/tmp/x.so DXVK_HUD=fps PATH=/tmp BASH_ENV=/tmp/rc",
+                                       "args": ["--x"], "before": "rm -rf ~"}}}
+    o = gamesync._clean(remote)["steam:1"]["o"]
+    assert o == {"env": "DXVK_HUD=fps"}

@@ -14,7 +14,8 @@ from pathlib import Path
 
 from .config import CONFIG_DIR, DATA_DIR, write_private
 
-SKIP = {"gog_auth.json"}           # tokens
+# Sign-ins: tokens and session cookies stay on this PC (a backup zip is easy to share or lose).
+SKIP = {"gog_auth.json", "humble_auth.json", "steam_web.json", "sunshine-login.json"}
 SKIP_SETTINGS = {"machine_id"}     # this PC only
 SECRETS = ("steam_api_key", "steamgriddb_key", "igdb_client_id", "igdb_client_secret", "itad_key")  # kept out, kept on restore
 VERSION = 1
@@ -26,7 +27,7 @@ def _files():
         if not base.exists():
             continue
         for p in base.rglob("*"):
-            if not p.is_file() or p.name in SKIP or p.suffix in (".lock", ".tmp"):
+            if not p.is_file() or p.name in SKIP or p.name.endswith("_auth.json") or p.suffix in (".lock", ".tmp"):
                 continue
             if tag == "config" and p.relative_to(base).parts[0] == "people" and p.name.endswith(".lock"):
                 continue

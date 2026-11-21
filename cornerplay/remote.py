@@ -70,6 +70,13 @@ class Server:
                 self.send_header("Cache-Control", "no-store")
                 self.send_header("X-Content-Type-Options", "nosniff")
                 self.send_header("Referrer-Policy", "no-referrer")
+                # Never inside another site's frame (a page could trick taps onto the remote), and the
+                # pages talk only to this server; covers may come from the stores' image servers.
+                self.send_header("X-Frame-Options", "DENY")
+                self.send_header("Content-Security-Policy",
+                                 "default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; "
+                                 "script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; "
+                                 "form-action 'self'; base-uri 'none'")
                 for k, v in headers:
                     self.send_header(k, v)
                 self.end_headers()

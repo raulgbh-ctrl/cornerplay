@@ -7,7 +7,10 @@ outside the allowed collection, but a person at a desktop can still start games 
 
 settings["family"]: {person: {"limit": minutes a day (0: none), "bedtime": "HH:MM" ("": none),
                               "only": a collection's name ("": every game)}}
-settings["family_pin"]: "salt$sha256" ("" : no PIN)
+settings["family_pin"]: "scrypt$salt$hash" ("" : no PIN). Older ones, "salt$sha256", are still
+accepted and turned into scrypt the next time the PIN is typed right. A PIN is a few digits,
+so the hash is made slow (scrypt), and five wrong PINs in a row make Cornerplay wait a minute
+(longer each time) before it checks another.
 """
 import hashlib
 import hmac
@@ -49,20 +52,49 @@ def has_pin() -> bool:
     return bool(settings.get("family_pin"))
 
 
+def _scrypt(salt: str, pin: str) -> str:
+    return hashlib.scrypt(str(pin).encode(), salt=bytes.fromhex(salt), n=2 ** 14, r=8, p=1, dklen=32).hex()
+
+
 def set_pin(pin: str):
     if not pin:
         settings.set("family_pin", "")
         return
-    salt = os.urandom(8).hex()
-    settings.set("family_pin", salt + "$" + hashlib.sha256((salt + pin).encode()).hexdigest())
+    salt = os.urandom(16).hex()
+    settings.set("family_pin", f"scrypt${salt}${_scrypt(salt, pin)}")
+
+
+_tries = {"wrong": 0, "until": 0.0, "rounds": 0}
+MAX_WRONG = 5
+
+
+def pin_wait() -> int:
+    """Seconds before another PIN is checked (0: now)."""
+    return max(0, int(_tries["until"] - time.time() + 0.999))
 
 
 def pin_ok(pin: str) -> bool:
     stored = settings.get("family_pin") or ""
     if not stored:
         return True
-    salt, _, digest = stored.partition("$")
-    return hmac.compare_digest(hashlib.sha256((salt + str(pin)).encode()).hexdigest(), digest)
+    if pin_wait():
+        return False
+    if stored.startswith("scrypt$"):
+        _, salt, digest = stored.split("$", 2)
+        ok = hmac.compare_digest(_scrypt(salt, pin), digest)
+    else:  # the old salted SHA-256: accepted once, then made scrypt
+        salt, _, digest = stored.partition("$")
+        ok = hmac.compare_digest(hashlib.sha256((salt + str(pin)).encode()).hexdigest(), digest)
+        if ok:
+            set_pin(str(pin))
+    if ok:
+        _tries.update(wrong=0, rounds=0)
+        return True
+    _tries["wrong"] += 1
+    if _tries["wrong"] >= MAX_WRONG:
+        _tries["rounds"] += 1
+        _tries.update(wrong=0, until=time.time() + 60 * 2 ** (_tries["rounds"] - 1))  # 1, 2, 4 ... minutes
+    return False
 
 
 def minutes_today(sessions, now=None, running_since=()):

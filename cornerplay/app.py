@@ -82,7 +82,8 @@ def _t(text):
 
 def _translatable_names():
     """Never called: lists names that reach _t() through variables, so lupdate finds them."""
-    return (QCoreApplication.translate("app", "Added by you"),
+    return (QCoreApplication.translate("app", "Too many wrong PINs: try again in %1 s"),
+            QCoreApplication.translate("app", "Added by you"),
             QCoreApplication.translate("app", "The Battle.net app, so you can install Blizzard games"),
             QCoreApplication.translate("app", "Lent to you by %1 through Steam Family"),
             QCoreApplication.translate("app", "your family"),
@@ -3508,7 +3509,9 @@ class AioLaunch(QObject):
     def enterPin(self, pin, what, arg):
         """The PIN typed for `what`: carries on with it when right."""
         if not family.pin_ok(pin):
-            self.toast.emit(_t("That PIN is not right"))
+            wait = family.pin_wait()
+            self.toast.emit(_t("Too many wrong PINs: try again in %1 s").replace("%1", str(wait)) if wait
+                            else _t("That PIN is not right"))
             return False
         self._family_unlocked = True
         self.familyChanged.emit()
