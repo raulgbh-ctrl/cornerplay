@@ -1674,6 +1674,36 @@ class AioLaunch(QObject):
             return done
         self._bg(work)
 
+    # --- known fixes from PCGamingWiki (pcgw.py) ---------------------------------------------------
+    fixesReady = Signal(str, "QVariantMap")
+
+    @Slot(str)
+    def loadKnownFixes(self, key):
+        g = self.model.find(key)
+        if not g or self.demo or g.store in ("retro", "prism") or g.id == "battlenet-app":
+            return
+        from . import pcgw
+
+        def work():
+            try:
+                data = pcgw.fixes(key, g.title)
+            except Exception:  # noqa: BLE001 - the wiki unreachable: no card
+                data = {}
+            return lambda: self.fixesReady.emit(key, data)
+        self._bg(work)
+
+    @Slot(str, str)
+    def addLaunchArgs(self, key, args):
+        """A fix's command-line argument ("-NoLauncher") added to the game's launch arguments."""
+        g = self.model.find(key)
+        if not g or not re.fullmatch(r"-[A-Za-z0-9_.:=+/-]+", args or ""):
+            return
+        have = str(game_options.get(key).get("args") or "")
+        if args not in have.split():
+            game_options.set(key, "args", (have + " " + args).strip())
+            self._touch(key)
+        self.toast.emit(f"Added {args} to {g.title}'s launch arguments (Options)")
+
     @Slot(result="QVariantList")
     def commonFixes(self):
         return [{"label": _t(label), "value": verb} for verb, label in self.COMMON_FIXES]
@@ -6270,6 +6300,7 @@ class AioLaunch(QObject):
             want["scheduler"] = bool(settings.get("focus_scheduler") and settings.get("scx_rule"))
             want["lowlat"] = bool(settings.get("focus_lowlat"))
             want["quantum"] = own.get("audio_lowlat") is True
+            want["hdr"] = own.get("hdr_desktop") is True and own.get("gamescope") is not True
             if settings.get("clips"):
                 want["clips"] = first.get("title") or "Game"
             self.lightsFor(self.gameColour(first["key"]))
@@ -6300,6 +6331,52 @@ class AioLaunch(QObject):
             self.toast.emit(_t("Power limit not set: ") + undo["tdp_error"])
         if settings.get("clips") and undo.get("clips") is None:
             self.toast.emit(_t("Clips need gpu-screen-recorder"))
+
+    hudLevelChanged = Signal()
+    hudLevel = Property(str, lambda s: __import__("cornerplay.hudlevels", fromlist=["level"]).level(), notify=hudLevelChanged)
+
+    @Slot(str)
+    def setHudLevel(self, name):
+        from . import hudlevels
+        if hudlevels.set_level(name):
+            self.hudLevelChanged.emit()
+
+    @Slot()
+    def takeScreenshot(self):
+        """Guide + X: the screen now, into ~/Pictures/Screenshots named after the game being played,
+        so the game's page and the Screenshots page show it (screenshots.py matches it by time)."""
+        if self.demo:
+            return
+        from . import screenshots
+        playing = self._now_playing()
+        title = re.sub(r'[\\/:*?"<>|]+', "", (playing[0].get("title") if playing else "") or "Cornerplay").strip() or "Cornerplay"
+        folder = screenshots.pictures_dir() / "Screenshots"
+        path = folder / f"{title} {time.strftime('%Y-%m-%d %H-%M-%S')}.png"
+        if os.environ.get("WAYLAND_DISPLAY") and shutil.which("grim") and os.environ.get("XDG_CURRENT_DESKTOP", "") != "gamescope":
+            argv = ["grim", str(path)]
+        elif shutil.which("spectacle"):
+            argv = ["spectacle", "-b", "-n", "-f", "-o", str(path)]
+        elif shutil.which("gnome-screenshot"):
+            argv = ["gnome-screenshot", "-f", str(path)]
+        else:
+            self.toast.emit("Screenshots need grim, Spectacle or GNOME Screenshot")
+            return
+
+        def work():
+            folder.mkdir(parents=True, exist_ok=True)
+            try:
+                ok = subprocess.run(argv, capture_output=True, timeout=20).returncode == 0 and path.exists()
+            except (OSError, subprocess.TimeoutExpired):
+                ok = False
+
+            def done():
+                if ok:
+                    self.toast.emit(f"Screenshot saved: {path.name}")
+                    self._notify(_t("Screenshot saved"), str(path))
+                else:
+                    self.toast.emit("The screenshot did not work")
+            return done
+        self._bg(work)
 
     @Slot()
     def saveClip(self):

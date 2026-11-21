@@ -663,3 +663,38 @@ def test_common_fixes_are_plain_winetricks_verbs():
     import re
     from cornerplay.app import AioLaunch
     assert all(re.fullmatch(r"[a-z0-9_]+", v) for v, _ in AioLaunch.COMMON_FIXES)
+
+
+def test_edid_hdr_block(tmp_path, monkeypatch):
+    import glob as globmod
+    from cornerplay import hypr
+    base = bytearray(128)
+    cta = bytearray(128)
+    cta[0], cta[1], cta[2] = 0x02, 0x03, 4 + 3  # CTA-861, data blocks end after one 3-byte block
+    cta[4:7] = bytes([(7 << 5) | 2, 0x06, 0x05])  # extended tag 6: HDR static metadata
+    hdr, sdr = tmp_path / "hdr", tmp_path / "sdr"
+    hdr.write_bytes(bytes(base + cta))
+    sdr.write_bytes(bytes(base))
+    monkeypatch.setattr(globmod, "glob", lambda p: [str(hdr)] if "TV" in p else [str(sdr)])
+    assert hypr.edid_hdr("TV") is True
+    assert hypr.edid_hdr("eDP-1") is False
+
+
+def test_pcgw_fixes_parsing():
+    from cornerplay import pcgw
+    text = """==Issues fixed==
+===Disable the launcher===
+{{Fixbox|description=Use {{Code|-NoLauncher}} [[Glossary:Command line arguments|command line argument]]|ref=<ref>x</ref>}}
+===Windows===
+====Stutter on Windows 11====
+{{Fixbox|description=Disable fullscreen optimization}}
+===Linux===
+====Game crashes instantly====
+{{Fixbox|description=Use {{Code|LD_PRELOAD}} to load your system's libraries}}{{Fixbox|description=Other}}
+"""
+    fixes = pcgw._fixes_in(text, "Some Game", "fixed")
+    titles = [f["title"] for f in fixes]
+    assert titles == ["Disable the launcher", "Game crashes instantly"]  # Windows-only ones left out
+    assert fixes[0]["args"] == "-NoLauncher" and fixes[0]["summary"] == "Use -NoLauncher command line argument"
+    assert fixes[1]["linux"] and "Other" not in fixes[1]["summary"]
+    assert fixes[1]["url"].endswith("Some_Game#Game_crashes_instantly")

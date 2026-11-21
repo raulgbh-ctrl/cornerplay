@@ -327,7 +327,15 @@ QtObject {
                          [{ group: qsTr("More"), label: qsTr("All settings"), icon: "settings-2", act: "settings", section: "display" }])
     }
     function performance() {
-        return [].concat(gamescope(qsTr("Display")), powerMode(qsTr("Power")), games(qsTr("Games you start here")))
+        return [].concat(hudLevel(qsTr("Overlay")), gamescope(qsTr("Display")), powerMode(qsTr("Power")), games(qsTr("Games you start here")))
+    }
+    // The performance overlay's level while playing (hudlevels.py), when that setting is on.
+    function hudLevel(group) {
+        if (!app.settingsMap.hud_levels) return []
+        return [{ group: group, kind: "choice", label: qsTr("Performance overlay"), icon: "gauge", cur: app.hudLevel,
+                  options: [{ v: "off", t: qsTr("Off") }, { v: "fps", t: qsTr("FPS only") },
+                            { v: "basic", t: qsTr("Basic") }, { v: "full", t: qsTr("Full") }],
+                  set: v => app.setHudLevel(v) }]
     }
     function tvQuick() { return [sleepTimer(qsTr("Sleep timer"))].concat(tvMode(qsTr("TV mode"))) }
     // Games close and the PC sleeps after this long (app.setSleepTimer): left / right to choose.

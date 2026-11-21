@@ -59,3 +59,25 @@ def audio_begin() -> dict:
 def audio_end(undo: dict):
     if (undo or {}).get("quantum"):
         _pw("0", "clock.force-quantum", "0")  # 0: PipeWire chooses again
+
+
+def hdr_begin() -> dict:
+    """HDR on the screen in front while the game plays (Hyprland), when that screen can show it."""
+    if not hypr.running():
+        return {}
+    m = next((x for x in hypr.monitors() if x.get("focused")), None)
+    if not m or (m.get("colorManagementPreset") or "") == "hdr" or not hypr.edid_hdr(m["name"]):
+        return {}
+    bits = 10 if "2101010" in (m.get("currentFormat") or "") else 8
+    if not hypr.set_color(m, "hdr", 10):
+        return {}
+    return {"hdr": {"name": m["name"], "preset": m.get("colorManagementPreset") or "srgb", "bits": bits}}
+
+
+def hdr_end(undo: dict):
+    was = (undo or {}).get("hdr")
+    if not was:
+        return
+    m = next((x for x in hypr.monitors() if x.get("name") == was["name"]), None)
+    if m:
+        hypr.set_color(m, was["preset"], was["bits"])

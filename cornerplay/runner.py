@@ -189,6 +189,9 @@ def perf_env(store: str, game_id: str) -> dict:
         hud += perf.hud_options(store, game_id, visible=bool(opt("mangohud") or opt("show_fps")))
     if hud:
         env["MANGOHUD_CONFIG"] = ",".join(hud)
+    elif settings.get("hud_levels"):  # levels switched from quick access (hudlevels.py)
+        from . import hudlevels
+        env.update(hudlevels.env())
     if settings.get("shader_cache"):
         # One lasting cache folder per game: shaders compiled once stay compiled, also after a
         # reinstall or an update, so only the very first run stutters. (Steam ships ready-made
@@ -324,6 +327,7 @@ def _fps_cap() -> int:
 
 def _wants_hud() -> bool:
     return bool(opt("mangohud") or opt("show_fps") or (opt("perf_log") and shutil.which("mangohud"))
+                or (settings.get("hud_levels") and shutil.which("mangohud"))
                 or (PROFILES.get(opt("perf") or "") or {}).get("fps") or _fps_cap())
 
 

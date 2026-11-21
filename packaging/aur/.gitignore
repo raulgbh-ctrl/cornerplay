@@ -1,0 +1,6 @@
+# makepkg leftovers from test builds (the tracked 0.8.0 source stays)
+src/
+pkg/
+*.pkg.tar.zst
+cornerplay-*.tar.gz
+!cornerplay-0.8.0.tar.gz

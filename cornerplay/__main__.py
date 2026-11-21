@@ -433,6 +433,7 @@ def main():
     ctx.setContextProperty("pad", gamepad)
     gamepad.overlay.connect(cornerplay.overlayRequested)
     gamepad.quickAccess.connect(cornerplay.quickAccessRequested)
+    gamepad.screenshot.connect(cornerplay.takeScreenshot)
     cornerplay.gamepad = gamepad  # asked at check time: SDL only loads a moment after start-up
     ctx.setContextProperty("startTv", args.tv)
     cornerplay.setTvActive(bool(args.tv))

@@ -26,7 +26,7 @@ BUTTONS = {
     11: Qt.Key_Up, 12: Qt.Key_Down, 13: Qt.Key_Left, 14: Qt.Key_Right,
     15: Qt.Key_F9,                                                                # 15: Share / Capture: quick access
 }
-GUIDE, BUTTON_A, BUTTON_Y, SHARE = 5, 0, 3, 15
+GUIDE, BUTTON_A, BUTTON_X, BUTTON_Y, SHARE = 5, 0, 2, 3, 15
 MAIN_MENU, QUICK_ACCESS = Qt.Key_F10, Qt.Key_F9
 REPEATING = {Qt.Key_Up, Qt.Key_Down, Qt.Key_Left, Qt.Key_Right}
 # SDL_GameControllerType -> which button prompts to show (qml/glyphs.js draws them).
@@ -79,6 +79,7 @@ class Gamepad(QObject):
     styleChanged = Signal()
     overlay = Signal()   # Guide + Y: open or close the in-game panel
     quickAccess = Signal()  # Guide + A or Share while a game is in front: quick access over it
+    screenshot = Signal()   # Guide + X: a screenshot of the game (app.takeScreenshot)
     activity = Signal()  # any button or stick, while Cornerplay has the focus
     # The controller tester (TV mode's Settings): every button and stick as it is, and while
     # capture is on, nothing is turned into keys (so B can be tested without leaving).
@@ -539,6 +540,11 @@ class Gamepad(QObject):
             self._guide = "chord"
             self._swallow.add(button)
             self.overlay.emit()
+            return
+        if button == BUTTON_X and down and self._guide:
+            self._guide = "chord"
+            self._swallow.add(button)
+            self.screenshot.emit()
             return
         if button == BUTTON_A and down and self._guide:
             self._guide = "chord"

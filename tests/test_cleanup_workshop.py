@@ -83,3 +83,16 @@ def test_workshop_installed(tmp_path):
     assert items == {"1610056683": {"size": 4096, "updated": 1700000000,
                                     "path": str(lib / "steamapps/workshop/content/646570/1610056683")}}
     assert workshop.installed("1", [str(lib)]) == {}
+
+
+def test_other_redist_folders_only_when_all_installers(tmp_path):
+    from cornerplay import cleanup
+    game = tmp_path / "Game"
+    (game / "Redist").mkdir(parents=True)
+    (game / "Redist" / "vcredist_x64.exe").write_bytes(b"x")
+    (game / "Redist" / "readme.txt").write_text("x")
+    (game / "redist2").mkdir()
+    (game / "DirectX").mkdir()
+    (game / "DirectX" / "d3dx9_43.dll").write_bytes(b"x")   # a DLL the game may load: kept
+    found = [os.path.basename(p) for p in cleanup.redist_installers([str(game)])]
+    assert found == ["Redist"]

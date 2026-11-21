@@ -6,7 +6,8 @@ Three kinds, each safe to delete:
 - crashes: crash dumps over a day old, in game folders and the games' Proton prefixes
   (*.dmp, Unreal's Saved/Crashes, Unity's Crashes folders, Windows' CrashDumps);
 - redist: the DirectX / Visual C++ / .NET installers games ship (Steam's _CommonRedist,
-  GOG's __redist), only for games already played: they run once, at the first start.
+  GOG's __redist, and Redist / DirectX / vcredist folders that hold nothing but installers), only
+  for games already played: they run once, at the first start.
   Steam may download _CommonRedist again when it verifies a game's files.
 Saves, settings and Proton prefixes are never touched (Storage lists leftover prefixes separately).
 """
@@ -100,8 +101,26 @@ def crash_dumps(game_dirs, prefixes, now=None):
     return sorted(set(found))
 
 
+# Folders other games use for the same installers: removed only when everything in them is an
+# installer or its notes (a game may keep DLLs it really loads in a folder called "redist").
+MAYBE_REDIST = {"redist", "redists", "redistributables", "directx", "vcredist", "_installer", "installers",
+                "dotnetfx", "physx", "oalinst"}
+INSTALLER_FILES = (".exe", ".msi", ".cab", ".txt", ".ini", ".xml", ".rtf", ".htm", ".html", ".url", ".pdf")
+
+
+def _only_installers(folder, limit=4000):
+    n = 0
+    for root, _dirs, files in os.walk(folder):
+        for f in files:
+            n += 1
+            if n > limit or not f.lower().endswith(INSTALLER_FILES):
+                return False
+    return n > 0
+
+
 def redist_installers(played_game_dirs):
-    """_CommonRedist / __redist folders at the top of games you have played."""
+    """Installer folders (_CommonRedist, __redist, and Redist / DirectX / vcredist ... holding only
+    installers) at the top of games you have played."""
     out = []
     for g in played_game_dirs:
         try:
@@ -110,7 +129,10 @@ def redist_installers(played_game_dirs):
             continue
         for n in names:
             p = os.path.join(g, n)
-            if n.lower() in REDIST_DIRS and os.path.isdir(p) and not os.path.islink(p):
+            if not os.path.isdir(p) or os.path.islink(p):
+                continue
+            low = n.lower()
+            if low in REDIST_DIRS or (low in MAYBE_REDIST and _only_installers(p)):
                 out.append(p)
     return sorted(out)
 

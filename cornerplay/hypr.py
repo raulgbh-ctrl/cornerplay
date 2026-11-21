@@ -118,3 +118,40 @@ def focus_workspace(ws: str) -> bool:
 
 def reload() -> bool:
     return ctl("reload") is not None
+
+
+def edid_hdr(output: str) -> bool:
+    """The screen says it can show HDR: its EDID has CTA-861's HDR static metadata block."""
+    import glob
+    for path in glob.glob(f"/sys/class/drm/card*-{output}/edid"):
+        try:
+            edid = open(path, "rb").read()
+        except OSError:
+            continue
+        for start in range(128, len(edid) - 127, 128):  # extension blocks
+            block = edid[start:start + 128]
+            if block[0] != 0x02:  # CTA-861
+                continue
+            end = block[2] if 4 <= block[2] <= 127 else 4
+            i = 4
+            while i < end:
+                tag, length = block[i] >> 5, block[i] & 0x1F
+                if tag == 7 and length >= 1 and block[i + 1] == 0x06:  # extended tag 6: HDR static metadata
+                    return True
+                i += 1 + length
+    return False
+
+
+def set_color(m: dict, preset: str, bitdepth: int) -> bool:
+    """A screen's colour mode ("hdr" / "srgb") and bit depth, keeping its mode and place."""
+    mode = f"{m['width']}x{m['height']}@{float(m['refreshRate']):.2f}"
+    if lua():
+        rule = {"output": m["name"], "mode": mode, "position": f"{m['x']}x{m['y']}", "scale": m["scale"],
+                "cm": preset, "bitdepth": bitdepth}
+        if m.get("transform"):
+            rule["transform"] = m["transform"]
+        return ctl("eval", f"hl.monitor({_lua_value(rule)})") is not None
+    rule = f"{m['name']},{mode},{m['x']}x{m['y']},{m['scale']:g},bitdepth,{bitdepth},cm,{preset}"
+    if m.get("transform"):
+        rule += f",transform,{m['transform']}"
+    return ctl("keyword", "monitor", rule) is not None

@@ -2840,6 +2840,7 @@ ApplicationWindow {
             similar = app.similarGames(win.selectedKey)
             plays = app.gameSessions(win.selectedKey)
             fit = ({}); app.loadCompat(win.selectedKey)
+            known = ({}); app.loadKnownFixes(win.selectedKey)
             ran = app.perfHistory(win.selectedKey)
             ab = app.abTest(win.selectedKey)
             notes = []; noteOpen = -1; app.loadPatchNotes(win.selectedKey)
@@ -2868,6 +2869,8 @@ ApplicationWindow {
         property var ab: ({})
         Connections { target: app; function onAbChanged(key) { if (key === win.selectedKey) { detail.ab = app.abTest(key); detail.ran = app.perfHistory(key) } } }
         Connections { target: app; function onCompatReady(key, v) { if (key === win.selectedKey) detail.fit = v } }
+        Connections { target: app; function onFixesReady(key, v) { if (key === win.selectedKey) detail.known = v } }
+        property var known: ({})   // PCGamingWiki's known fixes (pcgw.py)
         Connections { target: app; function onDetailsGrew() { if (detail.opened) detail.similar = app.similarGames(win.selectedKey) } }
         // Opening grows out of the middle, like the cover it came from.
         enter: Transition {
@@ -3541,6 +3544,56 @@ ApplicationWindow {
 
                 Item { Layout.fillHeight: true }
 
+            }
+        }
+        // Known fixes from PCGamingWiki: Linux ones first; a command-line fix can be added (or copied, for Steam).
+        Rectangle {
+            visible: (detail.known.fixes || []).length > 0
+            Layout.fillWidth: true
+            implicitHeight: knownCol.implicitHeight + 32
+            radius: 16
+            color: theme.surfaceContainerHigh
+            ColumnLayout {
+                id: knownCol
+                anchors { left: parent.left; right: parent.right; top: parent.top; margins: 16 }
+                spacing: 10
+                RowLayout {
+                    Layout.fillWidth: true
+                    Icon { name: "info"; size: 16; color: theme.primary }
+                    Text { Layout.fillWidth: true; text: qsTr("Known fixes"); color: theme.onSurface; font.pixelSize: 15; font.weight: Font.DemiBold }
+                    Text { text: qsTr("PCGamingWiki ↗"); color: theme.primary; font.pixelSize: 12
+                           HoverHandler { cursorShape: Qt.PointingHandCursor }
+                           TapHandler { onTapped: app.openUrl(detail.known.url) } }
+                }
+                Repeater {
+                    model: (detail.known.fixes || []).slice(0, 6)
+                    delegate: RowLayout {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        spacing: 10
+                        Rectangle {
+                            visible: modelData.linux
+                            implicitWidth: lxText.implicitWidth + 12; implicitHeight: 20; radius: 10
+                            color: theme.primaryContainer
+                            Text { id: lxText; anchors.centerIn: parent; text: "Linux"; color: theme.onPrimaryContainer; font.pixelSize: 10; font.weight: Font.DemiBold }
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            Text { Layout.fillWidth: true; text: modelData.title; color: theme.onSurface; font.pixelSize: 13; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                            Text { Layout.fillWidth: true; text: modelData.summary; color: theme.onSurfaceVariant; font.pixelSize: 12; wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight }
+                        }
+                        KButton {
+                            theme: win.theme; implicitHeight: 32
+                            visible: !!modelData.args
+                            text: win.selected.store === "steam" ? qsTr("Copy %1").arg(modelData.args) : qsTr("Add %1").arg(modelData.args)
+                            iconName: win.selected.store === "steam" ? "copy" : "plus"
+                            onClicked: win.selected.store === "steam" ? (app.copyText(modelData.args + " %command%"), app.toast(qsTr("Copied: paste it into the game's launch options in Steam")))
+                                                                      : app.addLaunchArgs(win.selectedKey, modelData.args)
+                        }
+                        KButton { theme: win.theme; implicitHeight: 32; quiet: true; iconName: "external-link"; onClicked: app.openUrl(modelData.url) }
+                    }
+                }
             }
         }
         // On this PC: will it run (requirements against this PC), what Linux players report, and
@@ -7539,6 +7592,7 @@ ApplicationWindow {
                             Toggle { label: qsTr("MangoHud overlay"); settingKey: "mangohud" }
                             Toggle { label: qsTr("Feral GameMode"); settingKey: "gamemode" }
                             Toggle { label: qsTr("FPS counter in games"); settingKey: "show_fps" }
+                            Toggle { label: qsTr("Performance overlay levels in quick access (off / FPS / basic / full, while playing)"); settingKey: "hud_levels" }
                             // Linux extras: NTSYNC, the graphics card on two-card PCs, safety copies on btrfs.
                             Toggle { visible: app.ntsyncAvailable; label: qsTr("NTSYNC for Proton games (smoother; the kernel has it)"); settingKey: "ntsync" }
                             Toggle { visible: app.canCompress; label: qsTr("A free safety copy before a game updates (btrfs), to undo a bad update for a week"); settingKey: "update_safety" }
@@ -8228,6 +8282,7 @@ ApplicationWindow {
             optWayland.select(opts.wayland === undefined ? "default" : opts.wayland)
             optDlls.text = opts.dll_overrides || ""
             optAudioLat.select(opts.audio_lowlat === true)
+            optHdrDesk.select(opts.hdr_desktop === true)
             optArgs.text = opts.args || ""
             optBefore.text = opts.before || ""
             optAfter.text = opts.after || ""
@@ -8444,6 +8499,15 @@ ApplicationWindow {
                         KCombo { id: optWayland; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
                                  onActivated: app.setGameOption(gameOpts.key, "wayland", currentValue) }
                     }
+                }
+                // HDR on Hyprland while it plays (playtweaks.py), on a screen that can show it.
+                Row2 {
+                    visible: app.hyprland
+                    label: qsTr("HDR while playing")
+                    hint: qsTr("Turns the screen to HDR while this game runs, if the screen can show it; back to normal after. For games with an HDR option.")
+                    KCombo { id: optHdrDesk; theme: win.theme; Layout.fillWidth: true
+                             model: [{ label: qsTr("Off"), value: false }, { label: qsTr("On"), value: true }]
+                             onActivated: app.setGameOption(gameOpts.key, "hdr_desktop", currentValue) }
                 }
                 // Rhythm and fighting games: a small PipeWire buffer while it plays (playtweaks.py).
                 Row2 {

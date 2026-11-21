@@ -183,7 +183,8 @@ DEFAULTS = {
     "ntsync": True,            # Proton uses the kernel's NTSYNC when /dev/ntsync is there (runner.proton_extras)
     "focus_scheduler": False,
     "focus_lowlat": True,      # Hyprland: tearing + VRR for full-screen games while playing (Ryoku: its Game Mode) (playtweaks.py)
-    "game_workspace": False,   # Hyprland: games open on an empty workspace; back to yours when they close
+    "game_workspace": False,
+    "hud_levels": False,       # MangoHud levels (off / FPS / basic / full) switched from quick access while playing (hudlevels.py)   # Hyprland: games open on an empty workspace; back to yours when they close
     "jobs_low_priority": True, # installs, updates, compression run at low disk/CPU priority (ionice/nice)  # a gaming CPU scheduler (sched-ext LAVD) while playing (scx.py)
     "update_safety": True,     # btrfs: an instant copy of a game before it updates, to roll back (safety.py)
     "tv_screen": "auto",       # TV mode opens on: "auto" a TV/monitor when one is plugged in, "" this screen, or a name (tvscreen.py)
