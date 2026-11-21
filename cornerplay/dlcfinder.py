@@ -34,7 +34,7 @@ NAMES = {"steam": "Steam", "gog": "GOG", "epic": "Epic Games"}
 # taken off the end, so "Gold Rush" or "Digital Combat Simulator" keep their names.
 EDITION = re.compile(r"(\s+(game of the year|goty|definitive|complete|deluxe|standard|ultimate|enhanced|"
                      r"gold|premium|anniversary|digital|directors cut|remastered|edition))+$")
-SUMMARY_VERSION = 3  # bump when dlc_key changes: old ids would all look like new DLC
+SUMMARY_VERSION = 4  # bump when dlc_key changes: old ids would all look like new DLC
 
 
 def norm(title):
@@ -335,6 +335,27 @@ def dlc_key(title, game_title):
     return t or norm(title)
 
 
+_NUMBERED = re.compile(r"^(\d+|i{1,3}|iv|v|vi{0,3}|ix|x|part|vol|volume|episode|chapter|season|pack)$")
+
+
+def _short_names(keys):
+    """One store's short name for a DLC and another's long one: Epic's "Commander Lilith" and
+    Steam's "Commander Lilith and the Fight for Sanctuary" are the same DLC. A key that starts
+    with a shorter key (two words or more) joins it, unless what follows marks another part
+    ("Season Pass" and "Season Pass 2", "Chapter 1" and "Chapter 1 Part 2")."""
+    out = {}
+    short = sorted((k for k in keys if len(k.split()) >= 2), key=lambda k: len(k.split()))
+    for k in keys:
+        words = k.split()
+        for sk in short:
+            sw = sk.split()
+            if len(sw) < len(words) and words[:len(sw)] == sw and not _NUMBERED.match(words[len(sw)]):
+                out[k] = sk
+                break
+    # one level only: a key that others joined does not itself move
+    return {k: v for k, v in out.items() if v not in out}
+
+
 def amount(price):
     """("€", 9.99) from "€9.99 (-30%)"; None when there is no number (blank, Free counts as 0)."""
     if price == "Free":
@@ -351,9 +372,11 @@ def group(rows, game_title):
     Each row gets "group"; the first row of a group ("primary": True, the one you own, else the
     cheapest, else the game's own store) carries "offers": every store's row of it, and each row
     gets "ownedOn" (the stores where you own that DLC) and "cheapest"."""
+    keys = [dlc_key(r["title"], game_title) for r in rows]
+    canon = _short_names(set(keys))
     groups = {}
     for i, r in enumerate(rows):
-        r["group"] = dlc_key(r["title"], game_title)
+        r["group"] = canon.get(keys[i], keys[i])
         groups.setdefault(r["group"], []).append(i)
     for members in groups.values():
         rs = [rows[i] for i in members]

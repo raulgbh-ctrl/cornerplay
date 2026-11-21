@@ -135,3 +135,19 @@ def test_amazon_lists_the_add_ons_you_hold(monkeypatch, tmp_path):
     store = amazon.Amazon.__new__(amazon.Amazon)
     rows = store.dlcs(NS(id="g1", title="Besiege"))
     assert [(r["id"], r["status"]) for r in rows] == [("d1", "owned")]
+
+
+def test_a_short_and_a_long_name_of_one_dlc_are_one_row():
+    rows = [
+        {"title": "Commander Lilith DLC", "status": "owned", "price": "", "store": "epic", "storeName": "Epic Games", "url": ""},
+        {"title": "Borderlands 2: Commander Lilith & the Fight for Sanctuary", "status": "available", "price": "€9.99",
+         "store": "steam", "storeName": "Steam", "url": ""},
+        {"title": "Borderlands 2 Season Pass", "status": "available", "price": "€29.99", "store": "steam", "storeName": "Steam", "url": ""},
+        {"title": "Borderlands 2 Season Pass 2", "status": "available", "price": "€29.99", "store": "steam", "storeName": "Steam", "url": ""},
+    ]
+    dlcfinder.group(rows, "Borderlands 2")
+    lilith = [r for r in rows if "Lilith" in r["title"]]
+    assert lilith[0]["group"] == lilith[1]["group"]
+    assert next(r for r in lilith if r["store"] == "steam")["ownedOn"] == ["Epic Games"]  # don't buy it twice
+    passes = [r for r in rows if "Season" in r["title"]]
+    assert passes[0]["group"] != passes[1]["group"]  # a numbered sequel is another DLC

@@ -3027,6 +3027,7 @@ class AioLaunch(QObject):
     @Slot()
     def steamWebUnlink(self):
         steamweb.forget()
+        self._dlc_cache.clear()  # which Steam DLC you own is no longer known
         self.storesChanged.emit()
         self.refresh("steam")
 
@@ -3088,6 +3089,7 @@ class AioLaunch(QObject):
             steamweb.save(jar, name)
 
             def ok():
+                self._dlc_cache.clear()  # DLC lists read before now did not know which Steam DLC you own
                 self.loginDone.emit("steamweb", True, "Signed in to Steam" + (f" as {name}" if name else ""))
                 self.storesChanged.emit()
                 self.refresh("steam")

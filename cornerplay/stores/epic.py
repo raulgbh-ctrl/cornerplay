@@ -149,15 +149,17 @@ class Epic(Store):
                                        installed, game.installed)
         except (requests.RequestException, ValueError):
             rows, seen = [], set()  # the store is unreachable: the DLC you own still show
-        if not any(d.get("cid") for d in mine):  # a library from before catalog ids were kept
-            have = {d["title"].lower(): d for d in mine}
-            for r in rows:
-                d = have.get(r["title"].lower())
-                if d and r["status"] == "available":
-                    r.update(id=d["id"], price="", status="installed" if d["id"] in installed else "owned",
-                             canInstall=d["id"] not in installed and game.installed)
-                    seen.add(d.get("cid") or d["id"])
-            seen |= {have[r["title"].lower()]["id"] for r in rows if r["title"].lower() in have}
+        # The store's catalog and legendary do not always share an id for the same DLC (Borderlands
+        # 2's Commander Lilith): what the ids missed is matched by name, so it is one owned row,
+        # not an owned one and a "not owned" one.
+        from ..dlcfinder import norm
+        have = {norm(d["title"]): d for d in mine if d.get("cid") not in seen and d["id"] not in seen}
+        for r in rows:
+            d = have.get(norm(r["title"])) if r["status"] == "available" else None
+            if d:
+                r.update(id=d["id"], price="", status="installed" if d["id"] in installed else "owned",
+                         canInstall=d["id"] not in installed and game.installed)
+                seen.update({d["id"], d.get("cid") or d["id"]})
         for d in mine:
             if d.get("cid") in seen or d["id"] in seen:
                 continue
