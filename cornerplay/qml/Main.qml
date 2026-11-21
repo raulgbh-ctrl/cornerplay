@@ -6916,6 +6916,12 @@ ApplicationWindow {
                             Toggle { label: qsTr("A card with the game's details when the pointer rests on a cover"); settingKey: "hover_preview" }
                             Toggle { label: qsTr("Covers tilt toward the pointer"); settingKey: "card_tilt" }
                             Text { text: qsTr("Look"); color: theme.onSurface; font.pixelSize: 15; font.weight: Font.DemiBold; Layout.topMargin: 8 }
+                            KButton {
+                                theme: win.theme
+                                iconName: "eye"
+                                text: qsTr("Try them one by one")
+                                onClicked: { prefs.close(); lookTour.start("settings") }
+                            }
                             Toggle { label: qsTr("The game's colour: a soft glow behind the library and coloured shadows under covers"); settingKey: "look_ambient" }
                             Toggle { label: qsTr("Frosted glass: the sidebar over the last game's art"); settingKey: "look_glass" }
                             Toggle { label: qsTr("Showcase banner: taller, drifting, turns between your last three games"); settingKey: "look_showcase" }
@@ -8862,5 +8868,18 @@ ApplicationWindow {
                 }
             }
         }
+    }
+
+    LookTour {
+        id: lookTour
+        objectName: "lookTour"
+        x: Math.round((win.width - width) / 2)
+        y: win.height - height - 28
+        onShowGame: {
+            const recent = app.recentGames
+            const key = recent.length ? recent[0].key : (library.rowCount() > 0 ? library.keyAt(0) : "")
+            if (key && (!detail.visible || win.selectedKey !== key)) win.select(key)
+        }
+        onHideGame: if (detail.visible) detail.close()
     }
 }
