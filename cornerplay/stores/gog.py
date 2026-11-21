@@ -229,10 +229,8 @@ class Gog(Store):
 
     def dlcs(self, game):
         try:
-            r = requests.get(f"https://api.gog.com/products/{game.id}",
-                             params={"expand": "expanded_dlcs"}, timeout=20)
-            r.raise_for_status()
-            items = r.json().get("expanded_dlcs") or []
+            from ..dlcfinder import gog_items
+            items = gog_items(game.id)  # a pack's DLC come from the game inside it
             owned = set()
             if items and self.logged_in():
                 o = requests.get("https://embed.gog.com/user/data/games", timeout=20,

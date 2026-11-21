@@ -17,7 +17,7 @@ class Epic(Store):
     name = "Epic Games"
     color = "#9aa0aa"
     tile = "#3b3b3f"  # its logo sits in white on a tile of this colour
-    dlc_note = "Epic lists the DLC you own; DLC you have not bought is not shown."
+    dlc_note = ""
 
     def tool(self):
         t = find_tool("legendary")
@@ -99,10 +99,12 @@ class Epic(Store):
                     cover=tall or wide, cover_fallback=wide,
                     installed=bool(inst), install_path=(inst or {}).get("install_path", ""),
                     extra={"dlcs": [{"id": d.get("app_name", ""), "title": (d.get("app_title") or "").strip(),
+                                     "cid": (d.get("metadata") or {}).get("id", ""),
                                      "image": _images(d.get("metadata") or {})[1]}
                                     for d in g.get("dlcs") or []],
                            "store_heroes": [hero] if hero else [], "store_logos": [logo] if logo else [],
                            "description": ((g.get("metadata") or {}).get("description") or "")[:600],
+                           "epic_ns": (g.get("metadata") or {}).get("namespace", ""),
                            "source": "account"},
                 )
         for app, inst in installed.items():
@@ -121,9 +123,22 @@ class Epic(Store):
         return list(games.values())
 
     def dlcs(self, game):
+        """Every add-on the Epic store sells for the game, with the ones you own marked; owned DLC the
+        store no longer sells are kept too."""
         installed = self._installed()
-        rows = []
-        for d in game.extra.get("dlcs") or []:
+        mine = game.extra.get("dlcs") or []
+        rows, seen = [], set()
+        if game.extra.get("epic_ns"):
+            from ..dlcfinder import epic_rows
+            from ..net import requests
+            try:
+                rows, seen = epic_rows(game.extra["epic_ns"], {d["cid"]: d["id"] for d in mine if d.get("cid")},
+                                       installed, game.installed)
+            except (requests.RequestException, ValueError):
+                rows, seen = [], set()  # the store is unreachable: the DLC you own still show
+        for d in mine:
+            if d.get("cid") in seen:
+                continue
             status = "installed" if d["id"] in installed else "owned"
             rows.append({"id": d["id"], "title": d["title"] or d["id"], "status": status,
                          "image": d.get("image", ""), "price": "", "url": "",

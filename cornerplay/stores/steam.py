@@ -268,25 +268,11 @@ class Steam(Store):
                 pass
 
     def dlcs(self, game):
+        from ..dlcfinder import steam_rows
         try:  # no country given: Steam answers in the player's own currency
-            r = requests.get("https://store.steampowered.com/api/dlcforapp/",
-                             params={"appid": game.id, "l": "english"}, timeout=20)
-            r.raise_for_status()
-            items = r.json().get("dlc") or []
+            return steam_rows(game.id, set(game.extra.get("dlc_installed") or []), bool(self.client()))
         except (requests.RequestException, ValueError) as e:
             raise StoreError(f"Could not reach the Steam store ({type(e).__name__})")
-        have = set(game.extra.get("dlc_installed") or [])
-        client = bool(self.client())
-        rows = []
-        for d in items:
-            did = str(d.get("id"))
-            rows.append({"id": did, "title": d.get("name", did),
-                         "status": "installed" if did in have else "missing",  # owned or not: Steam does not say
-                         "image": d.get("header_image", ""), "price": _price(d.get("price_overview")),
-                         # the Steam client opens on the DLC's page, where it can be bought or installed
-                         "url": f"steam://store/{did}" if client else f"https://store.steampowered.com/app/{did}",
-                         "canInstall": False})
-        return rows
 
     def _url(self, url):
         client = self.client()

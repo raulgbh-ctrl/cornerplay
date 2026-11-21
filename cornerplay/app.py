@@ -17,7 +17,7 @@ import shlex
 
 import sys
 
-from . import family, steamweb
+from . import dlcfinder, family, steamweb
 from . import installinfo, humbleshop, pkgs, patchnotes, mods, workshop, cleanup, steambundles, syscontrol, achievements, backup, perf, search, couch, host, hostimport, statsdata, steamrun, wishlist, health, savebackup, importer, personal, problems, storage, updates, covers, details, epicfree, shelves, gamecolour, playtime, protondb, steamcompat, proton, runner, saves, session, steamgames, steamshortcut, theme as themes
 from . import __version__
 from .config import CACHE_DIR, CONFIG_DIR as CONFIG_DIR_STREAM, DATA_DIR as DATA_DIR_STREAM, DEFAULTS, LANGUAGES, LOG_DIR, game_options, read_json, settings, write_json
@@ -446,7 +446,7 @@ class LibraryModel(QAbstractListModel):
         d["copies"] = [{"key": c.key, "storeName": self.stores[c.store].name,
                         "storeColor": self.stores[c.store].color, "installed": c.installed}
                        for c in group] if len(group) > 1 else []
-        d["hasDlc"] = g.store in ("steam", "epic", "gog")
+        d["hasDlc"] = g.store not in ("retro", "prism")  # every other game: its DLC on every store
         d["jobDetail"] = job_detail(self.jobs.get(key))
         d["hidden"] = self.is_hidden(group or [g])
         pdb = protondb.rating(_appid(g)) if g.id != "battlenet-app" else {}
@@ -5135,20 +5135,30 @@ class AioLaunch(QObject):
         store = self.stores[g.store]
         hit = self._dlc_cache.get(key)
         if hit and not fresh and time.time() - hit[0] < self.DLC_TTL:
-            self.dlcsReady.emit(key, hit[1], store.dlc_note)
+            self.dlcsReady.emit(key, hit[1], store.dlc_note if any(r.get("store") == g.store for r in hit[1]) else "")
             return
 
         def work():
+            error = ""
             try:
-                rows = self._demo_dlcs(g) if self.demo else (store.dlcs(g) or [])
+                own = self._demo_dlcs(g) if self.demo else (store.dlcs(g) or [])
             except StoreError as e:
-                return lambda msg=str(e): self.dlcsReady.emit(key, [], msg)
+                own, error = [], str(e)
             rank = {"installed": 0, "owned": 1, "missing": 2, "available": 3}
-            rows.sort(key=lambda r: (rank.get(r["status"], 3), r["title"].lower()))
+            own.sort(key=lambda r: (rank.get(r["status"], 3), r["title"].lower()))
+            for r in own:
+                r.update(store=g.store, storeName=store.name)
+            # then the same game's DLC on the other stores (Steam, GOG, Epic), each sold there
+            rows = own + self._demo_other_dlcs(g) if self.demo else dlcfinder.rows(g, self.stores, own, _appid(g))
+            others = rows[len(own):]
+            others.sort(key=lambda r: (r["store"], rank.get(r["status"], 3), r["title"].lower()))
+            rows = own + others
+            note = store.dlc_note if own else ""
 
             def done():
-                self._dlc_cache[key] = (time.time(), rows)
-                self.dlcsReady.emit(key, rows, store.dlc_note)
+                if rows or not error:
+                    self._dlc_cache[key] = (time.time(), rows)
+                self.dlcsReady.emit(key, rows, note if rows else error)
             return done
         self._bg(work)
 
@@ -5166,6 +5176,13 @@ class AioLaunch(QObject):
             return
         self._dlc_cache.pop(key, None)
         self._start_job(g, "dlc", cmd)
+
+    @staticmethod
+    def _demo_other_dlcs(g):
+        others = [("gog", "GOG", "Digital Artbook", "€4.99"), ("epic", "Epic Games", "Expansion Pass", "€19.99 (-20%)")]
+        return [{"id": f"x{i}", "title": f"{g.title}: {t}", "status": "available", "image": "", "price": p,
+                 "url": "https://example.com", "canInstall": False, "store": sid, "storeName": name}
+                for i, (sid, name, t, p) in enumerate(others) if sid != g.store]
 
     @staticmethod
     def _demo_dlcs(g):

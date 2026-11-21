@@ -5899,11 +5899,21 @@ ApplicationWindow {
         property bool loading: false
         property string error: ""
         property bool busy: false   // a DLC install for this game is running
+        property string storeFilter: ""   // "" = every store
+        readonly property var stores: {   // [{id, name, count}] in list order
+            const out = [], at = {}
+            for (const r of rows) {
+                if (!(r.store in at)) { at[r.store] = out.length; out.push({ id: r.store, name: r.storeName || r.store, count: 0 }) }
+                out[at[r.store]].count++
+            }
+            return out
+        }
+        readonly property var shown: storeFilter ? rows.filter(r => r.store === storeFilter) : rows
         heading: qsTr("DLC")
         headingIcon: "puzzle"
         width: Math.min(win.width - 60, 680)
         function show(k, title) {
-            key = k; rows = []; note = ""; error = ""; loading = true
+            key = k; rows = []; note = ""; error = ""; loading = true; storeFilter = ""
             busy = app.game(k).job === "dlc"
             heading = qsTr("DLC · ") + title
             open()
@@ -5914,9 +5924,9 @@ ApplicationWindow {
             function onDlcsReady(key, rows, note) {
                 if (key !== dlc.key) return
                 dlc.rows = rows; dlc.loading = false
-                // a store message without rows is an error; with rows it is a note
-                const isNote = note.indexOf("Steam installs") === 0 || note.indexOf("Epic lists") === 0
-                if (rows.length) { dlc.note = note; dlc.error = "" } else { dlc.error = isNote ? "" : note; dlc.note = "" }
+                // with rows the message is a note on the game's own store; without, it is why none came
+                if (rows.length) { dlc.note = note; dlc.error = "" } else { dlc.error = note; dlc.note = "" }
+                if (dlc.storeFilter && !rows.some(r => r.store === dlc.storeFilter)) dlc.storeFilter = ""
             }
             function onGameChanged(key) {
                 // the DLC install finished: show the new state
@@ -5927,7 +5937,7 @@ ApplicationWindow {
             spacing: 12
             readonly property var counts: {
                 const c = { installed: 0, owned: 0, missing: 0, available: 0 }
-                for (const r of dlc.rows) c[r.status] = (c[r.status] || 0) + 1
+                for (const r of dlc.shown) c[r.status] = (c[r.status] || 0) + 1
                 return c
             }
             // Summary: how many, and what you have.
@@ -5937,11 +5947,38 @@ ApplicationWindow {
                 color: theme.onSurfaceVariant
                 font.pixelSize: 13
                 text: {
-                    const c = parent.counts, parts = [dlc.rows.length + " DLC"]
+                    const c = parent.counts, parts = [dlc.shown.length + " DLC"]
                     if (c.installed) parts.push(c.installed + " installed")
                     if (c.owned) parts.push(c.owned + qsTr(" owned, not installed"))
                     if (c.available) parts.push(c.available + qsTr(" to buy"))
                     return parts.join("  ·  ")
+                }
+            }
+            // Which store's DLC to show, when more than one store sells some.
+            Flow {
+                Layout.fillWidth: true
+                spacing: 6
+                visible: dlc.stores.length > 1
+                Repeater {
+                    model: [{ id: "", name: qsTr("All stores"), count: dlc.rows.length }].concat(dlc.stores)
+                    delegate: Rectangle {
+                        required property var modelData
+                        readonly property bool on: dlc.storeFilter === modelData.id
+                        height: 28; radius: 14
+                        width: chipText.implicitWidth + 22
+                        color: on ? theme.secondaryContainer : "transparent"
+                        border.width: on ? 0 : 1
+                        border.color: theme.outlineVariant
+                        Text {
+                            id: chipText
+                            anchors.centerIn: parent
+                            text: parent.modelData.name + "  " + parent.modelData.count
+                            font.pixelSize: 12
+                            font.weight: Font.DemiBold
+                            color: parent.on ? theme.onSecondaryContainer : theme.onSurfaceVariant
+                        }
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: dlc.storeFilter = parent.modelData.id }
+                    }
                 }
             }
             Text {
@@ -5972,10 +6009,10 @@ ApplicationWindow {
                 id: dlcList
                 Layout.fillWidth: true
                 Layout.preferredHeight: Math.min(contentHeight, Math.max(240, win.height - 320))
-                visible: dlc.rows.length > 0
+                visible: dlc.shown.length > 0
                 clip: true
                 spacing: 8
-                model: dlc.rows
+                model: dlc.shown
                 boundsBehavior: Flickable.StopAtBounds
                 ScrollBar.vertical: KScrollBar { }
                 delegate: Rectangle {
@@ -6047,6 +6084,14 @@ ApplicationWindow {
                                             color: parent.parent.have ? theme.onPrimaryContainer : theme.onSurfaceVariant
                                         }
                                     }
+                                }
+                                Text {
+                                    visible: dlc.stores.length > 1 && !!dlcRow.modelData.storeName
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: dlcRow.modelData.storeName || ""
+                                    color: theme.primary
+                                    font.pixelSize: 12
+                                    font.weight: Font.DemiBold
                                 }
                                 Text {
                                     visible: !!dlcRow.modelData.price
