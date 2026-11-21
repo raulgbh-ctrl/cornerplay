@@ -71,14 +71,40 @@ def test_find_remembers_hits_and_misses(monkeypatch, tmp_path):
 
 
 def test_remember_reports_new_dlc_once(monkeypatch, tmp_path):
-    monkeypatch.setattr(dlcfinder, "SUMMARY_FILE", tmp_path / "s.json")
-    monkeypatch.setattr(dlcfinder, "_summary", None)
-    one = [{"title": "G: A", "status": "available", "group": "a", "primary": True}]
+    one = [{"title": "G: A", "status": "available", "group": "a", "primary": True, "store": "steam"}]
     assert dlcfinder.remember("k", one) == []  # first look: nothing is "new"
-    two = one + [{"title": "G: B", "status": "available", "group": "b", "primary": True}]
+    two = one + [{"title": "G: B", "status": "available", "group": "b", "primary": True, "store": "steam"}]
     assert dlcfinder.remember("k", two) == ["G: B"]
     assert dlcfinder.summary("k")["toBuy"] == 2 and dlcfinder.summary("k")["new"] == ["G: B"]
     assert dlcfinder.seen("k") and dlcfinder.summary("k")["new"] == []
+
+
+def test_a_store_that_was_down_brings_no_false_new_dlc():
+    steam = [{"title": "G: A", "status": "available", "group": "a", "primary": True, "store": "steam"}]
+    dlcfinder.remember("k", steam)  # GOG did not answer this time
+    gog = [{"title": "G: Art", "status": "available", "group": "art", "primary": True, "store": "gog"}]
+    assert dlcfinder.remember("k", steam + gog) == []  # GOG's whole list is not "new"
+    assert dlcfinder.remember("k", gog) == []          # Steam down for a day
+    assert dlcfinder.remember("k", steam + gog) == []  # and back: A is not new either
+
+
+def test_unknown_steam_ownership_is_not_dlc_to_get():
+    rows = [{"title": "G: A", "status": "missing", "group": "a", "primary": True, "store": "steam"}]
+    dlcfinder.remember("k", rows)
+    assert dlcfinder.summary("k")["toBuy"] == 0
+
+
+def test_titles_keep_edition_words_inside_the_name():
+    assert dlcfinder.norm("Gold Rush: The Game") == "gold rush the game"
+    assert dlcfinder.norm("Fallout 4: Game of the Year Edition") == "fallout 4"
+
+
+def test_a_failed_search_is_not_remembered_as_a_miss(monkeypatch):
+    def boom(t):
+        raise dlcfinder.requests.RequestException("429")
+    with pytest.raises(dlcfinder.requests.RequestException):
+        dlcfinder.find("steam", "Game", boom)
+    assert dlcfinder.find("steam", "Game", lambda t: "7") == "7"
 
 
 def test_epic_price_in_its_currency():

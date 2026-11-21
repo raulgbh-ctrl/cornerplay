@@ -122,22 +122,44 @@ class Epic(Store):
             raise PartialResult(list(games.values()), f"Epic: {error}")
         return list(games.values())
 
+    _inst_cache = (0.0, {})
+
+    def _installed_recent(self):
+        """list-installed, kept for 30 s: the DLC list of every game page asks, and each call
+        starts legendary (about a second)."""
+        t, hit = self._inst_cache
+        if time.time() - t > 30:
+            hit = self._installed()
+            self._inst_cache = (time.time(), hit)
+        return hit
+
     def dlcs(self, game):
         """Every add-on the Epic store sells for the game, with the ones you own marked; owned DLC the
         store no longer sells are kept too."""
-        installed = self._installed()
+        installed = self._installed_recent()
         mine = game.extra.get("dlcs") or []
         rows, seen = [], set()
-        if game.extra.get("epic_ns"):
-            from ..dlcfinder import epic_rows
-            from ..net import requests
-            try:
-                rows, seen = epic_rows(game.extra["epic_ns"], {d["cid"]: d["id"] for d in mine if d.get("cid")},
+        from ..dlcfinder import epic_find, epic_rows, find
+        from ..net import requests
+        try:
+            # the namespace comes with the library (from the next refresh on); else found by title
+            ns = game.extra.get("epic_ns") or find("epic", game.title, epic_find)
+            if ns:
+                rows, seen = epic_rows(ns, {d["cid"]: d["id"] for d in mine if d.get("cid")},
                                        installed, game.installed)
-            except (requests.RequestException, ValueError):
-                rows, seen = [], set()  # the store is unreachable: the DLC you own still show
+        except (requests.RequestException, ValueError):
+            rows, seen = [], set()  # the store is unreachable: the DLC you own still show
+        if not any(d.get("cid") for d in mine):  # a library from before catalog ids were kept
+            have = {d["title"].lower(): d for d in mine}
+            for r in rows:
+                d = have.get(r["title"].lower())
+                if d and r["status"] == "available":
+                    r.update(id=d["id"], price="", status="installed" if d["id"] in installed else "owned",
+                             canInstall=d["id"] not in installed and game.installed)
+                    seen.add(d.get("cid") or d["id"])
+            seen |= {have[r["title"].lower()]["id"] for r in rows if r["title"].lower() in have}
         for d in mine:
-            if d.get("cid") in seen:
+            if d.get("cid") in seen or d["id"] in seen:
                 continue
             status = "installed" if d["id"] in installed else "owned"
             rows.append({"id": d["id"], "title": d["title"] or d["id"], "status": status,
@@ -146,6 +168,7 @@ class Epic(Store):
         return rows
 
     def install_dlc(self, game, dlc_id):
+        self._inst_cache = (0.0, {})  # it changes now
         if not game.installed:
             raise StoreError("Install the game first")
         return Command([self.tool(), "-y", "install", dlc_id])

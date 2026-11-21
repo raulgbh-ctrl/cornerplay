@@ -33,8 +33,13 @@ class Steam(Store):
     name = "Steam"
     color = "#66c0f4"
     tile = "#2a5d8a"  # its logo sits in white on a tile of this colour
-    dlc_note = ("Steam installs the DLC you own by itself. Cornerplay can only see which DLC is installed; "
-                "open the others in Steam to buy or install them.")
+    @property
+    def dlc_note(self):
+        from .. import steamweb
+        if steamweb.signed_in():
+            return "Steam installs the DLC you own by itself; open the others in Steam to buy them."
+        return ("Steam installs the DLC you own by itself. Cornerplay can only see which DLC is installed "
+                "(sign in to Steam in Settings to see which you own); open the others in Steam to buy or install them.")
     external_installs = True
     login_kind = "external"
 

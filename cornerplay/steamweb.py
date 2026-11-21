@@ -28,6 +28,9 @@ TOKEN_URL = "https://store.steampowered.com/pointssummary/ajaxgetasyncconfig"
 REFRESH_URL = "https://login.steampowered.com/jwt/refresh?redir=https%3A%2F%2Fstore.steampowered.com%2F"
 
 
+_owned_apps = (0.0, None)  # (time, set of app ids | the error of the last try)
+
+
 class NotSignedIn(Exception):
     """No Steam web session, or Steam no longer accepts it (sign in again)."""
 
@@ -64,10 +67,14 @@ def save(cookies: list, account_name: str = ""):
     if not any(c.get("name") == "steamLoginSecure" for c in keep):
         raise NotSignedIn("Steam did not keep you signed in; try again")
     write_private(AUTH_FILE, json.dumps({"cookies": keep, "account": account_name, "t": time.time()}))
+    global _owned_apps
+    _owned_apps = (0.0, None)  # a new account: ask again
 
 
 def forget():
+    global _owned_apps
     AUTH_FILE.unlink(missing_ok=True)
+    _owned_apps = (0.0, None)
 
 
 def _session(cookies):
@@ -154,15 +161,24 @@ def person(sid: str) -> str:
     return name
 
 
-_owned_apps = (0.0, None)
-
-
 def owned_apps() -> set:
     """Every app id the account owns, DLC included, from the store's own userdata (the list the
     store uses to show "In library"); asked for at most once an hour. Raises NotSignedIn."""
     global _owned_apps
-    if time.time() - _owned_apps[0] < 3600 and _owned_apps[1] is not None:
-        return _owned_apps[1]
+    t, hit = _owned_apps
+    if isinstance(hit, set) and time.time() - t < 3600:
+        return hit
+    if isinstance(hit, Exception) and time.time() - t < 600:
+        raise hit  # failed a moment ago: don't ask (and renew the session) on every DLC list
+    try:
+        return _owned_apps_now()
+    except Exception as e:
+        _owned_apps = (time.time(), e if isinstance(e, NotSignedIn) else NotSignedIn(str(e)))
+        raise _owned_apps[1] from e
+
+
+def _owned_apps_now():
+    global _owned_apps
     auth = _load()
     if not auth.get("cookies"):
         raise NotSignedIn("Not signed in to Steam")

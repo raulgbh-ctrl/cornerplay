@@ -30,18 +30,18 @@ UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, 
 EPIC_GQL = "https://store.epicgames.com/graphql"
 NAMES = {"steam": "Steam", "gog": "GOG", "epic": "Epic Games"}
 
-# Edition words that differ between stores for the same game ("GOTY", "Definitive Edition").
-EDITION = re.compile(r"\b(game of the year|goty|definitive|complete|deluxe|standard|ultimate|enhanced|"
-                     r"gold|premium|anniversary|digital|director'?s cut|remastered|edition)\b")
+# Edition words that differ between stores for the same game ("GOTY", "Definitive Edition"); only
+# taken off the end, so "Gold Rush" or "Digital Combat Simulator" keep their names.
+EDITION = re.compile(r"(\s+(game of the year|goty|definitive|complete|deluxe|standard|ultimate|enhanced|"
+                     r"gold|premium|anniversary|digital|directors cut|director s cut|remastered|edition))+$")
+SUMMARY_VERSION = 2  # bump when dlc_key changes: old ids would all look like new DLC
 
 
 def norm(title):
     """A title reduced for matching: "The Witcher® 3: Wild Hunt - GOTY" -> "the witcher 3 wild hunt"."""
     t = unicodedata.normalize("NFKD", title or "").encode("ascii", "ignore").decode().lower()
-    t = re.sub(r"[™®©]", "", t)
-    t = EDITION.sub(" ", t)
-    t = re.sub(r"[^a-z0-9]+", " ", t)
-    return " ".join(t.split())
+    t = " ".join(re.sub(r"[^a-z0-9]+", " ", t).split())
+    return EDITION.sub("", t).strip() or t
 
 
 def country():
@@ -92,7 +92,8 @@ def steam_find(title):
     want = norm(title)
     r = requests.get("https://store.steampowered.com/api/storesearch/",
                      params={"term": title, "l": "english", "cc": country()}, headers=UA, timeout=15)
-    for it in (r.json().get("items") or []) if r.ok else []:
+    r.raise_for_status()  # rate limited or down: an error, never remembered as "not on Steam"
+    for it in r.json().get("items") or []:
         if it.get("type") == "app" and norm(it.get("name")) == want:
             return str(it.get("id"))
     return ""
@@ -138,7 +139,8 @@ def gog_find(title):
     r = requests.get("https://catalog.gog.com/v1/catalog",
                      params={"limit": 20, "query": "like:" + title, "productType": "in:game,pack",
                              "order": "desc:score"}, timeout=15)
-    for p in (r.json().get("products") or []) if r.ok else []:
+    r.raise_for_status()
+    for p in r.json().get("products") or []:
         if norm(p.get("title")) == want:
             return str(p.get("id"))
     return ""
@@ -274,6 +276,8 @@ def rows(game, stores, own_rows, steam_appid=""):
     A store that cannot be reached is left out quietly: the others still show."""
     jobs = {}
     title = game.title
+    if not norm(title):
+        return list(own_rows)
     if game.store != "steam" and "steam" in stores:
         def steam():
             appid = steam_appid or find("steam", title, steam_find)
@@ -309,9 +313,11 @@ HAVE = ("installed", "owned")
 
 def dlc_key(title, game_title):
     """What makes two stores' rows the same DLC: the title without the game's name in front."""
-    t, g = norm(title), norm(game_title)
-    if g and t.startswith(g + " "):
-        t = t[len(g) + 1:]
+    t = norm(title)
+    for g in sorted({norm(v) for v in variants(game_title)}, key=len, reverse=True):
+        if g and t.startswith(g + " "):
+            t = t[len(g) + 1:]
+            break
     t = re.sub(r"^(dlc|expansion|add on)\s+", "", t)
     t = re.sub(r"\s+(dlc|add on|pack)$", "", t)
     return t or norm(title)
@@ -343,7 +349,8 @@ def group(rows, game_title):
         priced = [(amount(r.get("price", "")), r) for r in rs if r["status"] not in HAVE]
         priced = [(a, r) for a, r in priced if a is not None]
         cheapest = None
-        if len(priced) > 1 and len({a[0] for a, _ in priced}) == 1:  # comparable only in one currency
+        signs = {a[0] for a, _ in priced if a[1] > 0}
+        if len(priced) > 1 and len(signs) <= 1:  # comparable only in one currency (Free beats any)
             cheapest = min(priced, key=lambda x: x[0][1])[1]
         for r in rs:
             r["ownedOn"] = [n for n in owned_on if n != r.get("storeName")] if r["status"] not in HAVE else []
@@ -380,33 +387,57 @@ def _load_summary():
 
 
 def summary(key):
-    """{"total", "toBuy", "new", "t"} for a game whose DLC were looked up, else {}."""
-    with _lock:
-        return dict(_load_summary().get(key) or {})
+    """{"total", "toBuy", "new", "t"} for a game whose DLC were looked up, else {}. Read-only and
+    lock-free: the library grid asks for every card."""
+    return (_summary if _summary is not None else _load_summary()).get(key) or {}
+
+
+def counts(keys):
+    """(DLC to get, new DLC) over a game's copies on several stores."""
+    hits = [summary(k) for k in keys]
+    return (max((h.get("toBuy", 0) for h in hits), default=0),
+            max((len(h.get("new") or []) for h in hits), default=0))
 
 
 def remember(key, rows):
-    """Keep a game's DLC counts, and return the titles that are new since its last lookup."""
+    """Keep a game's DLC counts, and return the titles that are new since its last lookup.
+    Only a store that answered last time can have "new" DLC: a store that was down, or a game
+    found on a store for the first time, does not make its whole list look new. Known DLC are
+    never forgotten, so one that a store stops listing for a day is not new when it is back."""
+    global _summary
     lead = [r for r in rows if r.get("primary", True)]
-    ids = sorted({r["group"] if "group" in r else norm(r["title"]) for r in lead})
+    gid = lambda r: r.get("group") or norm(r["title"])  # noqa: E731
+    stores = sorted({r.get("store", "") for r in rows} - {""})
     with _lock:
-        all_ = _load_summary()
-        old = all_.get(key)
-        fresh = [r["title"] for r in lead if old is not None and (r.get("group") or norm(r["title"])) not in set(old.get("ids") or [])
-                 and r["status"] not in HAVE]
-        new = sorted(set((old or {}).get("new") or []) | set(fresh)) if old else []
-        all_[key] = {"t": time.time(), "total": len(lead), "ids": ids, "new": new,
-                     "toBuy": sum(1 for r in lead if r["status"] not in HAVE and not r.get("ownedOn"))}
-        write_json(SUMMARY_FILE, all_)
+        _summary = dict(_load_summary())  # a new dict: the grid reads the old one meanwhile
+        old = _summary.get(key)
+        if old and old.get("v") != SUMMARY_VERSION:
+            old = None  # ids made another way: start again rather than call everything new
+        known = set((old or {}).get("ids") or [])
+        before = set((old or {}).get("stores") or [])
+        fresh = {}  # one title per new DLC, though several stores sell it
+        for r in rows if old is not None else []:
+            if r.get("store") in before and gid(r) not in known and r["status"] not in HAVE:
+                fresh.setdefault(gid(r), r["title"])
+        fresh = sorted(fresh.values())
+        _summary[key] = {
+            "v": SUMMARY_VERSION, "t": time.time(), "total": len(lead),
+            "ids": sorted(known | {gid(r) for r in rows}), "stores": sorted(before | set(stores)),
+            "new": sorted(set((old or {}).get("new") or []) | set(fresh)),
+            # unknown ("missing": Steam without sign-in) is not counted as DLC to get
+            "toBuy": sum(1 for r in lead if r["status"] == "available" and not r.get("ownedOn"))}
+        write_json(SUMMARY_FILE, _summary)
     return fresh
 
 
 def seen(key):
     """The DLC window was opened: the game's new DLC are not new any more."""
+    global _summary
     with _lock:
         hit = _load_summary().get(key)
         if hit and hit.get("new"):
-            hit["new"] = []
+            _summary = dict(_summary)
+            _summary[key] = dict(hit, new=[])
             write_json(SUMMARY_FILE, _summary)
             return True
     return False

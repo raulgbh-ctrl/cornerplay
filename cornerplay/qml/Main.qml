@@ -2718,7 +2718,7 @@ ApplicationWindow {
             function onDetailsReady(key, d) { if (key === win.selectedKey) detail.info = d }
             function onScreenshotsReady(key, rows) { if (key === win.selectedKey) detail.shots = rows }
             function onAchievementsReady(key, d) { if (key === win.selectedKey) detail.ach = d }
-            function onDlcsReady(key, rows, note) { if (key === win.selectedKey) detail.dlcCount = rows.length }
+            function onDlcsReady(key, rows, note) { if (key === win.selectedKey) detail.dlcCount = rows.filter(r => r.primary !== false).length }
             function onPatchNotesReady(key, rows) { if (key === win.selectedKey) detail.notes = rows }
             function onGameBundlesReady(key, data) { if (key === win.selectedKey) detail.bundles = data }
             function onModsReady(key, view) { if (key === win.selectedKey) detail.modInfo = app.modSupport(key) }
@@ -5920,6 +5920,7 @@ ApplicationWindow {
             heading = qsTr("DLC · ") + title
             open()
             app.loadDlcs(k)
+            app.dlcsSeen(k)
         }
         Connections {
             target: app
@@ -5952,8 +5953,8 @@ ApplicationWindow {
                     const c = parent.counts, parts = [dlc.shown.length + " DLC"]
                     if (c.installed) parts.push(c.installed + " installed")
                     if (c.owned) parts.push(c.owned + qsTr(" owned, not installed"))
-                    if (c.available) parts.push(c.available + qsTr(" to buy"))
                     const elsewhere = dlc.shown.filter(r => (r.ownedOn || []).length).length
+                    if (c.available - elsewhere > 0) parts.push((c.available - elsewhere) + qsTr(" to buy"))
                     if (elsewhere) parts.push(elsewhere + qsTr(" owned on another store"))
                     return parts.join("  ·  ")
                 }
@@ -6027,7 +6028,9 @@ ApplicationWindow {
                         owned: { label: qsTr("Owned"), icon: "check" },
                         missing: { label: qsTr("Not installed"), icon: "" },
                         available: { label: qsTr("Not owned"), icon: "" } })[modelData.status] || { label: modelData.status, icon: "" }
-                    readonly property var offers: !dlc.storeFilter && (modelData.offers || []).length > 1 ? modelData.offers : []
+                    readonly property bool have: modelData.status === "installed" || modelData.status === "owned"
+                    // other stores' prices: only for DLC you don't have yet
+                    readonly property var offers: !dlc.storeFilter && !have && (modelData.offers || []).length > 1 ? modelData.offers : []
                     readonly property var ownedOn: modelData.ownedOn || []
                     width: dlcList.width - 10
                     height: Math.max(76, dlcInfo.implicitHeight + 20)

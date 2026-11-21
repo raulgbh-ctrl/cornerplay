@@ -229,13 +229,9 @@ class Gog(Store):
 
     def dlcs(self, game):
         try:
-            from ..dlcfinder import gog_items
+            from ..dlcfinder import gog_items, gog_owned
             items = gog_items(game.id)  # a pack's DLC come from the game inside it
-            owned = set()
-            if items and self.logged_in():
-                o = requests.get("https://embed.gog.com/user/data/games", timeout=20,
-                                 headers={"Authorization": "Bearer " + self._token()})
-                owned = {str(i) for i in o.json().get("owned", [])} if o.ok else set()
+            owned = gog_owned(self) if items else set()  # asked at most every 10 minutes
         except (requests.RequestException, ValueError) as e:
             raise StoreError(f"Could not reach GOG ({type(e).__name__})")
         prices = self._prices([str(d.get("id")) for d in items])

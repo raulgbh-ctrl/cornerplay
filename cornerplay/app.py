@@ -70,7 +70,7 @@ ROLES = ["key", "store", "storeName", "storeColor", "title", "cover", "coverFall
          "installed", "job", "progress", "external", "installPath", "copies",
          "update", "playtime", "lastPlayed", "covers", "heroes", "logos", "protondb", "favourite",
          "status", "rating", "sizeBytes", "achieved", "isNew", "dlcToBuy", "dlcNew"]
-GROUP_ROLES = ("copies", "playtime", "lastPlayed", "favourite", "status", "rating", "isNew")
+GROUP_ROLES = ("copies", "playtime", "lastPlayed", "favourite", "status", "rating", "isNew", "dlcToBuy", "dlcNew")
 SORTS = ("name", "recent", "playtime", "rating", "size")
 RECENT_ROW = 8  # games in the "Continue playing" row  # worked out over every store's copy of a game
 
@@ -290,8 +290,8 @@ def _job(m, g):
 
 _FIELDS = {
     "isNew": lambda m, g: m.group_value([g], "isNew"),
-    "dlcToBuy": lambda m, g: int(dlcfinder.summary(g.key).get("toBuy", 0)),
-    "dlcNew": lambda m, g: len(dlcfinder.summary(g.key).get("new") or []),
+    "dlcToBuy": lambda m, g: dlcfinder.counts([g.key])[0],
+    "dlcNew": lambda m, g: dlcfinder.counts([g.key])[1],
     "key": lambda m, g: g.key,
     "store": lambda m, g: g.store,
     "storeName": lambda m, g: m.stores[g.store].name,
@@ -412,6 +412,8 @@ class LibraryModel(QAbstractListModel):
             return int(shelves.meta(group, "rating") or 0)
         if role == "isNew":
             return shelves.is_new(group) and not any(playtime.of(g, self.played)[0] for g in group)
+        if role in ("dlcToBuy", "dlcNew"):  # looked up per copy; the row shows the most
+            return dlcfinder.counts([g.key for g in group])[role == "dlcNew"]
         times = [playtime.of(g, self.played) for g in group]
         return sum(t[0] for t in times) if role == "playtime" else max(t[1] for t in times)
 
@@ -448,7 +450,7 @@ class LibraryModel(QAbstractListModel):
         d["copies"] = [{"key": c.key, "storeName": self.stores[c.store].name,
                         "storeColor": self.stores[c.store].color, "installed": c.installed}
                        for c in group] if len(group) > 1 else []
-        d["hasDlc"] = g.store not in ("retro", "prism")  # every other game: its DLC on every store
+        d["hasDlc"] = g.store not in ("retro", "prism") and g.id != "battlenet-app"  # its DLC on every store
         d["jobDetail"] = job_detail(self.jobs.get(key))
         d["hidden"] = self.is_hidden(group or [g])
         pdb = protondb.rating(_appid(g)) if g.id != "battlenet-app" else {}
@@ -558,7 +560,7 @@ class LibraryProxy(QSortFilterProxyModel):
         if tag == "couch":
             return any(couch.local(_appid(g)) for g in group)
         if tag == "dlc":  # DLC to get, on any store (games whose DLC were looked up)
-            return any(dlcfinder.summary(g.key).get("toBuy") for g in group)
+            return dlcfinder.counts([g.key for g in group])[0] > 0
         if tag == "protondb":
             return any(protondb.rating(_appid(g)).get("tier") in ("platinum", "gold", "native") for g in group)
         if tag.startswith("genre:"):
@@ -5133,7 +5135,7 @@ class AioLaunch(QObject):
 
     DLC_TTL = 30 * 60  # a game's DLC list is asked for again after half an hour (or after a DLC install)
 
-    def _dlc_rows(self, g):
+    def _dlc_rows(self, g, deals=True):
         """Blocking: (rows, error) for a game's DLC on its own store and every other store, grouped
         (the same DLC on several stores), with IsThereAnyDeal's best deals when there is a key."""
         store = self.stores[g.store]
@@ -5152,7 +5154,7 @@ class AioLaunch(QObject):
         others.sort(key=lambda r: (r["store"], rank.get(r["status"], 3), r["title"].lower()))
         rows = dlcfinder.group(own + others, g.title)
         key = str(settings.get("itad_key") or "").strip()
-        if key and not self.demo:
+        if key and deals and not self.demo:
             dlcfinder.deals(rows, key, wishlist.country())
         return rows, error
 
@@ -5163,8 +5165,6 @@ class AioLaunch(QObject):
         if not g:
             return
         store = self.stores[g.store]
-        if dlcfinder.seen(key):  # looked at: its new DLC are not new any more
-            self._touch(key)
         hit = self._dlc_cache.get(key)
         if hit and not fresh and time.time() - hit[0] < self.DLC_TTL:
             self.dlcsReady.emit(key, hit[1], store.dlc_note if any(r.get("store") == g.store for r in hit[1]) else "")
@@ -5175,15 +5175,20 @@ class AioLaunch(QObject):
             note = store.dlc_note if any(r.get("store") == g.store for r in rows) else ""
             if rows or not error:
                 dlcfinder.remember(key, rows)
-                dlcfinder.seen(key)
 
             def done():
                 if rows or not error:
                     self._dlc_cache[key] = (time.time(), rows)
-                    self._touch(key)
+                    self.model.touch(key)
                 self.dlcsReady.emit(key, rows, note if rows else error)
             return done
         self._bg(work)
+
+    @Slot(str)
+    def dlcsSeen(self, key):
+        """The DLC window was opened: the game's new DLC are not new any more."""
+        if dlcfinder.seen(key):
+            self.model.touch(key)
 
     DLC_WATCH = 40          # games checked for new DLC in the background, the ones you care about most
     DLC_RECHECK = 86400     # each at most once a day
@@ -5212,17 +5217,17 @@ class AioLaunch(QObject):
         def work():
             news = []
             for g in todo:
-                if getattr(self, "_quitting", False) or self._playing:
+                if getattr(self, "_quitting", False) or self._playing or self._steam_playing:
                     break  # never while a game runs: it may need the network
                 try:
-                    rows, error = self._dlc_rows(g)
+                    rows, error = self._dlc_rows(g, deals=False)  # counts only: no deal lookups
                 except Exception:  # noqa: BLE001 - one game failing must not stop the rest
                     continue
                 if rows or not error:
                     fresh = dlcfinder.remember(g.key, rows)
                     if fresh:
                         news.append((g.title, fresh))
-                    self._after.emit(lambda k=g.key: self._touch(k))
+                    self._after.emit(lambda k=g.key: self.model.touch(k))
                 time.sleep(3)
 
             def finish():
