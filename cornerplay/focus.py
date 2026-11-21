@@ -126,6 +126,14 @@ def begin(want: dict) -> dict:
     if want.get("clips"):  # the replay buffer for "Save a clip" (clips.py)
         from . import clips
         undo["clips"] = clips.start(want["clips"])
+    if want.get("lowlat") or want.get("quantum"):
+        from . import playtweaks
+        if want.get("lowlat"):  # tearing + VRR on Hyprland (Ryoku's Game Mode does it there)
+            flags = _ryoku_flags()
+            ryoku_gm = flags is not None and (bool(want.get("dnd")) or bool(flags.get("gameMode")))
+            undo.update(playtweaks.low_latency_begin(ryoku_gm))
+        if want.get("quantum"):  # a small PipeWire buffer (playtweaks.py)
+            undo.update(playtweaks.audio_begin())
     if want.get("scheduler"):  # a gaming CPU scheduler (scx.py)
         from . import scx
         undo.update(scx.begin())
@@ -153,6 +161,10 @@ def end(undo: dict):
     if undo.get("clips") is not None:
         from . import clips
         clips.stop(undo["clips"])
+    if undo.get("lowlat") or undo.get("lowlat_rule") or undo.get("quantum"):
+        from . import playtweaks
+        playtweaks.low_latency_end(undo)
+        playtweaks.audio_end(undo)
     if undo.get("scx_before"):
         from . import scx
         scx.end(undo)

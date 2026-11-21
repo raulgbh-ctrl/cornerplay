@@ -1635,6 +1635,49 @@ class AioLaunch(QObject):
         else:
             self.toast.emit("Steam is not installed")
 
+    # The fixes people reach for with protontricks, for a game's Options > Common fixes.
+    COMMON_FIXES = [
+        ("vcrun2022", "Visual C++ 2015–2022 runtime"), ("vcrun2019", "Visual C++ 2019 runtime"),
+        ("vcrun2013", "Visual C++ 2013 runtime"), ("vcrun2010", "Visual C++ 2010 runtime"),
+        ("vcrun2008", "Visual C++ 2008 runtime"), ("dotnet48", ".NET Framework 4.8"),
+        ("dotnet40", ".NET Framework 4.0"), ("dotnetdesktop6", ".NET 6 Desktop runtime"),
+        ("d3dx9", "DirectX 9 libraries (d3dx9)"), ("d3dcompiler_47", "DirectX shader compiler"),
+        ("xact", "DirectX audio (XACT)"), ("dxvk", "DXVK again (if a game replaced it)"),
+        ("corefonts", "Microsoft core fonts (missing text)"), ("mf", "Media Foundation (videos, cutscenes)"),
+        ("physx", "NVIDIA PhysX (older games)"), ("xna40", "XNA 4.0 (some indie games)"),
+    ]
+
+    # --- the "Cornerplay (TV)" login session (loginsession.py) ------------------------------------
+    hyprland = Property(bool, lambda s: __import__("cornerplay.hypr", fromlist=["running"]).running(), constant=True)
+    session_mode = False
+    sessionMode = Property(bool, lambda s: s.session_mode, constant=True)
+    sessionChanged = Signal()
+    sessionInstalled = Property(bool, lambda s: __import__("cornerplay.loginsession", fromlist=["installed"]).installed(), notify=sessionChanged)
+    sessionAvailable = Property(bool, lambda s: __import__("cornerplay.loginsession", fromlist=["available"]).available(), constant=True)
+
+    @Slot(bool)
+    def setLoginSession(self, on):
+        """Settings: add or remove "Cornerplay (TV)" at the login screen (one password)."""
+        from . import loginsession
+
+        def work():
+            err = loginsession.install() if on else loginsession.remove()
+
+            def done():
+                self.sessionChanged.emit()
+                if err:
+                    self.toast.emit(f"Login session not changed: {err}")
+                elif on:
+                    self.toast.emit("Added: pick Cornerplay (TV) at the login screen")
+                else:
+                    self.toast.emit("Removed Cornerplay (TV) from the login screen")
+            return done
+        self._bg(work)
+
+    @Slot(result="QVariantList")
+    def commonFixes(self):
+        return [{"label": _t(label), "value": verb} for verb, label in self.COMMON_FIXES]
+
     @Slot(str, str)
     def fixProblem(self, key, fix):
         g = self.model.find(key)
@@ -5431,7 +5474,38 @@ class AioLaunch(QObject):
         proton = abtest.proton_now(g.key)
         if proton is not None:  # a Proton A/B test runs: this step's version, and record how it ran
             opts = dict(opts, proton=proton, perf_log=True)
+        if getattr(self, "_log_once", "") == g.key:  # "Start with a Proton log": this start only
+            extra = f"PROTON_LOG=1 PROTON_LOG_DIR={shlex.quote(self._proton_log_dir(g.key))}"
+            opts = dict(opts, env=(str(opts.get("env") or "") + " " + extra).strip())
         return opts
+
+    def _proton_log_dir(self, key):
+        d = CACHE_DIR / "proton-logs" / re.sub(r"[^A-Za-z0-9_.-]", "_", key)
+        d.mkdir(parents=True, exist_ok=True)
+        return str(d)
+
+    @Slot(str)
+    def playWithLog(self, key):
+        """Start the game once with Proton's log on (what ProtonDB and forums ask for)."""
+        self._log_once = key
+        self.toast.emit("Starting with a Proton log: open it from the game's menu when it closes")
+        self.play(key)
+
+    @Slot(str, result=str)
+    def protonLog(self, key):
+        """The newest Proton log of the game ("" if none)."""
+        g = self.model.find(key)
+        if not g:
+            return ""
+        d = CACHE_DIR / "proton-logs" / re.sub(r"[^A-Za-z0-9_.-]", "_", key)
+        logs = sorted(d.glob("*.log"), key=lambda p: p.stat().st_mtime) if d.is_dir() else []
+        return str(logs[-1]) if logs else ""
+
+    @Slot(str)
+    def openProtonLog(self, key):
+        path = self.protonLog(key)
+        if path:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
     @Slot(str, result="QVariantMap")
     def gameOptions(self, key):
@@ -6062,6 +6136,14 @@ class AioLaunch(QObject):
         self._bg(work)
 
     def _start(self, g, cmd, sync):
+        self._log_once = ""  # a Proton log was asked for this start only
+        if settings.get("game_workspace") and not self._now_playing():
+            from . import hypr  # Hyprland: the game opens on an empty workspace; back after
+            if hypr.running():
+                here = hypr.workspace()
+                if here and hypr.focus_workspace("empty"):
+                    self._ws_return = here
+                    QTimer.singleShot(60000, self._ws_fallback)  # a game that never really started
         log = str(LOG_DIR / (re.sub(r"[^A-Za-z0-9_.-]", "_", g.key) + ".log"))
         if g.store in saves.SUPPORTED or g.store in playtime.TIMED:
             job = CACHE_DIR / f"sessions/job-{os.getpid()}-{int(time.time() * 1000)}.json"
@@ -6074,6 +6156,10 @@ class AioLaunch(QObject):
         else:
             ok = self._detach(cmd.argv, cmd.env, cmd.cwd, g.key)
         self._launch_state(g.key, "ok" if ok else "fail")
+        if not ok and getattr(self, "_ws_return", ""):
+            from . import hypr
+            hypr.focus_workspace(self._ws_return)
+            self._ws_return = ""
         if not ok:
             self.toast.emit(f"Could not start {g.title} (log: {LOG_DIR})")
 
@@ -6182,6 +6268,8 @@ class AioLaunch(QObject):
                 want["audio"] = sink
             # the rule that lets it switch without a password is installed with the setting
             want["scheduler"] = bool(settings.get("focus_scheduler") and settings.get("scx_rule"))
+            want["lowlat"] = bool(settings.get("focus_lowlat"))
+            want["quantum"] = own.get("audio_lowlat") is True
             if settings.get("clips"):
                 want["clips"] = first.get("title") or "Game"
             self.lightsFor(self.gameColour(first["key"]))
@@ -6229,8 +6317,20 @@ class AioLaunch(QObject):
     clipsAvailable = Property(bool, lambda s: bool(shutil.which("gpu-screen-recorder")), constant=True)
     tdpAvailable = Property(bool, lambda s: __import__("cornerplay.tdp", fromlist=["available"]).available(), constant=True)
 
+    def _ws_fallback(self):
+        """A minute after a start: no game running (it closed at once, or never opened its window)
+        means the empty workspace is of no use: back to where you were."""
+        if getattr(self, "_ws_return", "") and not self._now_playing():
+            from . import hypr
+            back, self._ws_return = self._ws_return, ""
+            self._sys_pool.submit(lambda: hypr.focus_workspace(back))
+
     def _focus_stop(self):
         QTimer.singleShot(5000, self._check_goals)  # the session is in the log by then
+        back, self._ws_return = getattr(self, "_ws_return", ""), ""
+        if back:  # the workspace you were on before the game (game_workspace)
+            from . import hypr
+            self._sys_pool.submit(lambda: hypr.focus_workspace(back))
         undo, self._focus = self._focus or {}, None
         from . import focus
         self._sys_pool.submit(lambda: focus.end(undo))
@@ -6797,7 +6897,9 @@ class AioLaunch(QObject):
         self._touch(key)
         if kind in ("install", "update", "dlc"):
             p.started.connect(lambda: self._throttle(key, p))
-        p.start(cmd.argv[0], cmd.argv[1:])
+        from .compress import low_priority  # never a stutter in the game you play meanwhile
+        argv = low_priority(cmd.argv) if kind in self.DOWNLOADS or kind == "uninstall" else list(cmd.argv)
+        p.start(argv[0], argv[1:])
 
     def _throttle(self, key, p):
         from . import throttle

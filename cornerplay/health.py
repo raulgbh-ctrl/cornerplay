@@ -31,6 +31,32 @@ def mangohud_32bit_missing(layer_dirs=LAYER_DIRS) -> bool:
     return "mangohud.x86_64.json" in names and "mangohud.x86.json" not in names
 
 
+# Controller makers whose pads need udev rules for raw access (Sony, Nintendo, 8BitDo, Valve,
+# Microsoft over USB, Logitech, PowerA, Hori, Razer)
+PAD_VENDORS = {"054C", "057E", "2DC8", "28DE", "045E", "046D", "20D6", "0F0D", "1532"}
+
+
+def _controller_hidraws():
+    """[(name, readable)] for the raw HID devices of plugged-in controllers."""
+    out = []
+    try:
+        names = sorted(os.listdir("/sys/class/hidraw"))
+    except OSError:
+        return out
+    for n in names:
+        try:
+            uevent = open(f"/sys/class/hidraw/{n}/device/uevent").read()
+        except OSError:
+            continue
+        hid_id = next((l.split("=", 1)[1] for l in uevent.splitlines() if l.startswith("HID_ID=")), "")
+        parts = hid_id.split(":")
+        vendor = parts[1][-4:].upper() if len(parts) > 2 else ""
+        if vendor in PAD_VENDORS:
+            name = next((l.split("=", 1)[1] for l in uevent.splitlines() if l.startswith("HID_NAME=")), n)
+            out.append((name, os.access(f"/dev/{n}", os.R_OK | os.W_OK)))
+    return out
+
+
 def checks(stores, gamepad_available=True):
     rows = []
 
@@ -146,6 +172,39 @@ def checks(stores, gamepad_available=True):
                                    "/etc/systemd/system.conf.d/90-cornerplay-nofile.conf"})
     except (ImportError, ValueError, OSError):
         pass
+    # Memory maps: a few big games (Hogwarts Legacy, CS2, Star Citizen) crash below about a million.
+    try:
+        maps = int(open("/proc/sys/vm/max_map_count").read())
+        add("maxmap", "Memory-map limit (big games)", maps >= 1048576, f"{maps}",
+            {} if maps >= 1048576 else {"kind": "command", "command":
+                "echo 'vm.max_map_count = 2147483642' | sudo tee /etc/sysctl.d/80-cornerplay-games.conf && sudo sysctl --system"})
+    except (OSError, ValueError):
+        pass
+    # Split locks: newer Intel CPUs let the kernel slow down a program doing split-lock memory
+    # access on purpose; some games do, and stutter. SteamOS turns the slowdown off.
+    try:
+        has_sld = "split_lock_detect" in open("/proc/cpuinfo").read()
+        mitigate = open("/proc/sys/kernel/split_lock_mitigate").read().strip()
+        if has_sld:
+            add("splitlock", "Split-lock slowdown (Intel)", mitigate == "0",
+                "Off, as on SteamOS" if mitigate == "0" else "On: games that do split locks are slowed on purpose",
+                {} if mitigate == "0" else {"kind": "command", "command":
+                    "echo 'kernel.split_lock_mitigate = 0' | sudo tee /etc/sysctl.d/80-cornerplay-splitlock.conf && sudo sysctl --system"})
+    except OSError:
+        pass
+    # Controllers: Steam Input and controller-as-keyboard need /dev/uinput; a plugged-in controller's
+    # raw device (hidraw) needs the udev rules from Steam's steam-devices.
+    pads = _controller_hidraws()
+    blocked = [n for n, ok in pads if not ok]
+    uinput = os.access("/dev/uinput", os.W_OK)
+    if pads or not uinput:
+        ok = not blocked and uinput
+        add("padperm", "Controller access", ok,
+            (f"{len(pads)} controller(s) ready" if pads else "Ready") if ok
+            else ("Not allowed to read: " + ", ".join(blocked)) if blocked else "Not allowed to use /dev/uinput",
+            {} if ok else (_install("steam-devices") or {"kind": "command", "command":
+                "sudo curl -fsSL -o /etc/udev/rules.d/60-steam-input.rules https://raw.githubusercontent.com/ValveSoftware/steam-devices/master/60-steam-input.rules && sudo udevadm control --reload && sudo udevadm trigger"}))
+
     # NTSYNC (Linux 6.14+): Windows games' synchronisation done in the kernel
     if os.path.exists("/dev/ntsync"):
         nt_ok = runner.ntsync_ok()

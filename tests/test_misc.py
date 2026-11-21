@@ -612,3 +612,54 @@ def test_scx_reads_the_running_scheduler(monkeypatch):
     assert scx.current() == ("lavd", "gaming")
     monkeypatch.setattr(scx, "_scxctl", lambda *a, **k: "no scx scheduler running\n")
     assert scx.current() is None
+
+
+def test_hyprland_both_languages(monkeypatch):
+    from cornerplay import hypr
+    sent = []
+    monkeypatch.setattr(hypr, "ctl", lambda *a, **k: sent.append(a) or "ok")
+    monkeypatch.setattr(hypr, "_lua", True)
+    hypr.set_option("misc:vrr", 2)
+    hypr.window_rule("r", {"fullscreen": True}, immediate=True)
+    hypr.focus_workspace("empty")
+    assert sent[0] == ("eval", "hl.config({ misc = { vrr = 2 } })")
+    assert sent[1] == ("eval", 'hl.window_rule({ name = "r", match = { fullscreen = true }, immediate = true })')
+    assert sent[2] == ("dispatch", 'hl.dsp.focus({ workspace = "empty" })')
+    sent.clear()
+    monkeypatch.setattr(hypr, "_lua", False)
+    hypr.set_option("misc:vrr", 2)
+    hypr.window_rule("r", {"fullscreen": True}, immediate=True)
+    hypr.focus_workspace("empty")
+    assert sent == [("keyword", "misc:vrr", "2"), ("keyword", "windowrulev2", "immediate, fullscreen:1"),
+                    ("dispatch", "workspace", "empty")]
+
+
+def test_low_latency_leaves_ryoku_game_mode_alone(monkeypatch):
+    from cornerplay import playtweaks
+    monkeypatch.setattr(playtweaks.hypr, "running", lambda: True)
+    assert playtweaks.low_latency_begin(True) == {}
+
+
+def test_low_priority_keeps_the_program_last(monkeypatch):
+    from cornerplay import compress
+    argv = compress.low_priority(["legendary", "install", "x"])
+    assert argv[-3:] == ["legendary", "install", "x"]
+    from cornerplay.config import settings
+    settings.set("jobs_low_priority", False)
+    try:
+        assert compress.low_priority(["a"]) == ["a"]
+    finally:
+        settings.set("jobs_low_priority", True)
+
+
+def test_login_session_script_starts_tv_mode():
+    from cornerplay import loginsession
+    script = loginsession._script()
+    assert script.startswith("#!/bin/sh") and "gamescope" in script and "--tv --session" in script
+    assert "Exec=/usr/local/bin/cornerplay-session" in loginsession.DESKTOP_TEXT
+
+
+def test_common_fixes_are_plain_winetricks_verbs():
+    import re
+    from cornerplay.app import AioLaunch
+    assert all(re.fullmatch(r"[a-z0-9_]+", v) for v, _ in AioLaunch.COMMON_FIXES)

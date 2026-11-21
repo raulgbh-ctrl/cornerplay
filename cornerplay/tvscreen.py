@@ -7,11 +7,6 @@ only picks the screen, and on Hyprland sets it to its highest resolution, then r
 for TV mode and back to what it was after (hyprctl keyword monitor: nothing is saved to the
 config).
 """
-import json
-import os
-import subprocess
-
-from . import host
 
 INTERNAL = ("eDP", "LVDS", "DSI")  # a laptop's or handheld's own panel
 
@@ -29,31 +24,11 @@ def pick(names: list, current: str, want: str) -> str:
     return current if current in external else external[0]
 
 
-def _hyprctl(*args):
-    if not os.environ.get("HYPRLAND_INSTANCE_SIGNATURE") or not host.which("hyprctl"):
-        return None
-    try:
-        r = subprocess.run(host.argv(["hyprctl", *args]), capture_output=True, text=True, timeout=5)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return r.stdout if r.returncode == 0 else None
-
-
-def _monitor(name):
-    try:
-        return next((m for m in json.loads(_hyprctl("monitors", "-j") or "[]") if m.get("name") == name), None)
-    except ValueError:
-        return None
-
-
-def _rule(m, mode):
-    rule = f"{m['name']},{mode},{m['x']}x{m['y']},{m['scale']:g}"
-    return rule + (f",transform,{m['transform']}" if m.get("transform") else "")
-
-
 def best(name: str) -> dict:
-    """Hyprland: the screen at its best mode for TV mode; returns what to put back ({} if nothing)."""
-    m = _monitor(name) if name else None
+    """Hyprland: the screen at its best mode for TV mode; returns what to put back ({} if nothing).
+    Classic and Lua-configured Hyprland alike (hypr.py)."""
+    from . import hypr
+    m = next((x for x in hypr.monitors() if x.get("name") == name), None) if name else None
     if not m:
         return {}
 
@@ -71,11 +46,14 @@ def best(name: str) -> dict:
     now = f"{m['width']}x{m['height']}@{float(m['refreshRate']):.2f}Hz"
     if key(top) <= key(now):
         return {}
-    if _hyprctl("keyword", "monitor", _rule(m, top.replace("Hz", ""))) is None:
+    args = (m["name"], m["x"], m["y"], m["scale"], m.get("transform") or 0)
+    if not hypr.monitor(args[0], top.replace("Hz", ""), *args[1:]):
         return {}
-    return {"name": name, "rule": _rule(m, now.replace("Hz", ""))}
+    return {"name": name, "mode": now.replace("Hz", ""), "x": m["x"], "y": m["y"], "scale": m["scale"],
+            "transform": m.get("transform") or 0}
 
 
 def restore(undo: dict):
-    if undo and undo.get("rule"):
-        _hyprctl("keyword", "monitor", undo["rule"])
+    if undo and undo.get("mode"):
+        from . import hypr
+        hypr.monitor(undo["name"], undo["mode"], undo["x"], undo["y"], undo["scale"], undo["transform"])

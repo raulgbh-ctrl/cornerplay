@@ -271,10 +271,14 @@ def main():
                     help="fit the display to a Sunshine stream and back (Sunshine runs this; start takes W H FPS too)")
     ap.add_argument("--steam-sync", action="store_true", help=argparse.SUPPRESS)  # Game Mode: restart Steam with the games added
     ap.add_argument("--demo", action="store_true", help="open with sample games (nothing is launched)")
+    ap.add_argument("--session", action="store_true",
+                    help="run as a login session (loginsession.py): TV mode, and leaving it ends the session")
     ap.add_argument("--check", action="store_true", help="compile every QML file and report errors, then exit")
     ap.add_argument("--fetch-umu", action="store_true", help=argparse.SUPPRESS)  # install.sh: a portable umu-launcher
     ap.add_argument("--userns-profile", action="store_true", help=argparse.SUPPRESS)  # install.sh: Ubuntu's AppArmor profile
     args = ap.parse_args()
+    if args.session:
+        args.tv = True
     if args.userns_profile:
         from .userns import PROFILE_TEXT
         sys.stdout.write(PROFILE_TEXT)
@@ -414,6 +418,7 @@ def main():
     except Exception:
         pass
     cornerplay = AioLaunch(demo=args.demo)
+    cornerplay.session_mode = bool(args.session)
     cornerplay.web_login = web_login
     engine = QQmlApplicationEngine()
     factory = CachingFactory()

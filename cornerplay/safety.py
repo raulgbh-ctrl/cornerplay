@@ -140,7 +140,8 @@ def share_prefix_files(prefixes_dir, min_size=64 * 1024) -> dict:
                 try:
                     # byte-for-byte equal already (same hash, same size); the clone takes the
                     # original's permissions and times, then replaces it in one rename
-                    r = subprocess.run(["cp", "--reflink=always", "--preserve=mode,timestamps", keep, tmp],
+                    from .compress import low_priority
+                    r = subprocess.run(low_priority(["cp", "--reflink=always", "--preserve=mode,timestamps", keep, tmp]),
                                        capture_output=True, timeout=60)
                     if r.returncode != 0:
                         if os.path.exists(tmp):

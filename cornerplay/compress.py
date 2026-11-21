@@ -17,6 +17,21 @@ import subprocess
 from . import host
 
 
+def low_priority(argv: list) -> list:
+    """Run at idle disk priority and lower CPU priority (Settings: on), so a big install, update
+    or compression never makes the game you are playing stutter. ionice and nice exec the
+    program, so it keeps the same process id (pausing and cancelling still work)."""
+    from .config import settings
+    if not settings.get("jobs_low_priority", True):
+        return list(argv)
+    out = list(argv)
+    if shutil.which("nice"):
+        out = ["nice", "-n", "10"] + out
+    if shutil.which("ionice"):
+        out = ["ionice", "-c", "3"] + out
+    return out
+
+
 def filesystem(path) -> dict:
     """{"btrfs": bool, "auto": "zstd:1" or ""}: the drive under `path`, and whether it already
     compresses new files (its mount option)."""
@@ -47,7 +62,7 @@ def compress(path) -> dict:
     try:
         # +c on the folder: new files there (updates) are compressed too
         subprocess.run(host.argv(["chattr", "-R", "+c", path]), capture_output=True, timeout=600)
-        r = subprocess.run(host.argv(["btrfs", "filesystem", "defragment", "-r", "-czstd", path]),
+        r = subprocess.run(host.argv(low_priority(["btrfs", "filesystem", "defragment", "-r", "-czstd", path])),
                            capture_output=True, text=True, timeout=6 * 3600)
     except (OSError, subprocess.TimeoutExpired) as e:
         return {"ok": False, "saved": 0, "error": type(e).__name__}

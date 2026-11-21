@@ -24,7 +24,8 @@ ApplicationWindow {
     visibility: hiddenAtStart ? Window.Hidden : tv && tvPlaced ? Window.FullScreen : Window.Windowed
     // Leaving or entering TV mode counts as a pop-up closing: the click on Exit TV mode (or its
     // double) must not land on a cover of the library that fades in underneath.
-    onTvChanged: { app.setTvActive(tv); if (tv) { tvUsed = true; placeForTv() } else { leaveTvScreen(); grid.forceActiveFocus() }
+    onTvChanged: { if (!tv && app.sessionMode) { Qt.quit(); return }  // a login session: leaving TV mode logs out
+                   app.setTvActive(tv); if (tv) { tvUsed = true; placeForTv() } else { leaveTvScreen(); grid.forceActiveFocus() }
                    quietUntil = Date.now() + 500; justClosed = true; closeGuard.restart() }
     // TV mode on the TV (Settings > TV mode > Screen, tvscreen.py): the window moves to that screen
     // before it goes full screen, and comes back to where it was after.
@@ -4583,6 +4584,19 @@ ApplicationWindow {
                 icon: "folder-open"; text: qsTr("Open folder")
                 onPicked: { app.openFolder(gameMenu.g.installPath); gameMenu.close() }
             }
+            // Proton's log for one start (what ProtonDB and forums ask for), and opening it after.
+            MenuRow {
+                readonly property bool proton: ["epic", "gog", "amazon", "custom", "humble"].indexOf(gameMenu.g.store) !== -1
+                visible: proton && !!gameMenu.g.installed && !gameMenu.g.job
+                icon: "info"; text: qsTr("Start with a Proton log")
+                onPicked: { const k = gameMenu.key; gameMenu.close(); app.playWithLog(k) }
+            }
+            MenuRow {
+                readonly property string log: gameMenu.opened ? app.protonLog(gameMenu.key) : ""
+                visible: log !== ""
+                icon: "folder-open"; text: qsTr("Open the Proton log")
+                onPicked: { app.openProtonLog(gameMenu.key); gameMenu.close() }
+            }
             // btrfs: the safety copy from before the last update goes back (safety.py).
             MenuRow {
                 readonly property real copied: gameMenu.opened && gameMenu.g.installed ? app.updateCopyTime(gameMenu.key) : 0
@@ -7313,6 +7327,11 @@ ApplicationWindow {
                             color: app.remoteInfo.error ? theme.error : theme.onSurfaceVariant
                             text: app.remoteInfo.error || qsTr("On a phone or another PC: %1  ·  code %2  (the web library is at %1web)").arg(app.remoteInfo.url).arg(app.remoteInfo.code)
                         }
+                        // A login session (loginsession.py): one password to add or remove.
+                        Toggle { visible: app.sessionAvailable || app.sessionInstalled
+                                 label: qsTr("\"Cornerplay (TV)\" at the login screen: straight into TV mode, like a console (asks for your password)")
+                                 state: app.sessionInstalled
+                                 act: on => app.setLoginSession(on) }
                         // Which screen TV mode opens on (tvscreen.py): the TV when one is plugged in.
                         Row2 {
                             label: qsTr("Screen for TV mode")
@@ -7543,6 +7562,9 @@ ApplicationWindow {
                                      state: !!app.settingsMap.focus_scheduler
                                      act: on => app.setGamingScheduler(on) }
                             Toggle { label: qsTr("Pause downloads, carry on after"); settingKey: "focus_downloads" }
+                            Toggle { visible: app.hyprland; label: qsTr("Low-latency mode: full-screen games may tear, variable refresh on (Ryoku: its Game Mode)"); settingKey: "focus_lowlat" }
+                            Toggle { visible: app.hyprland; label: qsTr("Games open on an empty workspace; back to yours when they close"); settingKey: "game_workspace" }
+                            Toggle { label: qsTr("Installs, updates and compression at low priority, so the game you play never stutters"); settingKey: "jobs_low_priority" }
                             Toggle { label: qsTr("Checks before a game (low battery, a download running, a full drive)"); settingKey: "prelaunch_checks" }
                             Toggle { label: qsTr("Tell me when a wireless controller's battery is low"); settingKey: "pad_battery_alerts" }
                             Row2 {
@@ -8167,6 +8189,7 @@ ApplicationWindow {
         property var opts: ({})
         property var outputs: []   // the PC's sound outputs (Sound output)
         property var gpus: []      // the graphics cards a game can use (two-card PCs)
+        readonly property var fixes: app.commonFixes()
         property var steamProton: ({ choices: [], current: "" })
         readonly property bool compat: ["epic", "gog", "amazon", "custom", "humble"].includes(game.store) || key === "battlenet:battlenet-app"
         // Runs without Proton: a GOG Linux version, or a Linux program added by hand.
@@ -8204,6 +8227,7 @@ ApplicationWindow {
             optNtsync.select(opts.ntsync === undefined ? "default" : opts.ntsync)
             optWayland.select(opts.wayland === undefined ? "default" : opts.wayland)
             optDlls.text = opts.dll_overrides || ""
+            optAudioLat.select(opts.audio_lowlat === true)
             optArgs.text = opts.args || ""
             optBefore.text = opts.before || ""
             optAfter.text = opts.after || ""
@@ -8419,6 +8443,27 @@ ApplicationWindow {
                         hint: qsTr("Wine's own Wayland driver: can help HDR, scaling and frame pacing; some games do not like it yet.")
                         KCombo { id: optWayland; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
                                  onActivated: app.setGameOption(gameOpts.key, "wayland", currentValue) }
+                    }
+                }
+                // Rhythm and fighting games: a small PipeWire buffer while it plays (playtweaks.py).
+                Row2 {
+                    label: qsTr("Low audio latency")
+                    hint: qsTr("Sound in time with your button presses (rhythm and fighting games). Uses a little more CPU.")
+                    KCombo { id: optAudioLat; theme: win.theme; Layout.fillWidth: true
+                             model: [{ label: qsTr("Off"), value: false }, { label: qsTr("On"), value: true }]
+                             onActivated: app.setGameOption(gameOpts.key, "audio_lowlat", currentValue) }
+                }
+                // Protontricks-style fixes into this game's own prefix (winetricks through umu).
+                Row2 {
+                    visible: gameOpts.compat && gameOpts.game.installed
+                    label: qsTr("Common fixes")
+                    hint: qsTr("Installs a Windows part some games need into this game's own prefix. Takes a few minutes.")
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        KCombo { id: optFix; theme: win.theme; Layout.fillWidth: true; model: gameOpts.fixes }
+                        KButton { theme: win.theme; text: qsTr("Install"); iconName: "download"
+                                  onClicked: app.fixProblem(gameOpts.key, "winetricks:" + optFix.currentValue) }
                     }
                 }
                 Row2 {

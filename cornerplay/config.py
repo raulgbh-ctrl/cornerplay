@@ -181,7 +181,10 @@ DEFAULTS = {
     "tv_music": False,         # TV mode: a calm, original ambient loop (fades out for trailers and games)
     "gpu": "auto",             # graphics card for games on two-card PCs: auto (the fast one) / discrete / integrated (gpu.py)
     "ntsync": True,            # Proton uses the kernel's NTSYNC when /dev/ntsync is there (runner.proton_extras)
-    "focus_scheduler": False,  # a gaming CPU scheduler (sched-ext LAVD) while playing (scx.py)
+    "focus_scheduler": False,
+    "focus_lowlat": True,      # Hyprland: tearing + VRR for full-screen games while playing (Ryoku: its Game Mode) (playtweaks.py)
+    "game_workspace": False,   # Hyprland: games open on an empty workspace; back to yours when they close
+    "jobs_low_priority": True, # installs, updates, compression run at low disk/CPU priority (ionice/nice)  # a gaming CPU scheduler (sched-ext LAVD) while playing (scx.py)
     "update_safety": True,     # btrfs: an instant copy of a game before it updates, to roll back (safety.py)
     "tv_screen": "auto",       # TV mode opens on: "auto" a TV/monitor when one is plugged in, "" this screen, or a name (tvscreen.py)
     "tv_screensaver": 3,       # TV mode: minutes without input before the slideshow of your games (0 = never)
