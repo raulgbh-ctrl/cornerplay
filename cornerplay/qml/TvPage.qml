@@ -41,11 +41,15 @@ Rectangle {
         shots = []; row = 0; button = 0; shot = 0; viewing = false
         app.loadScreenshots(g.key)
         hiding.stop()
+        closing = false
         visible = true
         appear.restart()
         forceActiveFocus()
     }
-    function close() { app.uiSound("back"); viewing = false; hiding.restart(); closed() }
+    // closing: still fading out, but already gone as far as the keys go (refocus skips it).
+    property bool closing: false
+    enabled: !closing   // a click during the fade-out must not press a button on the page
+    function close() { app.uiSound("back"); viewing = false; closing = true; hiding.restart(); closed() }
     // Opening: the page settles in from slightly larger, as if the cover came forward; closing
     // fades it away (the home screen has the focus again at once).
     transformOrigin: Item.Center
@@ -57,7 +61,7 @@ Rectangle {
     SequentialAnimation {
         id: hiding
         NumberAnimation { target: page; property: "opacity"; to: 0; duration: app.still ? 0 : 160 }
-        ScriptAction { script: { page.visible = false; page.opacity = 1 } }
+        ScriptAction { script: { page.visible = false; page.opacity = 1; page.closing = false } }
     }
     function press() {
         const b = buttons[button]

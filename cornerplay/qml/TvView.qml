@@ -58,7 +58,7 @@ FocusScope {
     // Anything over Home (a page, a menu, the keyboard, a dialog)? Home's covers and buttons then
     // ignore the pointer, and keep ignoring it for a moment after it closes: the click or tap that
     // closed it (or the second half of a double click) must never land on the game underneath.
-    readonly property int layers: [searching, intro.visible, gamePage.visible, gamePage.viewing, panel.visible,
+    readonly property int layers: [searching, intro.visible, gamePage.visible && !gamePage.closing, gamePage.viewing, panel.visible,
         tvDownloads.visible, phonePage.visible, gameNight.visible, tvStats.visible, roulette.visible,
         libraryPage.visible, pinPrompt.visible, libPrompt.visible, prompt.visible, tvSettings.visible,
         padTest.visible, saver.visible, whoPicker.visible,
@@ -1820,7 +1820,7 @@ FocusScope {
     function refocus(item) {
         if (item && item.visible) item.forceActiveFocus()
         else if (tvSettings.visible) tvSettings.forceActiveFocus()
-        else if (gamePage.visible) gamePage.forceActiveFocus()
+        else if (gamePage.visible && !gamePage.closing) gamePage.forceActiveFocus()
         else if (libraryPage.visible) libraryPage.forceActiveFocus()
         else grid.forceActiveFocus()
     }

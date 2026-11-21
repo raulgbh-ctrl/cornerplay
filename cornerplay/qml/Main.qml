@@ -1772,7 +1772,7 @@ ApplicationWindow {
                                     HoverHandler { id: recentHover; enabled: win.cardsLive; cursorShape: Qt.PointingHandCursor }
                                     TapHandler {
                                         enabled: win.cardsLive
-                                        onSingleTapped: if (win.pointerOk()) { flyer.from(recentTile.modelData.key, recentCover, 0); win.select(recentTile.modelData.key) }
+                                        onSingleTapped: if (win.pointerOk()) { flyer.from(recentTile.modelData.key, recentCover, 0, recentTile); win.select(recentTile.modelData.key) }
                                         onDoubleTapped: if (win.pointerOk()) win.activate(recentTile.modelData.key)
                                         onLongPressed: if (win.pointerOk()) gameMenu.showFor(recentTile.modelData.key, recentTile, point.position)
                                     }
@@ -8527,22 +8527,28 @@ ApplicationWindow {
             return Qt.rect(sidebar.width + detail.leftPadding, detail.topPadding - detailFlick.contentY, 220, 320)
         }
         // inset: a grid card's cover sits 8 px inside it; any other cover (Continue playing) is the item.
+        // owner: the delegate the cover belongs to (a grid card, a Continue playing tile); a view
+        // may hand that delegate to another game meanwhile, so its game is checked on the way back.
         property var fromItem: null
+        property var fromOwner: null
         property int fromInset: 8
-        function from(key, card, inset) {
+        function ownerKey(o) {
+            try { return o ? (o.key !== undefined ? o.key : (o.modelData ? o.modelData.key : "")) : "" } catch (e) { return "" }
+        }
+        function from(key, card, inset, owner) {
             if (!on || !card) return
             fromInset = inset === undefined ? 8 : inset
             const r = card.mapToItem(null, fromInset, fromInset, card.width - 2 * fromInset, card.height - 2 * fromInset)
-            gridRect = r; flyer.key = key; fromItem = card
+            gridRect = r; flyer.key = key; fromItem = card; fromOwner = owner || card
             covers = app.game(key).covers || []
             fromRadius = card.cornerRadius || 14
             fly(r, pageRect(), true)
         }
         function back() {
             if (!on || !key || key !== win.selectedKey) return
-            // Back where it came from: the same cover if it is still there, else the grid's card.
+            // Back where it came from: the same cover if it still shows this game, else the grid's card.
             let card = fromItem, inset = fromInset
-            try { if (!card || !card.visible || !card.parent) card = null } catch (e) { card = null }
+            try { if (!card || !card.visible || !card.parent || ownerKey(fromOwner) !== key) card = null } catch (e) { card = null }
             if (!card) {
                 card = grid.itemAtIndex(grid.currentIndex); inset = 8
                 if (!card || card.key !== key) return
