@@ -4673,6 +4673,12 @@ ApplicationWindow {
                 icon: "folder-open"; text: qsTr("Open the Proton log")
                 onPicked: { app.openProtonLog(gameMenu.key); gameMenu.close() }
             }
+            // A system update since it last ran (Mesa, kernel, driver): what changed, undo it (syschanges.py).
+            MenuRow {
+                visible: !!gameMenu.g.installed && gameMenu.g.store !== "retro"
+                icon: "history"; text: qsTr("Broke after a system update?")
+                onPicked: { const k = gameMenu.key, t = gameMenu.g.title; gameMenu.close(); changesBox.show(k, t) }
+            }
             // btrfs: the safety copy from before the last update goes back (safety.py).
             MenuRow {
                 readonly property real copied: gameMenu.opened && gameMenu.g.installed ? app.updateCopyTime(gameMenu.key) : 0
@@ -4991,6 +4997,84 @@ ApplicationWindow {
     }
 
     // -------------------------------------------------------------------- health check
+    // What changed on the system since a game last worked, and how to undo it (syschanges.py).
+    KDialog {
+        id: changesBox
+        objectName: "changesBox"
+        theme: win.theme
+        headingIcon: "history"
+        property var r: ({ groups: [] })
+        function show(k, title) { heading = qsTr("What changed · ") + (title || app.game(k).title || ""); r = app.whatChanged(k); open() }
+        function showKey(k) { show(k, "") }
+        width: Math.min(win.width - 60, 680)
+        height: Math.min(win.height - 60, 640)
+        contentItem: Flickable {
+            clip: true
+            contentHeight: chCol.implicitHeight
+            ScrollBar.vertical: KScrollBar { }
+            ColumnLayout {
+                id: chCol
+                width: parent.width
+                spacing: 10
+                Text {
+                    Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 13
+                    text: !(changesBox.r.groups || []).length
+                          ? qsTr("Nothing that games depend on has changed since %1. The cause is more likely the game itself: try Repair files or another Proton version.").replace("%1", changesBox.r.since || qsTr("a month ago"))
+                          : changesBox.r.since ? qsTr("Updated since you last played it on %1:").replace("%1", changesBox.r.since)
+                                               : qsTr("Updated in the last month:")
+                }
+                Repeater {
+                    model: changesBox.r.groups || []
+                    delegate: Rectangle {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        implicitHeight: Math.max(52, gcol.implicitHeight + 16)
+                        radius: 12; color: theme.surfaceContainerHigh
+                        Column {
+                            id: gcol
+                            x: 14; anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width - 28 - undoBtn.width
+                            spacing: 2
+                            Text { width: parent.width; elide: Text.ElideRight; color: theme.onSurface; font.pixelSize: 14; font.weight: Font.DemiBold
+                                   text: modelData.name + (modelData.pkgs.length > 1 ? qsTr(" and %1 more").replace("%1", modelData.pkgs.length - 1) : "") }
+                            Text { width: parent.width; elide: Text.ElideRight; color: theme.onSurfaceVariant; font.pixelSize: 12
+                                   text: (modelData.old.replace(/^\d+:/, "") || "–") + "  →  " + (modelData.new.replace(/^\d+:/, "") || qsTr("removed")) + "  ·  " + modelData.whenText }
+                        }
+                        KButton {
+                            id: undoBtn
+                            anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+                            theme: win.theme
+                            visible: modelData.canUndo && changesBox.r.pacman
+                            text: qsTr("Put back %1").replace("%1", modelData.old.replace(/^\d+:/, ""))
+                            onClicked: app.undoSystemUpdate(modelData.pkgs)
+                        }
+                    }
+                }
+                Text { visible: (changesBox.r.more || 0) > 0; color: theme.outline; font.pixelSize: 12
+                       text: qsTr("%1 more updates, less likely to matter").replace("%1", changesBox.r.more || 0) }
+                // The whole system as it was: the snapshot from before these updates
+                Rectangle {
+                    visible: !!(changesBox.r.snapshot && changesBox.r.snapshot.number) && (changesBox.r.groups || []).length > 0
+                    Layout.fillWidth: true; radius: 12; color: Qt.alpha(theme.primary, 0.1)
+                    implicitHeight: snapCol.implicitHeight + 24
+                    ColumnLayout {
+                        id: snapCol
+                        x: 14; y: 12; width: parent.width - 28
+                        spacing: 8
+                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 14; font.weight: Font.DemiBold
+                               text: qsTr("Snapshot %1, from %2, is the system before these updates").replace("%1", (changesBox.r.snapshot || {}).number || "").replace("%2", (changesBox.r.snapshot || {}).whenText || "") }
+                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
+                               text: (changesBox.r.bootMenu ? qsTr("To try it: restart and pick it under Snapshots in the boot menu. Nothing changes until you restore it. ") : "")
+                                     + (changesBox.r.tool ? qsTr("To keep it, restore it in %1.").replace("%1", changesBox.r.tool === "timeshift" ? "Timeshift" : "Btrfs Assistant") : "") }
+                        KButton { visible: !!changesBox.r.tool; theme: win.theme
+                                  text: changesBox.r.tool === "timeshift" ? qsTr("Open Timeshift") : qsTr("Open Btrfs Assistant")
+                                  onClicked: app.openSnapshotTool(changesBox.r.tool) }
+                    }
+                }
+            }
+        }
+    }
+
     // A Proton log, read (logreader.py): what went wrong in a few lines.
     KDialog {
         id: logBox

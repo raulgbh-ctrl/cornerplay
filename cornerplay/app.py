@@ -5662,6 +5662,55 @@ class AioLaunch(QObject):
                 logs = sorted(logs + [mine], key=lambda p: p.stat().st_mtime)
         return str(logs[-1]) if logs else ""
 
+    # --- what changed on the system since a game last worked (syschanges.py) -----------------
+    @Slot(str, result="QVariantMap")
+    def whatChanged(self, key):
+        from . import syschanges
+        g = self.model.find(key)
+        if not g:
+            return {}
+        last = float(self.model.group_value(self.model.group_of(key) or [g], "lastPlayed") or 0)
+        since = last or time.time() - 30 * 86400
+        gs = syschanges.groups(syschanges.changes_since(since))
+        snap = syschanges.snapshot_before(min((x["when"] for x in gs), default=time.time())) if gs else {}
+        for x in gs:
+            x["whenText"] = time.strftime("%d %b", time.localtime(x["when"]))
+        return {"since": time.strftime("%d %b", time.localtime(since)) if last else "",
+                "groups": gs[:12], "more": max(0, len(gs) - 12),
+                "snapshot": dict(snap, whenText=time.strftime("%d %b %H:%M", time.localtime(snap["when"]))) if snap else {},
+                "bootMenu": syschanges.boot_menu_lists_snapshots(),
+                "tool": "btrfs-assistant" if shutil.which("btrfs-assistant") else "timeshift" if shutil.which("timeshift") else "",
+                "pacman": bool(shutil.which("pacman"))}
+
+    @Slot("QVariantList")
+    def undoSystemUpdate(self, pkgs):
+        """Put these packages back to the version before their last update (pacman's cache)."""
+        from . import syschanges
+        changes = [c for c in syschanges.changes_since(0) if c["pkg"] in set(pkgs)]
+        argv = syschanges.downgrade_argv(changes)
+        if not argv or self.demo:
+            self.toast.emit(_t("The earlier version is no longer in pacman's cache"))
+            return
+        self.toast.emit(_t("Putting back the earlier version (asks for your password)…"))
+
+        def work():
+            try:
+                r = subprocess.run(host.argv(argv), capture_output=True, text=True, timeout=900)
+            except (OSError, subprocess.TimeoutExpired) as e:
+                return lambda m=str(e): self.toast.emit(f"Could not put it back: {m}")
+            if r.returncode == 0:
+                return lambda: self.toast.emit(f"Put back {len(changes)} packages: restart the PC if it was the kernel or graphics driver")
+            err = ((r.stderr or r.stdout or "").strip().splitlines() or ["not allowed"])[-1][-160:]
+            return lambda: self.toast.emit(f"Could not put it back: {err}")
+        self._sys_pool.submit(lambda: self._after.emit(work()))
+
+    @Slot(str)
+    def openSnapshotTool(self, tool):
+        launch = {"btrfs-assistant": ["btrfs-assistant-launcher"] if shutil.which("btrfs-assistant-launcher") else ["btrfs-assistant"],
+                  "timeshift": ["timeshift-launcher"] if shutil.which("timeshift-launcher") else ["timeshift-gtk"]}.get(tool)
+        if launch:
+            self._detach(launch, {}, "", "snapshot-tool")
+
     @Slot(str, result="QVariantMap")
     def readProtonLog(self, key):
         """The newest Proton log, read (logreader.py): crash, missing libraries, first errors, fix."""

@@ -216,3 +216,33 @@ def test_explain_ignores_wine_notes_about_loaded_libraries():
     notes = ('1.0:0020:0024:trace:loaddll:build_module Loaded L"C:\\\\windows\\\\system32\\\\mscoree.dll" at 0: builtin\n'
              '1.1:0020:0024:fixme:d3dx:something d3dx9_43.dll stub\n')
     assert problems.explain(notes) == {}
+
+
+def test_system_changes_since_a_game_last_worked(tmp_path, monkeypatch):
+    from cornerplay import syschanges
+    log = tmp_path / "pacman.log"
+    log.write_text(
+        "[2026-11-01T10:00:00+0200] [ALPM] upgraded mesa (3:26.1.0-1 -> 3:26.2.0-1)\n"
+        "[2026-11-21T12:10:01+0200] [ALPM] upgraded mesa (3:26.2.0-1 -> 3:26.3.1-5)\n"
+        "[2026-11-21T12:10:02+0200] [ALPM] upgraded lib32-mesa (3:26.2.0-1 -> 3:26.3.1-5)\n"
+        "[2026-11-21T12:10:05+0200] [ALPM] upgraded linux-cachyos (7.3.3-1 -> 7.3.5-2)\n"
+        "[2026-11-21T12:10:06+0200] [ALPM] upgraded yt-dlp (2026.10.26-1 -> 2026.11.23-1)\n"
+        "[2026-11-21T12:10:07+0200] [ALPM] installed vulkan-intel (3:26.3.1-5)\n")
+    cache = tmp_path / "pkg"
+    cache.mkdir()
+    for f in ("mesa-3:26.2.0-1-x86_64.pkg.tar.zst", "lib32-mesa-3:26.2.0-1-x86_64.pkg.tar.zst",
+              "mesa-3:26.2.0-1-x86_64.pkg.tar.zst.sig"):
+        (cache / f).write_text("")
+    monkeypatch.setattr(syschanges, "PKG_CACHE", str(cache))
+    since = syschanges._ts("2026-11-10T00:00:00+0200")
+    ch = syschanges.changes_since(since, pacman_log=str(log), dpkg_log="/nonexistent")
+    assert [c["pkg"] for c in ch] == ["mesa", "lib32-mesa", "linux-cachyos", "vulkan-intel"]  # yt-dlp is not for games
+    groups = syschanges.groups(ch)
+    mesa = next(g for g in groups if g["name"] == "mesa")
+    assert mesa["pkgs"] == ["mesa", "lib32-mesa"] and mesa["old"] == "3:26.2.0-1" and mesa["canUndo"]
+    assert not next(g for g in groups if g["name"] == "linux-cachyos")["canUndo"]  # not in the cache
+    argv = syschanges.downgrade_argv([c for c in ch if c["pkg"] in mesa["pkgs"]])
+    assert argv[:4] == ["pkexec", "pacman", "-U", "--noconfirm"] and len(argv) == 6 and not any(a.endswith(".sig") for a in argv)
+    snaps = [{"number": 180, "when": syschanges._ts("2026-11-21 12:09:58"), "what": "pacman -Syu", "kind": "pre"},
+             {"number": 181, "when": syschanges._ts("2026-11-21 12:10:09"), "what": "", "kind": "post"}]
+    assert syschanges.snapshot_before(ch[0]["when"], snaps)["number"] == 180

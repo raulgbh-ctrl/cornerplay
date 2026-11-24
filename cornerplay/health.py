@@ -179,6 +179,17 @@ def checks(stores, gamepad_available=True):
         add("drive:" + j["mount"], f"Game drive {j['label']}", j["ok"], j["detail"],
             {} if j["ok"] and not j["warn"] else {"kind": "action", "action": "openStorage", "label": "Storage"})
 
+    # Snapshots before system updates (btrfs): a bad Mesa or kernel update can be undone (syschanges.py)
+    from . import syschanges
+    if drives.mount("/").get("fstype") == "btrfs":
+        p = syschanges.protection()
+        need = p.get("need") or ""
+        add("snapshots", "Snapshots before system updates", p["ok"],
+            f"Taken by {p['how']}" if p["ok"] else
+            "None are taken: if an update breaks your games, there is nothing to go back to" if not need else
+            f"{p['how']} is here, but nothing takes a snapshot when you update: install {need}",
+            {} if p["ok"] or not need else {"kind": "command", "command": pkgs.install_command(need)})
+
     # Open-file limit: esync (and Proton's fallbacks) open a file per waitable object; a low limit
     # makes some Windows games crash at start. Steam asks for 524288; systemd's default is that.
     try:

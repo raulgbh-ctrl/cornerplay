@@ -26,6 +26,9 @@ NAMES = {
     "prismlauncher": {"pacman": "prismlauncher", "zypper": "prismlauncher"},
     # Play on another screen: Sunshine on the gaming PC, Moonlight on the screen
     "sunshine": {"pacman": "sunshine"},
+    # btrfs snapshots before every system update (syschanges.py, Health check)
+    "snap-pac": {"pacman": "snap-pac", "dnf": "python3-dnf-plugin-snapper"},
+    "timeshift-autosnap": {"pacman": "timeshift-autosnap", "apt-get": "timeshift-autosnap-apt"},
     "moonlight": {"pacman": "moonlight-qt", "apt-get": "moonlight-qt", "zypper": "moonlight-qt"},
     # Vulkan drivers, 64- and 32-bit (Proton runs 32-bit games too)
     "vulkan-intel": {"pacman": "vulkan-intel lib32-vulkan-intel", "apt-get": "mesa-vulkan-drivers mesa-vulkan-drivers:i386",
