@@ -19,6 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
 
 from .net import requests
+from .search import compact
 
 from .config import CACHE_DIR, read_json, settings, write_json
 
@@ -49,7 +50,7 @@ def hi_res() -> bool:
 def norm(title: str) -> str:
     t = title.lower().replace("™", "").replace("®", "").replace("&", "and")
     t = _NOISE.sub(" ", t)
-    return re.sub(r"[^a-z0-9]+", "", t)
+    return compact(t)
 
 
 def steam_art(appid):

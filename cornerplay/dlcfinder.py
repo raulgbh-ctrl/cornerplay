@@ -11,11 +11,11 @@ rows(game, own_rows, steam_appid) -> list of {"id", "title", "status", "url", "i
 import re
 import threading
 import time
-import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 
 from .config import CACHE_DIR, read_json, write_json
 from .net import requests
+from .search import _fold
 
 MATCH_FILE = CACHE_DIR / "dlc_match.json"      # "steam:<title>" -> [store id or "", time]: a game's page on each store
 SUMMARY_FILE = CACHE_DIR / "dlc_summary.json"  # game key -> {"t", "total", "toBuy", "ids", "new"}
@@ -34,14 +34,14 @@ NAMES = {"steam": "Steam", "gog": "GOG", "epic": "Epic Games"}
 # taken off the end, so "Gold Rush" or "Digital Combat Simulator" keep their names.
 EDITION = re.compile(r"(\s+(game of the year|goty|definitive|complete|deluxe|standard|ultimate|enhanced|"
                      r"gold|premium|anniversary|digital|directors cut|remastered|edition))+$")
-SUMMARY_VERSION = 4  # bump when dlc_key changes: old ids would all look like new DLC
+SUMMARY_VERSION = 5  # 5: ™ dropped, any script kept. Bump when dlc_key changes: old ids would all look like new DLC
 
 
 def norm(title):
     """A title reduced for matching: "The Witcher® 3: Wild Hunt - GOTY" -> "the witcher 3 wild hunt"."""
     t = re.sub(r"['’‘`´]", "", (title or "").replace("&", " and "))  # Meier's = Meier’s, & = and
-    t = unicodedata.normalize("NFKD", t).encode("ascii", "ignore").decode().lower()
-    t = " ".join(re.sub(r"[^a-z0-9]+", " ", t).split())
+    t = _fold(t)
+    t = " ".join(re.sub(r"[\W_]+", " ", t).split())  # any script: non-Latin titles were all "" (and matched each other)
     return EDITION.sub("", t).strip() or t
 
 

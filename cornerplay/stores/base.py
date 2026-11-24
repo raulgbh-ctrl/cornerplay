@@ -4,6 +4,7 @@ import subprocess
 from dataclasses import dataclass, field, asdict
 
 from ..runner import StoreError
+from ..search import compact
 
 
 @dataclass
@@ -140,7 +141,7 @@ _EXTRA = re.compile(r"(?:\bsoundtrack|\bost|\bart\s*book|\bwallpapers?)\s*$", re
 
 
 def _norm(title):
-    return re.sub(r"[^a-z0-9]", "", title.lower())
+    return compact(title)
 
 
 def side_build_of(title, others):

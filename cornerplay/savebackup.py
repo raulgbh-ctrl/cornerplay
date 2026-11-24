@@ -19,16 +19,17 @@ from pathlib import Path
 
 from .config import CACHE_DIR, DATA_DIR, HOME, read_json, settings, write_json
 from .net import requests
+from .search import compact
 
 MANIFEST_URL = "https://raw.githubusercontent.com/mtkennerly/ludusavi-manifest/master/data/manifest.yaml"
 INDEX = CACHE_DIR / "save_index.json"
 BACKUPS = DATA_DIR / "backups"
 INDEX_TTL = 7 * 86400
+INDEX_VERSION = 2  # 2: titles in any script keep their letters (all non-Latin ones were "" before)
 
 
 def _norm(title):
-    t = title.lower().replace("™", "").replace("®", "").replace("&", "and")
-    return re.sub(r"[^a-z0-9]+", "", t)
+    return compact(title.replace("&", "and"))
 
 
 # --- the manifest, boiled down -----------------------------------------------------------
@@ -61,12 +62,12 @@ def build_index():
                 continue
             oses = sorted({w.get("os") for w in info.get("when") or [] if isinstance(w, dict) and w.get("os")})
             files.append([path, oses])
-        if files:
+        if files and _norm(name):
             games[_norm(name)] = {"name": name, "files": files}
             sid = (entry.get("steam") or {}).get("id")
             if sid:
                 steam[str(sid)] = _norm(name)
-    write_json(INDEX, {"t": time.time(), "games": games, "steam": steam})
+    write_json(INDEX, {"t": time.time(), "v": INDEX_VERSION, "games": games, "steam": steam})
     global _index
     _index = None
     return ""
@@ -100,14 +101,16 @@ def index():
 
 
 def index_is_old():
-    return time.time() - (index().get("t") or 0) > INDEX_TTL
+    return index().get("v") != INDEX_VERSION or time.time() - (index().get("t") or 0) > INDEX_TTL
 
 
 def entry_for(game, appid=None):
     idx = index()
     if appid and str(appid) in (idx.get("steam") or {}):
         return idx["games"].get(idx["steam"][str(appid)])
-    return (idx.get("games") or {}).get(_norm(game.title))
+    if idx.get("v") != INDEX_VERSION:  # an old index keyed every non-Latin title as "": wrong saves
+        return None
+    return (idx.get("games") or {}).get(_norm(game.title)) if _norm(game.title) else None
 
 
 # --- where the paths point -----------------------------------------------------------------

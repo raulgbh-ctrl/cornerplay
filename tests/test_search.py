@@ -52,3 +52,25 @@ def test_calm_softens_shouted_sentences_only():
     assert calm("THE CRITICALLY ACCLAIMED FANTASY ACTION RPG. Rise, Tarnished.") == \
         "The critically acclaimed fantasy action RPG. Rise, Tarnished."
     assert calm("Play with friends. It is OK.") == "Play with friends. It is OK."
+
+
+def test_titles_in_any_script_stay_apart():
+    """Non-Latin titles used to fold to "" (all matched each other, shared one cover and one save entry)."""
+    from cornerplay.search import compact, matches
+    from cornerplay import covers, dlcfinder, savebackup
+    assert not matches("Ω", "Grand Theft Auto V")
+    assert matches("ведьмак", "Ведьмак 3")
+    assert compact("ガンダム") != compact("カンダム")       # kana marks are not accents
+    assert compact("Pokémon™") == compact("Pokemon") == "pokemon"
+    for norm in (covers.norm, savebackup._norm, dlcfinder.norm):
+        assert norm("ペルソナ5") and norm("ペルソナ5") != norm("Ведьмак 3")
+    assert dlcfinder.norm("DOOM™ Eternal") == dlcfinder.norm("DOOM Eternal")
+
+
+def test_old_save_index_is_not_trusted(monkeypatch):
+    from cornerplay import savebackup
+    from cornerplay.stores.base import Game
+    old = {"t": 9e12, "games": {"": {"name": "ペルソナ", "files": []}}, "steam": {}}
+    monkeypatch.setattr(savebackup, "_index", old)
+    assert savebackup.index_is_old()
+    assert savebackup.entry_for(Game(store="gog", id="1", title="Ведьмак")) is None

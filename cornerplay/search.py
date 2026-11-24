@@ -14,15 +14,25 @@ _ROMAN = {"i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5", "vi": "6", "vii"
 _SMALL = {"the", "of", "a", "an", "and", "to", "in", "on", "for"}
 
 
+def _fold(text: str) -> str:
+    """Lower case with accents dropped from Latin letters only ("é" -> "e", "ș" -> "s"); other
+    scripts keep their marks (ガ stays ガ, not カ), so their titles stay apart."""
+    out = []
+    for c in unicodedata.normalize("NFKD", (text or "").replace("\u2122", "").replace("\u00ae", "")):  # ™ is "TM" in NFKD
+        if unicodedata.combining(c) and out and out[-1] < "\u0250":
+            continue
+        out.append(c)
+    return unicodedata.normalize("NFKC", "".join(out)).lower()
+
+
 @lru_cache(maxsize=8192)
 def words(text: str, roman: bool = True) -> tuple:
     """The text as plain lower-case words: 'Baldur's Gate III' -> ('baldurs', 'gate', '3')."""
-    t = unicodedata.normalize("NFKD", text or "")
-    t = "".join(c for c in t if not unicodedata.combining(c)).lower()
+    t = _fold(text)
     t = re.sub(r"['’`]", "", t)                  # baldur's -> baldurs
     t = re.sub(r"(\d)([a-z])|([a-z])(\d)", lambda m: " ".join(x for x in m.groups() if x), t)  # rdr2 stays, "fallout4" -> "fallout 4"
     out = []
-    for w in re.split(r"[^a-z0-9]+", t):
+    for w in re.split(r"[\W_]+", t):              # any script: "ペルソナ", "Ведьмак" are words too
         if w:
             out.append(_ROMAN.get(w, w) if roman and (w != "i" or out) else w)  # a lone leading "I" is a word, not 1
     return tuple(out)
@@ -37,6 +47,13 @@ def _initials(title: str) -> tuple:
         out.append("".join(w if w.isdigit() or w in _ROMAN else w[0] for w in ws))
         out.append("".join(w if w.isdigit() or w in _ROMAN else w[0] for w in ws if w not in _SMALL))
     return tuple(out)
+
+
+def compact(text: str) -> str:
+    """A title as one run of letters and digits, for matching and cache keys, in any script:
+    "Pokémon™: Co." -> "pokemonco", "Ведьмак 3" -> "ведьмак3" (not "", which every such title shared)."""
+    t = _fold(text)
+    return re.sub(r"[\W_]+", "", t)
 
 
 def _query_words(query: str) -> tuple:
