@@ -186,6 +186,8 @@ DEFAULTS = {
     "game_workspace": False,
     "hud_levels": False,       # MangoHud levels (off / FPS / basic / full) switched from quick access while playing (hudlevels.py)   # Hyprland: games open on an empty workspace; back to yours when they close
     "jobs_low_priority": True, # installs, updates, compression run at low disk/CPU priority (ionice/nice)  # a gaming CPU scheduler (sched-ext LAVD) while playing (scx.py)
+    "battlenet_hide": True,    # Hyprland: Battle.net's window stays hidden while its games start (bnethide.py)
+    "battlenet_warm": False,   # Battle.net started hidden with Cornerplay, so its games start in seconds
     "update_safety": True,     # btrfs: an instant copy of a game before it updates, to roll back (safety.py)
     "tv_screen": "auto",       # TV mode opens on: "auto" a TV/monitor when one is plugged in, "" this screen, or a name (tvscreen.py)
     "tv_screensaver": 3,       # TV mode: minutes without input before the slideshow of your games (0 = never)

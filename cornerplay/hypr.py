@@ -116,6 +116,28 @@ def focus_workspace(ws: str) -> bool:
     return ctl("dispatch", "workspace", ws) is not None
 
 
+def clients() -> list:
+    """Every window: [{"address", "class", "title", "workspace": {"name"}, ...}]."""
+    try:
+        return json.loads(ctl("clients", "-j") or "[]")
+    except ValueError:
+        return []
+
+
+def move_window(address: str, workspace: str, silent: bool = True) -> bool:
+    """Send one window (by address) to a workspace ("special:x", "3"); silent: stay where you are."""
+    ws = workspace + (" silent" if silent and lua() else "")
+    if lua():
+        return ctl("dispatch", f"hl.dsp.window.move({{ workspace = {json.dumps(ws)}, window = {json.dumps('address:' + address)} }})") is not None
+    return ctl("dispatch", "movetoworkspacesilent" if silent else "movetoworkspace", f"{workspace},address:{address}") is not None
+
+
+def focus_window(address: str) -> bool:
+    if lua():
+        return ctl("dispatch", f"hl.dsp.focus({{ window = {json.dumps('address:' + address)} }})") is not None
+    return ctl("dispatch", "focuswindow", f"address:{address}") is not None
+
+
 def reload() -> bool:
     return ctl("reload") is not None
 

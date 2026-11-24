@@ -84,3 +84,36 @@ def test_watch_gives_up_when_battlenet_closes_without_the_game(monkeypatch):
     monkeypatch.setattr(time, "sleep", lambda s: clock.__setitem__(0, clock[0] + s))
     assert B.watch(store, g, starter, lambda p: None, poll=5) == (0.0, 0.0)
     assert clock[0] < 60
+
+
+def test_hide_parks_quiet_windows_and_shows_the_one_asking(monkeypatch):
+    from cornerplay import bnethide, hypr
+    wins = [{"address": "a", "class": bnethide.CLASS, "title": "Battle.net", "workspace": {"name": "1"}},
+            {"address": "b", "class": bnethide.CLASS, "title": "Battle.net Login", "workspace": {"name": bnethide.PLACE}},
+            {"address": "c", "class": "kitty", "title": "shell", "workspace": {"name": "1"}}]
+    moves = []
+    monkeypatch.setattr(hypr, "clients", lambda: wins)
+    monkeypatch.setattr(hypr, "move_window", lambda a, ws, silent=True: moves.append((a, ws)) or True)
+    monkeypatch.setattr(hypr, "focus_window", lambda a: True)
+    monkeypatch.setattr(hypr, "workspace", lambda: "3")
+    assert bnethide.park() == 1 and moves == [("a", bnethide.PLACE)]
+    assert bnethide.asking()["address"] == "b"
+    moves.clear()
+    bnethide.show(bnethide.asking())
+    assert moves == [("b", "3")]
+
+
+def test_launch_without_battlenet_for_wow(tmp_path, monkeypatch):
+    from cornerplay.stores.base import Game
+    exe = tmp_path / "_retail_" / "Wow.exe"
+    exe.parent.mkdir()
+    exe.write_text("")
+    g = Game(store="battlenet", id="wow", title="World of Warcraft", installed=True, install_path=str(tmp_path),
+             extra={"uid": "wow", "launch": "WoW"})
+    s = B.BattleNet()
+    monkeypatch.setattr(s, "launcher_exe", lambda: "/x/Battle.net.exe")
+    monkeypatch.setattr(B.game_options, "get", lambda k: {"bnet_direct": True})
+    assert s.launch(g).argv[-1] == str(exe)
+    monkeypatch.setattr(B.game_options, "get", lambda k: {})
+    monkeypatch.setattr(B, "keep_signed_in", lambda p: None)
+    assert s.launch(g).argv[-1] == "--exec=launch WoW"

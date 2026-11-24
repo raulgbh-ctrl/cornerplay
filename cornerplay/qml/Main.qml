@@ -7606,6 +7606,9 @@ ApplicationWindow {
                                          Component.onCompleted: select(app.settingsMap.gpu || "auto")
                                          onActivated: app.setSetting("gpu", currentValue) }
                             }
+                            // Battle.net out of sight (bnethide.py): only Hyprland can move its windows away.
+                            Toggle { visible: app.hyprland; label: qsTr("Battle.net: keep its window hidden while its games start (it shows when it needs you)"); settingKey: "battlenet_hide" }
+                            Toggle { visible: app.hyprland; label: qsTr("Battle.net: ready in the background, so its games start in seconds (uses some memory)"); settingKey: "battlenet_warm" }
                             Text { text: qsTr("While you play"); color: theme.onSurface; font.pixelSize: 15; font.weight: Font.DemiBold; Layout.topMargin: 6 }
                             Toggle { label: qsTr("Do not disturb (on Ryoku: its Game Mode)"); settingKey: "focus_dnd" }
                             Toggle { label: qsTr("Keep the screen on and the PC awake"); settingKey: "focus_awake" }
@@ -8283,6 +8286,7 @@ ApplicationWindow {
             optDlls.text = opts.dll_overrides || ""
             optAudioLat.select(opts.audio_lowlat === true)
             optHdrDesk.select(opts.hdr_desktop === true)
+            optBnetDirect.select(opts.bnet_direct === true)
             optArgs.text = opts.args || ""
             optBefore.text = opts.before || ""
             optAfter.text = opts.after || ""
@@ -8508,6 +8512,15 @@ ApplicationWindow {
                     KCombo { id: optHdrDesk; theme: win.theme; Layout.fillWidth: true
                              model: [{ label: qsTr("Off"), value: false }, { label: qsTr("On"), value: true }]
                              onActivated: app.setGameOption(gameOpts.key, "hdr_desktop", currentValue) }
+                }
+                // WoW has its own sign-in screen: it can start without the Battle.net app (stores/battlenet.py DIRECT).
+                Row2 {
+                    visible: gameOpts.game.bnetDirect === true
+                    label: qsTr("Start without Battle.net")
+                    hint: qsTr("The game opens straight away and asks for your Blizzard sign-in itself. Battle.net still installs its updates.")
+                    KCombo { id: optBnetDirect; theme: win.theme; Layout.fillWidth: true
+                             model: [{ label: qsTr("Off"), value: false }, { label: qsTr("On"), value: true }]
+                             onActivated: app.setGameOption(gameOpts.key, "bnet_direct", currentValue) }
                 }
                 // Rhythm and fighting games: a small PipeWire buffer while it plays (playtweaks.py).
                 Row2 {

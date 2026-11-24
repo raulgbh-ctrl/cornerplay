@@ -7,7 +7,7 @@ to show each installed game as its own tile.
 import os
 from pathlib import Path
 
-from ..config import CACHE_DIR, CONFIG_DIR, read_json, write_json
+from ..config import CACHE_DIR, CONFIG_DIR, game_options, read_json, write_json
 from ..runner import StoreError, compat, prefix_path, wine_env, wrapper_argv
 from .base import Command, Game, Store
 
@@ -48,6 +48,10 @@ for _uid, (_t, _code) in PRODUCTS.items():
     UID_BY_LAUNCH.setdefault(_code.lower(), _uid)
 # Games the Blizzard account still lists that are no longer sold or played through Battle.net.
 MOVED = {1146311730}  # Destiny 2: on Steam since 2019
+# Games that also start without Battle.net (their own sign-in screen), by uid: the program,
+# relative to the game's folder. A game's Options > "Start without Battle.net".
+DIRECT = {"wow": "_retail_/Wow.exe", "wow_classic": "_classic_/WowClassic.exe",
+          "wow_classic_era": "_classic_era_/WowClassic.exe"}
 # Blizzard titles that are also sold on Steam, so their box art can come from there.
 STEAM_APPIDS = {"pro": 2357570, "fenris": 2344520, "osi": 2536520, "auks": 1938090,
                 "odin": 2000950, "zeus": 1985810, "wlby": 1378990}
@@ -255,10 +259,23 @@ class BattleNet(Store):
         exe = self.launcher_exe()
         if not exe:
             raise StoreError("The Battle.net app is not installed yet")
+        if game.id != LAUNCHER_ID and game_options.get(game.key).get("bnet_direct"):
+            direct = self.direct_exe(game)
+            if direct:  # its own sign-in screen, no Battle.net at all
+                return Command([*wrapper_argv(), direct], env=self.env(), cwd=os.path.dirname(direct))
+        keep_signed_in(self.prefix())
         argv = [*wrapper_argv(gamescope=False), exe]
         if game.id != LAUNCHER_ID:
             argv.append("--exec=launch " + game.extra.get("launch", game.id))
         return Command(argv, env=self.env(), cwd=os.path.dirname(exe))
+
+    def direct_exe(self, game):
+        """The game's own program when it can start without Battle.net (WoW), else ""."""
+        rel = DIRECT.get(game.extra.get("uid") or game.id)
+        if not rel or not game.install_path:
+            return ""
+        p = os.path.join(game.install_path, rel)
+        return p if os.path.isfile(p) else ""
 
 
 # --- product.db ---------------------------------------------------------
@@ -428,12 +445,56 @@ def game_folders(store, game):
     return [f for f in (win, store.linux_path(win) if win else "", game.install_path) if f]
 
 
+def _launcher_dirs(store):
+    return [os.path.join(store.prefix(), "drive_c/Program Files (x86)/Battle.net"), "C:/Program Files (x86)/Battle.net"]
+
+
 def launcher_running(store):
-    return bool(pids_under([os.path.join(store.prefix(), "drive_c/Program Files (x86)/Battle.net"),
-                            "C:/Program Files (x86)/Battle.net"]))
+    return bool(pids_under(_launcher_dirs(store)))
 
 
-def watch(store, game, proc, on_change, wait_start=1800, poll=2.0, grace=12.0):
+def close_launcher(store) -> bool:
+    """Close the Battle.net app (and its Agent, which goes with it) when Cornerplay started it
+    only for a game that has now closed. Not while it downloads: that would stop the download."""
+    if any(p["busy"] for p in products(store.product_db())):
+        return False
+    import signal
+    pids = pids_under(_launcher_dirs(store) + [os.path.join(store.prefix(), "drive_c/ProgramData/Battle.net/Agent"),
+                                               "C:/ProgramData/Battle.net/Agent"])
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+    return bool(pids)
+
+
+def keep_signed_in(prefix):
+    """Battle.net keeps you signed in between starts (its "AutoLogin"); set it when it is off.
+    Only while Battle.net is closed: it writes its config back when it quits."""
+    import json
+    path = os.path.join(prefix, "drive_c/users/steamuser/AppData/Roaming/Battle.net/Battle.net.config")
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return
+    client = data.setdefault("Client", {})
+    if not isinstance(client, dict) or str(client.get("AutoLogin", "")).lower() == "true":
+        return
+    if pids_under([os.path.join(prefix, "drive_c/Program Files (x86)/Battle.net"), "C:/Program Files (x86)/Battle.net"]):
+        return
+    client["AutoLogin"] = "true"
+    tmp = path + ".cornerplay"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4)
+        os.replace(tmp, path)
+    except OSError:
+        pass
+
+
+def watch(store, game, proc, on_change, wait_start=1800, poll=2.0, grace=12.0, on_tick=None):
     """Wait for the game to start and then to close. on_change(pids) is called as its processes
     come and go. Returns (started, ended) times, or (0, 0) when it never started: Battle.net
     closed first, or nothing after wait_start seconds (a long patch: still counted from when
@@ -445,6 +506,8 @@ def watch(store, game, proc, on_change, wait_start=1800, poll=2.0, grace=12.0):
     known = []
     while True:
         now = time.time()
+        if on_tick:
+            on_tick(bool(seen))  # bnethide: keep Battle.net out of sight, bring it forward when it asks
         if proc is not None:
             proc.poll()  # reap Battle.net's starter when it hands over and exits
         pids = pids_under(folders)

@@ -85,14 +85,44 @@ def _battlenet(game, proc, out, started):
     processes instead. This process stands for the session meanwhile (its pid is alive until
     the game closes); the game's pids go in the status file so Quit reaches the game itself.
     Returns (exit code, started, ended); started is 0 when the game never ran."""
-    from .stores.battlenet import BattleNet, watch
+    from . import bnethide
+    from .config import settings
+    from .stores.battlenet import BattleNet, close_launcher, launcher_running, watch
+    store = BattleNet()
+    state = {"pids": [], "needs": "", "was_open": launcher_running(store) or settings.get("battlenet_warm")}
+    hide = bool(settings.get("battlenet_hide")) and bnethide.available()
+
+    def status():
+        write_json(out, {"key": game.key, "state": "playing", "since": started, "title": game.title,
+                         "pid": os.getpid(), "pids": state["pids"], "needs": state["needs"]})
 
     def changed(pids):
-        write_json(out, {"key": game.key, "state": "playing", "since": started, "title": game.title,
-                         "pid": os.getpid(), "pids": pids})
-    write_json(out, {"key": game.key, "state": "playing", "since": started, "title": game.title,
-                     "pid": os.getpid()})
-    seen, gone = watch(BattleNet(), game, proc, changed)
+        state["pids"] = pids
+        status()
+
+    def tick(running):
+        if not hide:
+            return
+        bnethide.park()  # classic Hyprland has no rule: windows are moved as they appear
+        ask = bnethide.asking() if not running else {}
+        need = (ask.get("title") or "Battle.net") if ask else ""
+        if need != state["needs"]:
+            state["needs"] = need
+            if ask:
+                bnethide.show(ask)  # the sign-in or error window, where you are
+            status()
+    if hide:
+        bnethide.rule(True)
+    status()
+    try:
+        seen, gone = watch(store, game, proc, changed, on_tick=tick)
+    finally:
+        if hide and not settings.get("battlenet_warm"):
+            bnethide.rule(False)
+    if not state["was_open"] and seen:
+        close_launcher(store)  # opened only for this game: closed with it (not mid-download)
+    elif hide and not settings.get("battlenet_warm"):
+        bnethide.show()  # it was open before: back where you can see it
     code = proc.poll()
     return (0 if code is None else code), seen, (gone or None)
 

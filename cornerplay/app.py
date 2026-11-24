@@ -462,6 +462,7 @@ class LibraryModel(QAbstractListModel):
         d["steamAppId"] = _appid(g)
         d["favourite"] = shelves.in_group(group or [g], shelves.FAV)
         d["collections"] = [c for c in shelves.names() if shelves.in_group(group or [g], c)]
+        d["bnetDirect"] = g.store == "battlenet" and g.installed and bool(battlenet.DIRECT.get(g.extra.get("uid") or g.id))
         d["linuxVersion"] = bool(g.extra.get("linux"))   # GOG: the game has a Linux version
         d["platform"] = g.extra.get("platform", "")      # installed as "linux" or "windows"
         d["status"] = shelves.meta(group or [g], "status")
@@ -3307,6 +3308,7 @@ class AioLaunch(QObject):
             write_json(LIBRARY_CACHE, [g.to_dict() for g in self.model.games])
         if store_id == "battlenet" and games is not None:
             self._bnet_progress(games)
+            self._battlenet_warm()
         if error:
             self.toast.emit(error)
         self.refreshingChanged.emit()
@@ -5538,7 +5540,10 @@ class AioLaunch(QObject):
 
     def _options_for(self, g):
         # Battle.net games all run through the one launcher prefix, so they share its options.
-        opts = game_options.get("battlenet:battlenet-app" if g.store == "battlenet" else g.key)
+        own = game_options.get(g.key)
+        direct = g.store == "battlenet" and own.get("bnet_direct") and self.stores["battlenet"].direct_exe(g)
+        # ...except one started without Battle.net (WoW): it runs on its own, with its own options
+        opts = game_options.get("battlenet:battlenet-app") if g.store == "battlenet" and not direct else own
         from . import abtest
         proton = abtest.proton_now(g.key)
         if proton is not None:  # a Proton A/B test runs: this step's version, and record how it ran
@@ -6064,7 +6069,35 @@ class AioLaunch(QObject):
 
     @Slot(str)
     def play(self, key):
+        if key == "battlenet:battlenet-app" and not self.demo and self._show_battlenet():
+            return  # already running, out of sight: bring it forward instead of a second start
         self._play(key, "download")
+
+    def _show_battlenet(self):
+        from . import bnethide
+        store = self.stores.get("battlenet")
+        if not store or not bnethide.available() or not battlenet.launcher_running(store):
+            return False
+        return bnethide.show()
+
+    def _battlenet_warm(self):
+        """Settings > Battle.net ready in the background: started hidden once per run, so its
+        games start in seconds (it takes half a minute to open under Proton)."""
+        from . import bnethide
+        store = self.stores.get("battlenet")
+        if (self.demo or getattr(self, "_bnet_warmed", False) or not settings.get("battlenet_warm")
+                or not store or not store.launcher_exe() or not bnethide.available()):
+            return
+        self._bnet_warmed = True
+
+        def work():
+            if battlenet.launcher_running(store):
+                return None
+            bnethide.rule(True)  # stays while this setting is on: its windows open hidden
+            g = self.model.find("battlenet:battlenet-app")
+            cmd = store.launch(g) if g else None
+            return (lambda: self._detach(cmd.argv, cmd.env, cmd.cwd, "battlenet-warm")) if cmd else None
+        self._bg(work)
 
     @Slot(str, str)
     def resolveConflict(self, key, choice):
@@ -6584,6 +6617,14 @@ class AioLaunch(QObject):
                 self._playing.pop(key)
                 self._starting.pop(key, None)  # it closed: Play may start it again
                 changed = True
+            need = (data.get("needs") or "") if data.get("state") == "playing" else ""
+            told = getattr(self, "_bnet_told", None)
+            if told is None:
+                told = self._bnet_told = {}
+            if key and need != told.get(key, ""):
+                told[key] = need
+                if need:  # Battle.net was hidden and now wants you: its window is in front
+                    self.toast.emit(f"Battle.net needs you ({need}) before {data.get('title') or 'the game'} can start")
             stamp = (data.get("state"), data.get("since"))
             if self._sessions_seen.get(f.name) == stamp:
                 continue
