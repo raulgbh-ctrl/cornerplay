@@ -8519,7 +8519,7 @@ ApplicationWindow {
                 }
                 // Protontricks-style fixes into this game's own prefix (winetricks through umu).
                 Row2 {
-                    visible: gameOpts.compat && gameOpts.game.installed
+                    visible: gameOpts.compat && gameOpts.game.installed === true
                     label: qsTr("Common fixes")
                     hint: qsTr("Installs a Windows part some games need into this game's own prefix. Takes a few minutes.")
                     RowLayout {
