@@ -136,3 +136,32 @@ def test_drive_speed_measures_and_cleans_up(tmp_path):
     from cornerplay import drives
     r = drives.speed(str(tmp_path), mb=4)
     assert r["read"] > 0 and r["write"] > 0 and not list(tmp_path.iterdir())
+
+
+def test_run_in_prefix_commands(tmp_path, monkeypatch):
+    import types
+    from cornerplay import app as A, runner
+    from cornerplay.stores.base import Game
+    trainer = tmp_path / "Trainer.exe"
+    trainer.write_text("")
+    started = []
+    games = {"gog:1": Game(store="gog", id="1", title="Witcher", installed=True, install_path=str(tmp_path)),
+             "battlenet:pro": Game(store="battlenet", id="pro", title="Overwatch", installed=True, install_path=str(tmp_path)),
+             "steam:220": Game(store="steam", id="220", title="HL2", installed=True, install_path=str(tmp_path))}
+    f = types.SimpleNamespace(demo=False, model=types.SimpleNamespace(find=games.get),
+                              stores={"battlenet": types.SimpleNamespace(env=lambda: {"WINEPREFIX": "/bnet", "GAMEID": "umu-battlenet"})},
+                              _options_for=lambda g: {}, toast=types.SimpleNamespace(emit=lambda m: None),
+                              _detach=lambda argv, env, cwd, name: started.append((argv, env, cwd)) or True,
+                              PREFIX_TOOLS=A.AioLaunch.PREFIX_TOOLS)
+    f.prefixToolsFor = lambda k: True
+    monkeypatch.setattr(runner, "compat", lambda: ("umu", "/usr/bin/umu-run"))
+    monkeypatch.setattr(runner, "wine_env", lambda store, gid: {"WINEPREFIX": f"/pfx/{store}-{gid}"})
+    monkeypatch.setattr(A, "_appid", lambda g: g.id)
+    A.AioLaunch.runInPrefix(f, "gog:1", "file://" + str(trainer))
+    A.AioLaunch.runInPrefix(f, "battlenet:pro", "regedit")
+    A.AioLaunch.runInPrefix(f, "steam:220", "winecfg")
+    A.AioLaunch.runInPrefix(f, "steam:220", str(trainer))
+    assert started[0] == (["/usr/bin/umu-run", str(trainer)], {"WINEPREFIX": "/pfx/gog-1"}, str(tmp_path))
+    assert started[1][0] == ["/usr/bin/umu-run", "regedit"] and started[1][1]["GAMEID"] == "umu-cornerplay-tools"
+    assert started[2][0] == ["protontricks", "-c", "wine winecfg", "220"]
+    assert started[3][0] == ["protontricks-launch", "--appid", "220", str(trainer)]

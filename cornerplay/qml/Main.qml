@@ -4477,6 +4477,13 @@ ApplicationWindow {
         title: qsTr("Save the backup in which folder?")
         onAccepted: app.makeBackup(selectedFolder.toString())
     }
+    FileDialog {  // a trainer, mod tool or installer, run in a game's own prefix (app.runInPrefix)
+        id: prefixExePick
+        property string key: ""
+        title: qsTr("Run which program in the game's prefix?")
+        nameFilters: [qsTr("Windows programs (*.exe *.msi *.bat)"), qsTr("All files (*)")]
+        onAccepted: app.runInPrefix(key, selectedFile.toString())
+    }
     FileDialog {
         id: restoreFile
         title: qsTr("Restore which Cornerplay backup?")
@@ -8595,6 +8602,22 @@ ApplicationWindow {
                     KCombo { id: optAudioLat; theme: win.theme; Layout.fillWidth: true
                              model: [{ label: qsTr("Off"), value: false }, { label: qsTr("On"), value: true }]
                              onActivated: app.setGameOption(gameOpts.key, "audio_lowlat", currentValue) }
+                }
+                // Tools inside this game's own prefix: a trainer or mod tool beside the game, Wine's settings.
+                Row2 {
+                    visible: gameOpts.key !== "" && app.prefixToolsFor(gameOpts.key)
+                    label: qsTr("In this game's prefix")
+                    hint: qsTr("Runs beside the game, with its Proton: trainers, mod tools, installers, Wine's own settings.")
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        KButton { theme: win.theme; text: qsTr("Run a program…"); iconName: "play"
+                                  onClicked: { prefixExePick.key = gameOpts.key; prefixExePick.open() } }
+                        KButton { theme: win.theme; text: qsTr("Wine settings"); onClicked: app.runInPrefix(gameOpts.key, "winecfg") }
+                        KButton { theme: win.theme; text: qsTr("Registry"); onClicked: app.runInPrefix(gameOpts.key, "regedit") }
+                        KButton { theme: win.theme; text: qsTr("Command prompt"); onClicked: app.runInPrefix(gameOpts.key, "cmd") }
+                        KButton { theme: win.theme; text: qsTr("Task manager"); onClicked: app.runInPrefix(gameOpts.key, "taskmgr") }
+                    }
                 }
                 // Protontricks-style fixes into this game's own prefix (winetricks through umu).
                 Row2 {

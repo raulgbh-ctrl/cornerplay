@@ -1765,6 +1765,62 @@ class AioLaunch(QObject):
             self._start_job(g, "fix", Command([run, "winetricks", "-q", verb], env))
             self.toast.emit(f"Installing {verb} for {g.title}; it can take a few minutes")
 
+    # --- tools inside a game's own Proton prefix ------------------------------------------
+    PREFIX_TOOLS = {"winecfg": ["winecfg"], "regedit": ["regedit"], "cmd": ["wineconsole", "cmd"],
+                    "taskmgr": ["taskmgr"], "control": ["control"], "explorer": ["explorer"]}
+
+    @Slot(str, result=bool)
+    def prefixToolsFor(self, key):
+        """A Windows game with a prefix of its own (or Steam's, through protontricks)."""
+        g = self.model.find(key)
+        if not g or not g.installed or g.extra.get("platform") == "linux" or g.store in ("retro", "prism"):
+            return False
+        if g.store == "steam":
+            return bool(shutil.which("protontricks-launch")) and _appid(g) != ""
+        return g.store in ("epic", "gog", "amazon", "custom", "humble", "battlenet")
+
+    @Slot(str, str)
+    def runInPrefix(self, key, what):
+        """what: a tool (winecfg, regedit, cmd, taskmgr, control, explorer) or a file:// / path to an
+        .exe, .msi or .bat: a trainer, a mod tool, an installer, run beside the game in its prefix."""
+        g = self.model.find(key)
+        if not g or self.demo or not self.prefixToolsFor(key):
+            return
+        if what in self.PREFIX_TOOLS:
+            prog, cwd = list(self.PREFIX_TOOLS[what]), ""
+        else:
+            path = QUrl(what).toLocalFile() if what.startswith("file:") else what
+            if not os.path.isfile(path):
+                return
+            low = path.lower()
+            prog = (["msiexec", "/i", path] if low.endswith(".msi") else
+                    ["wineconsole", "cmd", "/c", path] if low.endswith((".bat", ".cmd")) else [path])
+            cwd = os.path.dirname(path)
+        if g.store == "steam":  # Steam's own Proton and prefix, as Steam would run it (protontricks)
+            env = {}
+            if len(prog) == 1 and os.path.isfile(prog[0]):
+                argv = ["protontricks-launch", "--appid", _appid(g), prog[0]]
+            else:
+                argv = ["protontricks", "-c", shlex.join(["wine", *prog]), _appid(g)]
+        else:
+            try:
+                with runner.using(self._options_for(g)):
+                    kind, run = runner.compat()
+                    env = (self.stores["battlenet"].env() if g.store == "battlenet"
+                           else runner.wine_env(g.store, g.id))
+            except StoreError as e:
+                self.toast.emit(str(e))
+                return
+            if kind != "umu":
+                self.toast.emit(f"Run it with Wine in {env.get('WINEPREFIX', 'the game prefix')}")
+                return
+            argv = [run, *prog]
+            if g.store == "battlenet":  # its own window class, so the Battle.net hiding rule leaves it be
+                env = dict(env, GAMEID="umu-cornerplay-tools")
+        ok = self._detach(argv, env, cwd, g.key + ".prefix")
+        self.toast.emit(f"Starting {os.path.basename(prog[-1]) if cwd else what} in the prefix of {g.title}" if ok
+                        else f"Could not start it in the prefix of {g.title}")
+
     # --- backup and restore -----------------------------------------------------------
     @Slot(str)
     def makeBackup(self, folder):
