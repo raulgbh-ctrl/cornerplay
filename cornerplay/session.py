@@ -17,6 +17,7 @@ from .config import CACHE_DIR, write_json
 from .stores.base import Game
 
 SESSIONS = CACHE_DIR / "sessions"
+ASK_WAIT = 10  # seconds Battle.net's sign-in window may show before it counts as waiting for you
 
 
 def status_file(key):
@@ -105,6 +106,12 @@ def _battlenet(game, proc, out, started):
             return
         bnethide.park()  # classic Hyprland has no rule: windows are moved as they appear
         ask = bnethide.asking() if not running else {}
+        # Its sign-in window shows for a few seconds even when it signs in by itself: only one
+        # that is still there after ASK_WAIT really waits for you.
+        if not ask:
+            state.pop("ask_since", None)
+        elif time.time() - state.setdefault("ask_since", time.time()) < ASK_WAIT and not state["needs"]:
+            ask = {}
         need = (ask.get("title") or "Battle.net") if ask else ""
         if need != state["needs"]:
             state["needs"] = need

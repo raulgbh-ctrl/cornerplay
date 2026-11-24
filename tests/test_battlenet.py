@@ -80,6 +80,7 @@ def test_watch_gives_up_when_battlenet_closes_without_the_game(monkeypatch):
     store = types.SimpleNamespace(product_db=lambda: "/nonexistent", linux_path=lambda p: p, prefix=lambda: "/nonexistent")
     g = types.SimpleNamespace(id="pro", extra={}, install_path="/nonexistent/Overwatch")
     clock = [0.0]
+    monkeypatch.setattr(B, "launcher_running", lambda s: False)  # not this PC's real Battle.net
     monkeypatch.setattr(time, "time", lambda: clock[0])
     monkeypatch.setattr(time, "sleep", lambda s: clock.__setitem__(0, clock[0] + s))
     assert B.watch(store, g, starter, lambda p: None, poll=5) == (0.0, 0.0)
