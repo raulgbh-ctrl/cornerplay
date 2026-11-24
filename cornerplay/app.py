@@ -5835,6 +5835,12 @@ class AioLaunch(QObject):
     # --- gaming CPU scheduler (scx.py) -----------------------------------------------------------
     schedulerAvailable = Property(bool, lambda s: __import__("cornerplay.scx", fromlist=["available"]).available(), constant=True)
 
+    @Slot(result="QVariantList")
+    def screenModes(self):
+        """For a game's Options > Screen while playing: the modes of the screen in front."""
+        from . import screenmode
+        return [{"label": _t("As it is"), "value": ""}] + screenmode.choices()
+
     @Slot(bool)
     def setGamingScheduler(self, on):
         """Settings > Games: LAVD while playing. Turning it on the first time installs the polkit
@@ -6464,6 +6470,9 @@ class AioLaunch(QObject):
             want["lowlat"] = bool(settings.get("focus_lowlat"))
             want["quantum"] = own.get("audio_lowlat") is True
             want["hdr"] = own.get("hdr_desktop") is True and own.get("gamescope") is not True
+            if own.get("gamescope") is not True:  # gamescope sets its own size and refresh
+                want["screen"] = own.get("screen_mode") or ""
+                want["vrr"] = own.get("screen_vrr") is True
             if settings.get("clips"):
                 want["clips"] = first.get("title") or "Game"
             self.lightsFor(self.gameColour(first["key"]))

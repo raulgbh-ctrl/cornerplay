@@ -165,3 +165,20 @@ def test_run_in_prefix_commands(tmp_path, monkeypatch):
     assert started[1][0] == ["/usr/bin/umu-run", "regedit"] and started[1][1]["GAMEID"] == "umu-cornerplay-tools"
     assert started[2][0] == ["protontricks", "-c", "wine winecfg", "220"]
     assert started[3][0] == ["protontricks-launch", "--appid", "220", str(trainer)]
+
+
+def test_screen_mode_switches_and_puts_back(tmp_path, monkeypatch):
+    from cornerplay import hypr, screenmode, stream
+    calls = []
+    monkeypatch.setattr(screenmode, "STATE_DIR", tmp_path)
+    monkeypatch.setattr(stream, "fit_display", lambda w, h, hz, state_dir=None: calls.append(("fit", w, h, hz)) or "eDP-1 at ...")
+    monkeypatch.setattr(stream, "restore_display", lambda state_dir=None: calls.append(("restore",)) or True)
+    monkeypatch.setattr(stream, "display_backend", lambda: "hyprland")
+    vrr = {"misc:vrr": 0}
+    monkeypatch.setattr(hypr, "option", lambda k: vrr[k])
+    monkeypatch.setattr(hypr, "set_option", lambda k, v: vrr.__setitem__(k, v) or True)
+    undo = screenmode.begin("2560x1600@120", vrr=True)
+    assert calls == [("fit", 2560, 1600, 120.0)] and vrr["misc:vrr"] == 1
+    screenmode.end(undo)
+    assert calls[-1] == ("restore",) and vrr["misc:vrr"] == 0
+    assert screenmode.begin("", vrr=False) == {} and screenmode.parse("junk") is None

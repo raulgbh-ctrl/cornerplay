@@ -139,6 +139,9 @@ def begin(want: dict) -> dict:
     if want.get("scheduler"):  # a gaming CPU scheduler (scx.py)
         from . import scx
         undo.update(scx.begin())
+    if want.get("screen") or want.get("vrr"):  # the game's own screen mode / VRR (screenmode.py)
+        from . import screenmode
+        undo.update(screenmode.begin(want.get("screen") or "", bool(want.get("vrr"))))
     if want.get("audio"):  # the game's own sound output (audioout.py)
         from . import audioout
         undo.update(audioout.begin(want["audio"]))
@@ -171,6 +174,9 @@ def end(undo: dict):
     if undo.get("scx_before"):
         from . import scx
         scx.end(undo)
+    if undo.get("screen_mode") or undo.get("vrr"):
+        from . import screenmode
+        screenmode.end(undo)
     if undo.get("audio_was"):
         from . import audioout
         audioout.end(undo)

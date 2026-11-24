@@ -8344,6 +8344,9 @@ ApplicationWindow {
             optHdrDesk.select(opts.hdr_desktop === true)
             optBnetDirect.select(opts.bnet_direct === true)
             optFreeze.select(opts.freeze_away === true)
+            screenModes = app.screenModes()
+            optScreen.select(opts.screen_mode || "")
+            optVrr.select(opts.screen_vrr === true)
             optArgs.text = opts.args || ""
             optBefore.text = opts.before || ""
             optAfter.text = opts.after || ""
@@ -8351,6 +8354,7 @@ ApplicationWindow {
             optsScroll.contentY = 0
             open()
         }
+        property var screenModes: []
         readonly property var triState: [{ label: qsTr("Use default"), value: "default" }, { label: qsTr("On"), value: true }, { label: qsTr("Off"), value: false }]
         property bool resetArmed: false
 
@@ -8576,6 +8580,26 @@ ApplicationWindow {
                     KCombo { id: optHdrDesk; theme: win.theme; Layout.fillWidth: true
                              model: [{ label: qsTr("Off"), value: false }, { label: qsTr("On"), value: true }]
                              onActivated: app.setGameOption(gameOpts.key, "hdr_desktop", currentValue) }
+                }
+                // The screen's mode and VRR while this game plays (screenmode.py); gamescope sets its own.
+                RowLayout {
+                    visible: gameOpts.screenModes.length > 1
+                    Layout.fillWidth: true
+                    spacing: 12
+                    Row2 {
+                        visible: gameOpts.screenModes.length > 2  // one mode only: nothing to choose
+                        label: qsTr("Screen while playing")
+                        hint: qsTr("A refresh rate or resolution for this game only; yours again when it closes.")
+                        KCombo { id: optScreen; theme: win.theme; Layout.fillWidth: true; model: gameOpts.screenModes
+                                 onActivated: app.setGameOption(gameOpts.key, "screen_mode", currentValue) }
+                    }
+                    Row2 {
+                        label: qsTr("Variable refresh")
+                        hint: qsTr("Smoother when the game cannot keep up with the screen (VRR, FreeSync, G-Sync).")
+                        KCombo { id: optVrr; theme: win.theme; Layout.fillWidth: true
+                                 model: [{ label: qsTr("As it is"), value: false }, { label: qsTr("On"), value: true }]
+                                 onActivated: app.setGameOption(gameOpts.key, "screen_vrr", currentValue) }
+                    }
                 }
                 // Hyprland: the game stops while another window has the focus (freeze.py).
                 Row2 {
