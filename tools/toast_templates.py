@@ -66,6 +66,11 @@ for node in ast.walk(htree):
         for k, v in zip(node.keys, node.values):
             if isinstance(k, ast.Constant) and k.value == "label":
                 tpls.update(_flat(v))
+# The game drives' rows (drives.py), shown by the health check and the speed test.
+for node in ast.walk(ast.parse((ROOT / "cornerplay/drives.py").read_text())):
+    if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", "") == "DETAILS":
+        for v in node.value.values:
+            tpls.update(_flat(v))
 # Why a game closed straight away (problems.py): causes, details and fix buttons.
 import importlib.util  # noqa: E402
 _spec = importlib.util.spec_from_file_location("problems", ROOT / "cornerplay/problems.py")

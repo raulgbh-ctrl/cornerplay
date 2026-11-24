@@ -4239,6 +4239,7 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         Text { text: modelData.label + "  (" + modelData.mount + ")"; color: theme.onSurface; font.pixelSize: 14; font.weight: Font.DemiBold; Layout.fillWidth: true; elide: Text.ElideMiddle }
                         Text { text: modelData.freeText + qsTr(" free of ") + modelData.totalText; color: theme.onSurfaceVariant; font.pixelSize: 12 }
+                        KButton { theme: win.theme; text: qsTr("Test speed"); iconName: "gauge"; onClicked: app.testDriveSpeed(modelData.mount) }
                     }
                     Rectangle {
                         Layout.fillWidth: true

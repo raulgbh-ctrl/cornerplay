@@ -1413,6 +1413,31 @@ class AioLaunch(QObject):
                             self.refresh(store_id))
         self._bg(work)
 
+    @Slot(str)
+    def testDriveSpeed(self, folder):
+        """Storage: how fast a drive really is for games (drives.py), as a toast."""
+        from . import drives
+        if self.demo or not folder or not os.path.isdir(folder):
+            return
+        self.toast.emit(_t("Testing the drive's speed (about half a minute on a slow card)…"))
+
+        # a folder on that drive you can write to (the drive's own top, "/", may not be yours)
+        dev = os.stat(folder).st_dev
+        spots = [folder, str(settings.games_dir), os.path.expanduser("~")] + list(settings.get("library_dirs") or [])
+        folder = next((x for x in spots if os.path.isdir(x) and os.stat(x).st_dev == dev and os.access(x, os.W_OK)), "")
+        if not folder:
+            self.toast.emit(_t("Cornerplay cannot write on that drive, so it cannot test it"))
+            return
+
+        def work():
+            r = drives.speed(folder)
+            if r.get("error"):
+                return lambda: self.toast.emit(f"Could not test that drive: {r['error']}")
+            from . import toastsi18n
+            v = toastsi18n.translate(drives.verdict(r["read"]))
+            return lambda: self.toast.emit(f"Reads {r['read']} MB/s, writes {r['write']} MB/s: {v}")
+        self._sys_pool.submit(lambda: self._after.emit(work()))
+
     @Slot(result=int)
     def heroicCount(self):
         return len(importer.heroic_installs())

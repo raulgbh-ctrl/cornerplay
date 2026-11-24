@@ -53,7 +53,6 @@ def _until(check, timeout=5.0):
 
 def test_freeze_stops_the_game_tree_when_away_and_resumes_on_its_window(monkeypatch):
     import subprocess
-    import time
     from cornerplay import freeze, hypr
     game = subprocess.Popen(["bash", "-c", "sleep 30 & wait"], start_new_session=True)
     try:
@@ -115,3 +114,25 @@ def test_lan_copy_end_to_end(tmp_path):
         assert not list(dest.rglob("*.cornerplay-part")) and "Progress: 100.0%" in out.getvalue()
     finally:
         srv.stop()
+
+
+def test_drive_verdicts(monkeypatch):
+    from cornerplay import drives
+    cases = [({"fstype": "ntfs3", "options": ["rw"]}, {}, False, "windows"),
+             ({"fstype": "exfat", "options": ["rw"]}, {"removable": True, "transport": "usb"}, False, "windows"),
+             ({"fstype": "ext4", "options": ["rw", "noexec"]}, {}, False, "noexec"),
+             ({"fstype": "ext4", "options": ["rw"]}, {"rotational": True}, True, "hdd"),
+             ({"fstype": "ext4", "options": ["rw"], "source": "/dev/mmcblk0p1"}, {"transport": "mmc"}, True, "sd"),
+             ({"fstype": "btrfs", "options": ["rw"]}, {"rotational": False}, True, "good")]
+    for m, d, ok, key in cases:
+        monkeypatch.setattr(drives, "mount", lambda p, m=m: dict({"target": "/games", "source": "/dev/sda1"}, **m))
+        monkeypatch.setattr(drives, "disk", lambda s, d=d: d)
+        j = drives.judge("/games")
+        assert j["ok"] is ok and j["detail"] == drives.DETAILS[key], (m, d)
+    assert drives.verdict(25) == drives.DETAILS["slow"] and drives.verdict(150) == drives.DETAILS["fast"]
+
+
+def test_drive_speed_measures_and_cleans_up(tmp_path):
+    from cornerplay import drives
+    r = drives.speed(str(tmp_path), mb=4)
+    assert r["read"] > 0 and r["write"] > 0 and not list(tmp_path.iterdir())

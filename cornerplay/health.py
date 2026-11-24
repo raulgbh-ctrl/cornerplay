@@ -160,6 +160,25 @@ def checks(stores, gamepad_available=True):
             f"{storage.nice(d['free'])} free on {d['label']} ({pct:.0f}%)",
             {} if pct >= 10 else {"kind": "action", "action": "openStorage", "label": "Free up space"})
 
+    # The drives game folders are on: Windows file systems and noexec break games (drives.py)
+    from . import drives
+    folders = [games_dir] + [x for x in settings.get("library_dirs") or [] if isinstance(x, str)]
+    steam = stores.get("steam") if hasattr(stores, "get") else None
+    try:
+        folders += [str(x) for x in (steam.library_dirs() if steam else [])]
+    except Exception:
+        pass
+    seen = set()
+    for folder in folders:
+        if not folder or not os.path.isdir(folder):
+            continue
+        j = drives.judge(folder)
+        if not j or j["mount"] in seen:
+            continue
+        seen.add(j["mount"])
+        add("drive:" + j["mount"], f"Game drive {j['label']}", j["ok"], j["detail"],
+            {} if j["ok"] and not j["warn"] else {"kind": "action", "action": "openStorage", "label": "Storage"})
+
     # Open-file limit: esync (and Proton's fallbacks) open a file per waitable object; a low limit
     # makes some Windows games crash at start. Steam asks for 524288; systemd's default is that.
     try:
