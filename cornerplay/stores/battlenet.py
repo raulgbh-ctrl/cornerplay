@@ -42,6 +42,12 @@ PRODUCTS = {
     "fore": ("Call of Duty: Vanguard", "FORE"),
     "auks": ("Call of Duty", "AUKS"),
 }
+# Launch code -> the product's uid (what `--game=` and the uninstaller take): "Fen" -> "fenris".
+UID_BY_LAUNCH = {}
+for _uid, (_t, _code) in PRODUCTS.items():
+    UID_BY_LAUNCH.setdefault(_code.lower(), _uid)
+# Games the Blizzard account still lists that are no longer sold or played through Battle.net.
+MOVED = {1146311730}  # Destiny 2: on Steam since 2019
 # Blizzard titles that are also sold on Steam, so their box art can come from there.
 STEAM_APPIDS = {"pro": 2357570, "fenris": 2344520, "osi": 2536520, "auks": 1938090,
                 "odin": 2000950, "zeus": 1985810, "wlby": 1378990}
@@ -86,6 +92,8 @@ def save_owned(raw):
             tid = int(a.get("titleId") or 0)
         except (TypeError, ValueError):
             tid = 0
+        if tid in MOVED:
+            continue
         known = TITLE_IDS.get(tid)
         name = (known[0] if known else "") or (a.get("localizedGameName") or "").strip()
         if name:
@@ -171,24 +179,33 @@ class BattleNet(Store):
                       install_path=os.path.dirname(exe) if exe else "",
                       cover=LAUNCHER_COVER, cover_fallback=LAUNCHER_COVER)]
         if exe:
-            db = os.path.join(self.prefix(), "drive_c/ProgramData/Battle.net/Agent/product.db")
-            for uid, code, path in read_product_db(db):
+            for p in products(self.product_db()):
+                uid, code, path = p["uid"], p["code"], p["path"]
                 if code.lower() in NOT_GAMES or uid.lower() in NOT_GAMES:
                     continue
                 title, launch = PRODUCTS.get(code.lower()) or PRODUCTS.get(uid.lower()) or (
                     os.path.basename(path.replace("\\", "/").rstrip("/")) or uid, code)
-                games.append(Game(store=self.id, id=uid, title=title, installed=True,
-                                  install_path=path,
-                                  extra={"launch": launch, **({"steam_appid": STEAM_APPIDS[code.lower()]}
-                                                              if code.lower() in STEAM_APPIDS else {})}))
+                extra = {"launch": launch, "uid": uid, **({"steam_appid": STEAM_APPIDS[code.lower()]}
+                                                         if code.lower() in STEAM_APPIDS else {})}
+                if p["version"]:
+                    extra["version"] = p["version"]
+                if p["busy"]:  # Battle.net is downloading it: shown as its install/update progress
+                    extra["bnet_busy"] = p["busy"]
+                games.append(Game(store=self.id, id=uid, title=title, installed=p["playable"],
+                                  install_path=self.linux_path(path) if p["playable"] else "",
+                                  extra=extra))
         # Games the Blizzard account owns but this PC has not installed.
         have = {(g.extra.get("launch") or "").lower() for g in games} | {g.title.lower() for g in games}
         for o in (owned() or {}).get("games") or []:
+            if o.get("title_id") in MOVED:
+                continue
             launch, title = o.get("launch", ""), o.get("title", "")
             if (launch and launch.lower() in have) or title.lower() in have:
                 continue
             have |= {launch.lower(), title.lower()} - {""}
             extra = {"launch": launch, "owned_only": True}
+            if launch.lower() in UID_BY_LAUNCH:
+                extra["uid"] = UID_BY_LAUNCH[launch.lower()]
             if launch in STEAM_BY_LAUNCH:
                 extra["steam_appid"] = STEAM_BY_LAUNCH[launch]
             games.append(Game(store=self.id, id="owned-" + (launch or str(o.get("title_id") or title)),
@@ -203,8 +220,9 @@ class BattleNet(Store):
                                  + game.title + " from there")
             # Opens the Battle.net app on this game's page, where its Install button is.
             argv = [*wrapper_argv(gamescope=False), exe]
-            if game.extra.get("launch"):
-                argv.append("--game=" + game.extra["launch"].lower())
+            uid = game.extra.get("uid") or UID_BY_LAUNCH.get((game.extra.get("launch") or "").lower())
+            if uid:  # --game takes the product's uid ("fenris"), not its launch code ("Fen")
+                argv.append("--game=" + uid)
             return Command(argv, env=self.env(), cwd=os.path.dirname(exe))
         setup = str(CACHE_DIR / "Battle.net-Setup.exe")
         script = 'curl -fL --retry 3 -o "$1" "$2" && shift 2 && exec "$@"'
@@ -212,7 +230,26 @@ class BattleNet(Store):
                        env=self.env())
 
     def uninstall(self, game):
-        raise StoreError("Uninstall Battle.net games from inside the Battle.net app")
+        """Blizzard's own uninstaller, with the command line Battle.net registered for the game."""
+        if game.id == LAUNCHER_ID:
+            raise StoreError("Battle.net itself stays: uninstall its games from their tiles")
+        argv = uninstall_argv(self.prefix(), game.extra.get("uid") or game.id)
+        if not argv:
+            raise StoreError("Uninstall " + game.title + " from inside the Battle.net app")
+        exe = argv[0]
+        return Command([*wrapper_argv(gamescope=False), *argv], env=self.env(), cwd=os.path.dirname(exe))
+
+    def product_db(self):
+        return os.path.join(self.prefix(), "drive_c/ProgramData/Battle.net/Agent/product.db")
+
+    def linux_path(self, win_path):
+        """"C:/Program Files (x86)/Overwatch" -> the folder inside this prefix."""
+        p = (win_path or "").replace("\\", "/")
+        if len(p) > 1 and p[1] == ":":
+            drive = os.path.join(self.prefix(), "dosdevices", p[0].lower() + ":")
+            root = os.path.realpath(drive) if os.path.exists(drive) else os.path.join(self.prefix(), "drive_c")
+            return os.path.join(root, p[2:].lstrip("/"))
+        return p
 
     def launch(self, game):
         exe = self.launcher_exe()
@@ -256,6 +293,176 @@ def _varint(buf, i):
         if not b & 0x80:
             return out, i
         shift += 7
+
+
+def _double(b):
+    import struct
+    return struct.unpack("<d", b)[0] if len(b) == 8 else 0.0
+
+
+def products(path):
+    """Every product Battle.net knows here: [{"uid", "code", "path", "playable", "version",
+    "busy"}]. busy is {"kind": "install"|"update", "progress": 0-100} while it downloads.
+    product.db is a protobuf (checked against a real one, Battle.net 2.53):
+      ProductInstall { 1 uid; 2 product_code; 3 settings { 1 install_path };
+                       4 cached_product_state { 1 base { 1 installed; 2 playable; 3 update_complete;
+                                                         7 version }
+                                                4 update_progress { 2 progress (double, 1.0 = done) } } }"""
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError:
+        return []
+    out = []
+    try:
+        for num, wire, val in _fields(data):
+            if num != 1 or wire != 2:
+                continue
+            p = {"uid": "", "code": "", "path": "", "installed": None, "playable": None,
+                 "update_complete": None, "version": "", "progress": None}
+            for n2, w2, v2 in _fields(val):
+                if w2 != 2:
+                    continue
+                if n2 == 1:
+                    p["uid"] = v2.decode("utf-8", "replace")
+                elif n2 == 2:
+                    p["code"] = v2.decode("utf-8", "replace")
+                elif n2 == 3:
+                    for n3, w3, v3 in _fields(v2):
+                        if n3 == 1 and w3 == 2:
+                            p["path"] = v3.decode("utf-8", "replace")
+                elif n2 == 4:
+                    for n3, w3, v3 in _fields(v2):
+                        if n3 == 1 and w3 == 2:
+                            for n4, w4, v4 in _fields(v3):
+                                if w4 == 0 and n4 in (1, 2, 3):
+                                    p[{1: "installed", 2: "playable", 3: "update_complete"}[n4]] = bool(v4)
+                                elif n4 == 7 and w4 == 2:
+                                    p["version"] = v4.decode("utf-8", "replace")
+                        elif n3 == 4 and w3 == 2:
+                            for n4, w4, v4 in _fields(v3):
+                                if n4 == 2 and w4 == 1:
+                                    p["progress"] = _double(v4)
+            if not p["uid"]:
+                continue
+            p["code"] = p["code"] or p["uid"]
+            # No state at all (an old Battle.net): trust the entry, as before.
+            playable = p["playable"] if p["playable"] is not None else True
+            busy = None
+            prog = p["progress"]
+            if not playable:
+                busy = {"kind": "install", "progress": round(100 * prog, 1) if prog is not None and 0 <= prog < 1 else -1.0}
+            elif p["update_complete"] is False and prog is not None and 0 <= prog < 1:
+                busy = {"kind": "update", "progress": round(100 * prog, 1)}
+            out.append({"uid": p["uid"], "code": p["code"], "path": p["path"], "playable": playable,
+                        "version": p["version"], "busy": busy})
+    except (IndexError, ValueError):
+        pass
+    return out
+
+
+def uninstall_argv(prefix, uid):
+    """The uninstall command Battle.net registered for a product (Windows registry in the
+    prefix): ["C:\\ProgramData\\...\\Blizzard Uninstaller.exe", "--lang=enUS", "--uid=pro", ...]."""
+    import shlex
+    try:
+        with open(os.path.join(prefix, "system.reg"), encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    except OSError:
+        return []
+    for line in text.splitlines():
+        if not line.startswith('"UninstallString"=') or "Blizzard Uninstaller" not in line:
+            continue
+        raw = line.split("=", 1)[1].strip()
+        if raw.startswith('"') and raw.endswith('"'):
+            raw = raw[1:-1]
+        raw = raw.replace('\\"', '"').replace("\\\\", "\\")  # registry file escaping
+        if f"--uid={uid}" not in raw.split():
+            continue
+        try:
+            return shlex.split(raw.replace("\\", "\\\\"))
+        except ValueError:
+            return []
+    return []
+
+
+# --- the game's own process -----------------------------------------------------------------
+# Battle.net starts the game and stays open after it closes (or closes as soon as it starts,
+# with its "exit when a game starts" setting), so neither tells when you stopped playing.
+# The game's processes are found by their program's path, in the game's folder.
+
+def _cmdline(pid):
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as f:
+            return f.read().split(b"\0")[0].decode("utf-8", "replace")
+    except OSError:
+        return ""
+
+
+def _norm_path(p):
+    return (p or "").replace("\\", "/").rstrip("/").lower()
+
+
+def pids_under(folders):
+    """Processes whose program is inside one of these folders (Windows "C:/..." or Linux paths)."""
+    roots = [_norm_path(f) + "/" for f in folders if f and len(_norm_path(f)) > 3]
+    if not roots:
+        return []
+    out, me = [], os.getpid()
+    for d in os.listdir("/proc"):
+        if not d.isdigit() or int(d) == me:
+            continue
+        prog = _norm_path(_cmdline(d))
+        if prog and any(prog.startswith(r) for r in roots):
+            out.append(int(d))
+    return out
+
+
+def game_folders(store, game):
+    """Where a game's processes run from: its Windows path as Battle.net knows it, and the same
+    folder seen from Linux."""
+    win = ""
+    for p in products(store.product_db()):
+        if p["uid"] == (game.extra.get("uid") or game.id):
+            win = p["path"]
+    return [f for f in (win, store.linux_path(win) if win else "", game.install_path) if f]
+
+
+def launcher_running(store):
+    return bool(pids_under([os.path.join(store.prefix(), "drive_c/Program Files (x86)/Battle.net"),
+                            "C:/Program Files (x86)/Battle.net"]))
+
+
+def watch(store, game, proc, on_change, wait_start=1800, poll=2.0, grace=12.0):
+    """Wait for the game to start and then to close. on_change(pids) is called as its processes
+    come and go. Returns (started, ended) times, or (0, 0) when it never started: Battle.net
+    closed first, or nothing after wait_start seconds (a long patch: still counted from when
+    the game appears, if it does in that time)."""
+    import time
+    folders = game_folders(store, game)
+    begun = time.time()
+    seen = last = 0.0
+    known = []
+    while True:
+        now = time.time()
+        if proc is not None:
+            proc.poll()  # reap Battle.net's starter when it hands over and exits
+        pids = pids_under(folders)
+        if pids:
+            if not seen:
+                seen = now
+            last = now
+            if sorted(pids) != known:
+                known = sorted(pids)
+                on_change(known)
+        elif seen:
+            if now - last > grace:  # gone for a while (a game restarting itself is back sooner)
+                return seen, last
+        elif now - begun > wait_start:
+            return 0.0, 0.0
+        elif now - begun > 20 and (proc is None or proc.poll() is not None) and not launcher_running(store):
+            return 0.0, 0.0  # Battle.net was closed without starting it
+        time.sleep(poll)
 
 
 def read_product_db(path):

@@ -3,7 +3,8 @@
 Epic, GOG and Amazon games are timed by the play session (cornerplay.session), which
 waits for the game to close. Steam keeps its own record, which the Steam store reads; while Cornerplay runs, Steam
 games' sessions are also logged (steamrun.py) so the weekly stats include them.
-Battle.net is not timed: its app stays open after the game closes.
+Battle.net games are timed by their own processes (stores/battlenet.watch): its app stays open
+after the game closes, so it cannot say when you stopped.
 """
 import fcntl
 import time
@@ -12,7 +13,7 @@ from . import personal
 from .config import read_json, write_json
 
 # Per profile and per PC (personal.py): this PC writes its own files; synced PCs' files are added in.
-TIMED = ("epic", "gog", "amazon", "custom", "humble", "retro")  # games Cornerplay starts itself and waits for
+TIMED = ("epic", "gog", "amazon", "custom", "humble", "retro", "battlenet")  # games Cornerplay starts itself and waits for
 MIN_SECONDS = 10  # a shorter run is a failed start, not play
 
 

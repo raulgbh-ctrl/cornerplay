@@ -113,6 +113,7 @@ def test_every_window_showing_the_copy_is_refreshed(fx):
 def test_cancel_drops_waiting_dlc(fx):
     fx.f._dlc_pending["epic:a"] = ["d2"]
     fx.f.cancel = types.MethodType(C.cancel, fx.f)
+    fx.f._external_job = lambda k: False
     A.settings  # noqa: B018 - the real settings object answers night_queue
     fx.f.cancel("epic:a")
     assert "epic:a" not in fx.f._dlc_pending

@@ -37,6 +37,7 @@ def run(game, argv, env_extra, cwd, log_path, sync):
     if cwd and not os.path.isdir(cwd):
         cwd = None
     started = time.time()
+    ended = None
     presence = None
     try:
         from . import discord
@@ -50,15 +51,18 @@ def run(game, argv, env_extra, cwd, log_path, sync):
                                     start_new_session=True)
             write_json(out, {"key": game.key, "state": "playing", "since": started, "title": game.title,
                              "pid": proc.pid})
-            code = proc.wait()
+            if game.store == "battlenet":
+                code, started, ended = _battlenet(game, proc, out, started)
+            else:
+                code = proc.wait()
         except OSError as e:
             log.write(f"Could not start: {e}\n")
             code = -1
     if presence:
         presence.clear()
-    if game.store in playtime.TIMED:
+    if game.store in playtime.TIMED and started:
         try:
-            playtime.record(game.key, started)
+            playtime.record(game.key, started, ended)
         except OSError:
             pass  # never lose the save upload over a playtime file
     result = {"status": "skipped", "message": ""}
@@ -74,6 +78,23 @@ def run(game, argv, env_extra, cwd, log_path, sync):
     write_json(out, {"key": game.key, "state": "done", "exit": code, "sync": result,
                      "title": game.title, "since": time.time(), "started": started, "log": log_path})
     return code
+
+
+def _battlenet(game, proc, out, started):
+    """Battle.net hands the game over and stays open (or quits): follow the game's own
+    processes instead. This process stands for the session meanwhile (its pid is alive until
+    the game closes); the game's pids go in the status file so Quit reaches the game itself.
+    Returns (exit code, started, ended); started is 0 when the game never ran."""
+    from .stores.battlenet import BattleNet, watch
+
+    def changed(pids):
+        write_json(out, {"key": game.key, "state": "playing", "since": started, "title": game.title,
+                         "pid": os.getpid(), "pids": pids})
+    write_json(out, {"key": game.key, "state": "playing", "since": started, "title": game.title,
+                     "pid": os.getpid()})
+    seen, gone = watch(BattleNet(), game, proc, changed)
+    code = proc.poll()
+    return (0 if code is None else code), seen, (gone or None)
 
 
 def main(path):

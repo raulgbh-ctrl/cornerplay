@@ -3305,6 +3305,8 @@ class AioLaunch(QObject):
             self._load_couch()
         if games is not None and self.model.replace_store(store_id, games):
             write_json(LIBRARY_CACHE, [g.to_dict() for g in self.model.games])
+        if store_id == "battlenet" and games is not None:
+            self._bnet_progress(games)
         if error:
             self.toast.emit(error)
         self.refreshingChanged.emit()
@@ -3322,6 +3324,43 @@ class AioLaunch(QObject):
             self.checkSteamShortcut()
             self._auto_steam()
             self._announce_updates()
+
+    def _bnet_progress(self, games):
+        """Battle.net downloads its games itself: show its progress (from product.db) on their
+        tiles and in Downloads, and look again every few seconds while it downloads (a local
+        file: cheap), every half minute while the Battle.net app is open."""
+        busy = False
+        for g in games:
+            if g.key in self.procs:
+                continue
+            b, cur = g.extra.get("bnet_busy"), self.model.jobs.get(g.key)
+            if b:
+                busy = True
+                new = {"kind": b["kind"], "progress": float(b["progress"]), "external": True}
+                if cur != new:
+                    self.model.jobs[g.key] = new
+                    self.model.touch(g.key)
+            elif cur and cur.get("external"):
+                self.model.jobs.pop(g.key, None)
+                self.model.touch(g.key)
+        if getattr(self, "_bnet_poll", False) or self.demo:
+            return
+        store = self.stores.get("battlenet")
+        if busy or (store and store.launcher_exe() and battlenet.launcher_running(store)):
+            self._bnet_poll = True
+
+            def again():
+                self._bnet_poll = False
+                self.refresh("battlenet")
+            QTimer.singleShot(4000 if busy else 30000, again)
+
+    def _external_job(self, key):
+        """A download another app runs (Battle.net): it is paused or cancelled there."""
+        if (self.model.jobs.get(key) or {}).get("external"):
+            g = self.model.find(key)
+            self.toast.emit(f"Pause or cancel {g.title if g else 'it'} in the {g and self.stores[g.store].name or 'store'} app")
+            return True
+        return False
 
     def _announce_updates(self):
         """One toast per newly found update (not again on every refresh)."""
@@ -6178,7 +6217,7 @@ class AioLaunch(QObject):
                     self._ws_return = here
                     QTimer.singleShot(60000, self._ws_fallback)  # a game that never really started
         log = str(LOG_DIR / (re.sub(r"[^A-Za-z0-9_.-]", "_", g.key) + ".log"))
-        if g.store in saves.SUPPORTED or g.store in playtime.TIMED:
+        if (g.store in saves.SUPPORTED or g.store in playtime.TIMED) and g.id != "battlenet-app":
             job = CACHE_DIR / f"sessions/job-{os.getpid()}-{int(time.time() * 1000)}.json"
             write_json(job, {"game": g.to_dict(), "argv": cmd.argv, "env": cmd.env, "cwd": cmd.cwd,
                              "log": log, "sync": sync})
@@ -6516,7 +6555,15 @@ class AioLaunch(QObject):
             self.toast.emit("Cornerplay cannot reach this game: close it from the game itself")
             return
         try:
-            os.killpg(int(info["pid"]), signal.SIGKILL if force else signal.SIGTERM)
+            sig = signal.SIGKILL if force else signal.SIGTERM
+            if info.get("pids"):  # Battle.net games: the game's own processes (session.py)
+                for pid in info["pids"]:
+                    try:
+                        os.kill(int(pid), sig)
+                    except ProcessLookupError:
+                        pass
+            else:
+                os.killpg(int(info["pid"]), sig)
             self.toast.emit(f"{'Closed' if force else 'Asked to close'} {info.get('title', 'the game')}")
         except (OSError, ValueError) as e:
             self.toast.emit(f"Could not close it: {e}")
@@ -6529,9 +6576,9 @@ class AioLaunch(QObject):
             data = read_json(f) or {}
             key = data.get("key")
             if key and data.get("state") == "playing" and (not data.get("pid") or self._alive(data["pid"])):
-                if self._playing.get(key, {}).get("pid") != data.get("pid"):
+                if (self._playing.get(key, {}).get("pid"), self._playing.get(key, {}).get("pids")) != (data.get("pid"), data.get("pids") or []):
                     self._playing[key] = {"title": data.get("title", ""), "since": data.get("since", 0),
-                                          "pid": data.get("pid", 0)}
+                                          "pid": data.get("pid", 0), "pids": data.get("pids") or []}
                     changed = True
             elif key in self._playing:
                 self._playing.pop(key)
@@ -6842,6 +6889,8 @@ class AioLaunch(QObject):
 
     @Slot(str)
     def cancel(self, key):
+        if self._external_job(key):
+            return
         self._dlc_pending.pop(key, None)  # cancelling stops the DLC waiting on this copy too
         if key in (settings.get("night_queue") or []) and key not in self.procs:
             self.installTonight(key, False)
@@ -6900,6 +6949,8 @@ class AioLaunch(QObject):
     @Slot(str)
     def pauseDownload(self, key):
         """Stop a download and keep its place; Resume carries on from where it stopped."""
+        if self._external_job(key):
+            return
         for i, (g, kind, _cmd) in enumerate(self._queue):
             if g.key == key and kind in self.PAUSABLE:
                 self._queue.pop(i)
