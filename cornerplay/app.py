@@ -5656,7 +5656,38 @@ class AioLaunch(QObject):
             return ""
         d = CACHE_DIR / "proton-logs" / re.sub(r"[^A-Za-z0-9_.-]", "_", key)
         logs = sorted(d.glob("*.log"), key=lambda p: p.stat().st_mtime) if d.is_dir() else []
+        if g.store == "steam":  # PROTON_LOG=1 %command% in Steam writes ~/steam-<appid>.log
+            mine = Path.home() / f"steam-{_appid(g)}.log"
+            if mine.is_file():
+                logs = sorted(logs + [mine], key=lambda p: p.stat().st_mtime)
         return str(logs[-1]) if logs else ""
+
+    @Slot(str, result="QVariantMap")
+    def readProtonLog(self, key):
+        """The newest Proton log, read (logreader.py): crash, missing libraries, first errors, fix."""
+        from . import logreader, toastsi18n
+        path = self.protonLog(key)
+        if not path:
+            return {}
+        try:
+            with open(path, "rb") as f:
+                f.seek(max(0, os.path.getsize(path) - 6_000_000))  # the end is where it went wrong
+                text = f.read().decode("utf-8", "replace")
+        except OSError:
+            return {}
+        r = logreader.read(text)
+        ex = r.pop("explain") or {}
+        tr = toastsi18n.translate
+        if ex:
+            r["cause"] = tr(ex["cause"])
+            r["detail"] = (tr("It needs %1. ").replace("%1", ex["needs"]) if ex.get("needs") else "") + tr(ex["base"])
+            r["fix"] = ex.get("fix", "")
+            label = ex.get("fixLabel") or {"vcrun": problems.WINETRICKS["vcrun2022"], "dotnet": problems.WINETRICKS["dotnet48"],
+                                            "repair": "Repair files"}.get(r["fix"], "")
+            r["fixLabel"] = tr(label) if label else ""
+        r["path"] = path
+        r["when"] = time.strftime("%d %b %H:%M", time.localtime(os.path.getmtime(path)))
+        return r
 
     @Slot(str)
     def openProtonLog(self, key):

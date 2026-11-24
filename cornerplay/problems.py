@@ -70,9 +70,15 @@ def _line(text, m):
     return line if len(line) <= 220 else line[:217] + "..."
 
 
+# Wine's own notes, not errors: with Proton's log on, every game "Loaded mscoree.dll" and friends,
+# which matched the .NET, DirectX and Visual C++ rules although nothing was missing.
+_NOTES = re.compile(r"^[^\n]*:(?:trace|fixme|warn):[^\n]*\n?", re.M)
+
+
 def explain(text):
     if not text:
         return {}
+    text = _NOTES.sub("", text)
     for pattern, cause, fix, detail in RULES:
         m = re.search(pattern, text)
         if m:

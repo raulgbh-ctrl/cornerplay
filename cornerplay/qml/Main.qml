@@ -4664,6 +4664,12 @@ ApplicationWindow {
             MenuRow {
                 readonly property string log: gameMenu.opened ? app.protonLog(gameMenu.key) : ""
                 visible: log !== ""
+                icon: "search"; text: qsTr("What the Proton log says")
+                onPicked: { const k = gameMenu.key, t = gameMenu.g.title; gameMenu.close(); logBox.show(k, t) }
+            }
+            MenuRow {
+                readonly property string log: gameMenu.opened ? app.protonLog(gameMenu.key) : ""
+                visible: log !== ""
                 icon: "folder-open"; text: qsTr("Open the Proton log")
                 onPicked: { app.openProtonLog(gameMenu.key); gameMenu.close() }
             }
@@ -4985,6 +4991,83 @@ ApplicationWindow {
     }
 
     // -------------------------------------------------------------------- health check
+    // A Proton log, read (logreader.py): what went wrong in a few lines.
+    KDialog {
+        id: logBox
+        objectName: "logBox"
+        theme: win.theme
+        headingIcon: "search"
+        property string key: ""
+        property var r: ({})
+        function show(k, title) { key = k; heading = qsTr("Proton log · ") + (title || app.game(k).title || ""); r = app.readProtonLog(k); open() }
+        function showKey(k) { show(k, "") }
+        width: Math.min(win.width - 60, 680)
+        height: Math.min(win.height - 60, 640)
+        contentItem: Flickable {
+            clip: true
+            contentHeight: logCol.implicitHeight
+            ScrollBar.vertical: KScrollBar { }
+            ColumnLayout {
+                id: logCol
+                width: parent.width
+                spacing: 12
+                Text { Layout.fillWidth: true; color: theme.outline; font.pixelSize: 12
+                       text: qsTr("From %1 · %2 lines").replace("%1", logBox.r.when || "").replace("%2", logBox.r.lines || 0) }
+                // The verdict, with its fix
+                Rectangle {
+                    visible: !!logBox.r.cause
+                    Layout.fillWidth: true; radius: 12; color: Qt.alpha(theme.error, 0.12)
+                    implicitHeight: verdictCol.implicitHeight + 24
+                    ColumnLayout {
+                        id: verdictCol
+                        x: 14; y: 12; width: parent.width - 28
+                        spacing: 6
+                        Text { Layout.fillWidth: true; text: logBox.r.cause || ""; color: theme.onSurface; font.pixelSize: 15; font.weight: Font.DemiBold; wrapMode: Text.WordWrap }
+                        Text { Layout.fillWidth: true; text: logBox.r.detail || ""; color: theme.onSurfaceVariant; font.pixelSize: 13; wrapMode: Text.WordWrap }
+                        KButton { visible: !!logBox.r.fix && logBox.r.fix !== "proton"; theme: win.theme; primary: true
+                                  text: logBox.r.fixLabel || qsTr("Fix it"); onClicked: { app.fixProblem(logBox.key, logBox.r.fix); logBox.close() } }
+                    }
+                }
+                Text { visible: !logBox.r.cause && !(logBox.r.errors || []).length && !(logBox.r.crash || {}).what; Layout.fillWidth: true
+                       text: qsTr("Nothing in this log looks wrong."); color: theme.onSurfaceVariant; font.pixelSize: 14 }
+                // Where it crashed
+                Text { visible: !!(logBox.r.crash && logBox.r.crash.what); Layout.fillWidth: true; wrapMode: Text.WordWrap
+                       color: theme.onSurface; font.pixelSize: 13
+                       text: qsTr("Crashed: %1").replace("%1", (logBox.r.crash || {}).what || "")
+                             + ((logBox.r.crash || {}).where ? qsTr(" in %1").replace("%1", logBox.r.crash.where + ((logBox.r.crash.offset) ? " +0x" + logBox.r.crash.offset : "")) : "") }
+                // Libraries it could not find
+                Repeater {
+                    model: logBox.r.missing || []
+                    delegate: RowLayout {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        Text { Layout.fillWidth: true; color: theme.onSurface; font.pixelSize: 13; wrapMode: Text.WordWrap
+                               text: qsTr("Missing %1 (wanted by %2)").replace("%1", modelData.dll).replace("%2", modelData.by) }
+                        KButton { visible: !!modelData.fix && modelData.fix !== logBox.r.fix; theme: win.theme; text: qsTr("Install it")
+                                  onClicked: app.fixProblem(logBox.key, modelData.fix) }
+                    }
+                }
+                Text { visible: (logBox.r.errors || []).length > 0; text: qsTr("First errors"); color: theme.onSurface; font.pixelSize: 13; font.weight: Font.DemiBold }
+                Repeater {
+                    model: logBox.r.errors || []
+                    delegate: Text { required property var modelData; Layout.fillWidth: true; text: modelData; wrapMode: Text.WrapAnywhere
+                                     color: theme.onSurfaceVariant; font.family: "monospace"; font.pixelSize: 11 }
+                }
+                Text { visible: (logBox.r.graphics || []).length > 0; text: qsTr("Graphics"); color: theme.onSurface; font.pixelSize: 13; font.weight: Font.DemiBold }
+                Repeater {
+                    model: logBox.r.graphics || []
+                    delegate: Text { required property var modelData; Layout.fillWidth: true; text: modelData; wrapMode: Text.WrapAnywhere
+                                     color: theme.onSurfaceVariant; font.family: "monospace"; font.pixelSize: 11 }
+                }
+                RowLayout {
+                    spacing: 8
+                    KButton { theme: win.theme; text: qsTr("Open the whole log"); iconName: "folder-open"; onClicked: app.openProtonLog(logBox.key) }
+                    KButton { theme: win.theme; text: qsTr("Copy its path"); onClicked: app.copyText(logBox.r.path || "") }
+                }
+            }
+        }
+    }
+
     KDialog {
         id: healthBox
         objectName: "healthBox"

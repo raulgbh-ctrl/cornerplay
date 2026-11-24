@@ -182,3 +182,37 @@ def test_screen_mode_switches_and_puts_back(tmp_path, monkeypatch):
     screenmode.end(undo)
     assert calls[-1] == ("restore",) and vrr["misc:vrr"] == 0
     assert screenmode.begin("", vrr=False) == {} and screenmode.parse("junk") is None
+
+
+LOG = """ProtonFixes[123] INFO: Running checks
+1.0:0020:0024:trace:loaddll:build_module Loaded L"C:\\\\windows\\\\system32\\\\mscoree.dll" at 00006FFFFDE70000: builtin
+1.1:0020:0024:trace:loaddll:build_module Loaded L"C:\\\\windows\\\\system32\\\\d3dx9_43.dll" at 00006FFFFDE70000: builtin
+1.2:0098:00b0:err:hid:get_container_id_for_usb_udev_device Failed to get parent device.
+2.0:0100:0104:err:module:import_dll Library MSVCP140.dll (which is needed by L"C:\\\\Games\\\\Witcher\\\\bin\\\\witcher3.exe") not found
+2.0:0100:0104:err:module:import_dll Library VCRUNTIME140_1.dll (which is needed by L"C:\\\\Games\\\\Witcher\\\\bin\\\\witcher3.exe") not found
+2.0:0100:0104:err:module:loader_init Importing dlls for L"C:\\\\Games\\\\Witcher\\\\bin\\\\witcher3.exe" failed, status c0000135
+err:   DXVK: Failed to create shader module
+wine: Unhandled page fault on read access to 0000000000000000 at address 00000001400A2B31 (thread 0104), starting debugger...
+Unhandled exception: page fault on read access to 0x00000000 in 64-bit code (0x00000001400a2b31).
+Backtrace:
+=>0 0x00000001400a2b31 in witcher3 (+0xa2b31) (0x000000000021fd40)
+  1 0x000000014003c10f in witcher3 (+0x3c10f)
+"""
+
+
+def test_log_reader_finds_what_matters():
+    from cornerplay import logreader
+    r = logreader.read(LOG)
+    assert r["crash"]["where"] == "witcher3" and r["crash"]["offset"] == "a2b31" and "page fault" in r["crash"]["what"]
+    assert [m["dll"] for m in r["missing"]] == ["MSVCP140.dll", "VCRUNTIME140_1.dll"]
+    assert r["missing"][0]["fix"] == "vcrun" and r["missing"][0]["by"] == "witcher3.exe"
+    assert not any(e.startswith("hid:") for e in r["errors"]) and r["errors"][0].startswith("module:")
+    assert r["graphics"] == ["err:   DXVK: Failed to create shader module"]
+    assert r["explain"]["fix"] == "vcrun"  # Visual C++, not .NET or DirectX from the "Loaded" notes
+
+
+def test_explain_ignores_wine_notes_about_loaded_libraries():
+    from cornerplay import problems
+    notes = ('1.0:0020:0024:trace:loaddll:build_module Loaded L"C:\\\\windows\\\\system32\\\\mscoree.dll" at 0: builtin\n'
+             '1.1:0020:0024:fixme:d3dx:something d3dx9_43.dll stub\n')
+    assert problems.explain(notes) == {}
