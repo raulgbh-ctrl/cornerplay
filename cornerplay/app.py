@@ -5811,6 +5811,8 @@ class AioLaunch(QObject):
                 value = QUrl(value).toLocalFile()
         game_options.set(key, name, value)
         self._touch(key)
+        if name == "freeze_away":
+            self._update_freezer()
 
     def _proton_versions(self):
         versions = runner.proton_versions()
@@ -6399,6 +6401,26 @@ class AioLaunch(QObject):
         elif not playing and self._focus is not None:
             self._focus_stop()
 
+    def _update_freezer(self):
+        """Games with Options > Pause when you switch away (freeze.py, Hyprland)."""
+        want = {}
+        for key, info in self._playing.items():
+            if game_options.get(key).get("freeze_away") is not True:
+                continue
+            if info.get("pids"):  # Battle.net's games: found by their folder
+                want[key] = {"pids": info["pids"]}
+            elif info.get("pid") and not key.startswith("battlenet:"):
+                want[key] = {"root": int(info["pid"])}
+        fr = getattr(self, "_freezer", None)
+        if not want and fr is None:
+            return
+        if fr is None:
+            from . import freeze
+            fr = self._freezer = freeze.Freezer(
+                on_frozen=lambda k: self._worker_toast.emit(
+                    _t("Paused while you are away:") + " " + ((self._playing.get(k) or {}).get("title") or k)))
+        fr.set_games(want)
+
     def _focus_started(self, undo):
         if self._focus is None or not self._now_playing():  # the game closed meanwhile
             from . import focus
@@ -6590,6 +6612,8 @@ class AioLaunch(QObject):
         if not info or not info.get("pid"):
             self.toast.emit("Cornerplay cannot reach this game: close it from the game itself")
             return
+        if getattr(self, "_freezer", None):
+            self._freezer.thaw(key)  # a stopped process would not see the request to close
         try:
             sig = signal.SIGKILL if force else signal.SIGTERM
             if info.get("pids"):  # Battle.net games: the game's own processes (session.py)
@@ -6678,6 +6702,7 @@ class AioLaunch(QObject):
                 changed = True
         if changed:
             self.nowPlayingChanged.emit()
+            self._update_freezer()
         if self._playing:  # a game's end is also caught when the file watch misses it
             if not hasattr(self, "_play_timer"):
                 self._play_timer = QTimer(self, singleShot=True, interval=5000)
@@ -7798,6 +7823,8 @@ class AioLaunch(QObject):
 
     def shutdown(self):
         self._quitting = True  # stops the background details fetch
+        if getattr(self, "_freezer", None):
+            self._freezer.stop()  # never leave a game stopped behind
         for th in list(self._throttles.values()):
             th.stop()  # a download frozen by the speed limit would not see the request to end
         for p in list(self.procs.values()):

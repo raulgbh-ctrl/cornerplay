@@ -8289,6 +8289,7 @@ ApplicationWindow {
             optAudioLat.select(opts.audio_lowlat === true)
             optHdrDesk.select(opts.hdr_desktop === true)
             optBnetDirect.select(opts.bnet_direct === true)
+            optFreeze.select(opts.freeze_away === true)
             optArgs.text = opts.args || ""
             optBefore.text = opts.before || ""
             optAfter.text = opts.after || ""
@@ -8521,6 +8522,15 @@ ApplicationWindow {
                     KCombo { id: optHdrDesk; theme: win.theme; Layout.fillWidth: true
                              model: [{ label: qsTr("Off"), value: false }, { label: qsTr("On"), value: true }]
                              onActivated: app.setGameOption(gameOpts.key, "hdr_desktop", currentValue) }
+                }
+                // Hyprland: the game stops while another window has the focus (freeze.py).
+                Row2 {
+                    visible: app.hyprland && gameOpts.game.store !== "steam"
+                    label: qsTr("Pause when you switch away")
+                    hint: qsTr("The game stops using the CPU, graphics card and battery while you are in another window, and carries on when you come back. Not for online games: they would lose the connection.")
+                    KCombo { id: optFreeze; theme: win.theme; Layout.fillWidth: true
+                             model: [{ label: qsTr("Off"), value: false }, { label: qsTr("On"), value: true }]
+                             onActivated: app.setGameOption(gameOpts.key, "freeze_away", currentValue) }
                 }
                 // WoW has its own sign-in screen: it can start without the Battle.net app (stores/battlenet.py DIRECT).
                 Row2 {
