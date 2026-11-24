@@ -40,15 +40,25 @@ def _state(pid):
         return f.read().rsplit(")", 1)[1].split()[0]
 
 
+def _until(check, timeout=5.0):
+    """Wait for check() to hold (a busy test machine is slower than a fixed sleep)."""
+    import time
+    end = time.time() + timeout
+    while time.time() < end:
+        if check():
+            return True
+        time.sleep(0.05)
+    return check()
+
+
 def test_freeze_stops_the_game_tree_when_away_and_resumes_on_its_window(monkeypatch):
     import subprocess
     import time
     from cornerplay import freeze, hypr
     game = subprocess.Popen(["bash", "-c", "sleep 30 & wait"], start_new_session=True)
     try:
-        time.sleep(0.3)
+        assert _until(lambda: len(freeze.tree(game.pid)) > 1), "the stand-in game has a child process"
         kids = [p for p in freeze.tree(game.pid) if p != game.pid]
-        assert kids, "the stand-in game has a child process"
         monkeypatch.setattr(freeze, "DELAY", 0.1)
         monkeypatch.setattr(hypr, "running", lambda: False)  # no real event socket in tests
         monkeypatch.setattr(hypr, "clients", lambda: [{"address": "0xgame", "pid": kids[0]},
@@ -57,17 +67,51 @@ def test_freeze_stops_the_game_tree_when_away_and_resumes_on_its_window(monkeypa
         fr = freeze.Freezer(on_frozen=told.append)
         fr.set_games({"gog:1": {"root": game.pid}})
         fr.focused("other")                      # another window: stops after DELAY
-        time.sleep(0.4)
-        assert told == ["gog:1"] and _state(game.pid) == "T" and _state(kids[0]) == "T"
+        assert _until(lambda: _state(game.pid) == "T" and _state(kids[0]) == "T") and told == ["gog:1"]
         fr.focused("game")                       # back on the game's window: carries on
-        time.sleep(0.1)
-        assert _state(game.pid) != "T" and _state(kids[0]) != "T"
+        assert _until(lambda: _state(game.pid) != "T" and _state(kids[0]) != "T")
         fr.focused("")                           # an empty workspace counts as away
-        time.sleep(0.4)
-        assert _state(game.pid) == "T"
+        assert _until(lambda: _state(game.pid) == "T")
         fr.set_games({})                         # the game closed / switched off: never left stopped
-        time.sleep(0.1)
-        assert _state(game.pid) != "T"
+        assert _until(lambda: _state(game.pid) != "T")
     finally:
         os.killpg(game.pid, 9)
         game.wait()
+
+
+def test_lan_copy_end_to_end(tmp_path):
+    import io
+    import pytest
+    from cornerplay import lancopy
+    src = tmp_path / "share" / "Hollow Knight"
+    (src / "data" / "deep").mkdir(parents=True)
+    (src / "game.exe").write_bytes(os.urandom(3 * 1024 * 1024 + 7))
+    (src / "data" / "deep" / "level.pak").write_bytes(b"level" * 1000)
+    (src / "data" / "empty.txt").write_bytes(b"")
+    os.symlink("game.exe", src / "link.exe")
+    (tmp_path / "share" / "secret.txt").write_text("not yours")
+    games = [{"key": "gog:42", "store": "gog", "id": "42", "title": "Hollow Knight", "path": str(src), "size": 3 * 2**20}]
+    srv = lancopy.Server("other-pc", "ABCD-EFGH-23", lambda: games, port=0)
+    srv.port = 0
+    srv.start()
+    port = srv.http.server_address[1]
+    try:
+        peer = {"host": "127.0.0.1", "port": port, "code": "abcdefgh23"}
+        listed = lancopy.games_on(peer)
+        assert [g["key"] for g in listed] == ["gog:42"] and listed[0]["folder"] == "Hollow Knight"
+        with pytest.raises(PermissionError):
+            lancopy.games_on(dict(peer, code="WRONG"))
+        # ../ out of the game's folder is refused
+        assert lancopy.inside(str(src), "../secret.txt") == ""
+        dest = tmp_path / "copy" / "Hollow Knight"
+        # a copy cut off halfway: the next run carries on from the partial file
+        dest.mkdir(parents=True)
+        (dest / "game.exe.cornerplay-part").write_bytes((src / "game.exe").read_bytes()[:1_000_000])
+        out = io.StringIO()
+        assert lancopy.fetch("127.0.0.1", port, "ABCDEFGH23", "gog:42", str(dest), out=out) == 0
+        assert (dest / "game.exe").read_bytes() == (src / "game.exe").read_bytes()
+        assert (dest / "data" / "deep" / "level.pak").read_bytes() == b"level" * 1000
+        assert (dest / "data" / "empty.txt").exists() and os.readlink(dest / "link.exe") == "game.exe"
+        assert not list(dest.rglob("*.cornerplay-part")) and "Progress: 100.0%" in out.getvalue()
+    finally:
+        srv.stop()

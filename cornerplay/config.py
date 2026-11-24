@@ -180,6 +180,9 @@ DEFAULTS = {
     "tv_rumble": False,        # TV mode: the controller buzzes lightly when moving and choosing
     "tv_music": False,         # TV mode: a calm, original ambient loop (fades out for trailers and games)
     "gpu": "auto",             # graphics card for games on two-card PCs: auto (the fast one) / discrete / integrated (gpu.py)
+    "lan_share": False,        # other PCs at home may copy installed games from this one (lancopy.py)
+    "lan_code": "",            # this PC's code for that, made when sharing is turned on
+    "lan_peers": {},           # linked PCs: {name: {"host", "port", "code"}}
     "fast_cores": False,       # games pinned to the fast cores on hybrid Intel / dual-group X3D AMD CPUs (cores.py)
     "ntsync": True,            # Proton uses the kernel's NTSYNC when /dev/ntsync is there (runner.proton_extras)
     "focus_scheduler": False,

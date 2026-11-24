@@ -3,6 +3,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -462,6 +463,7 @@ class LibraryModel(QAbstractListModel):
         d["steamAppId"] = _appid(g)
         d["favourite"] = shelves.in_group(group or [g], shelves.FAV)
         d["collections"] = [c for c in shelves.names() if shelves.in_group(group or [g], c)]
+        d["lanFrom"] = [] if g.installed else [dict(x) for x in getattr(self, "lan_have", {}).get(key, [])]
         d["bnetDirect"] = g.store == "battlenet" and g.installed and bool(battlenet.DIRECT.get(g.extra.get("uid") or g.id))
         d["linuxVersion"] = bool(g.extra.get("linux"))   # GOG: the game has a Linux version
         d["platform"] = g.extra.get("platform", "")      # installed as "linux" or "windows"
@@ -7181,6 +7183,9 @@ class AioLaunch(QObject):
             self.toast.emit(f"Moved {g.title}")
             self._after_move(g)
         elif code == 0:
+            lan_dest = self._lan_copies.pop(key, "")
+            if lan_dest and g.store == "gog":  # GOG games are found by folder: scan where it went
+                importer.add_library_dir(os.path.dirname(lan_dest))
             if kind == "update":
                 g.extra.pop("update", None)  # the refresh below confirms it
             done = (f"Installed DLC for {g.title}" if kind == "dlc" else
@@ -7331,6 +7336,8 @@ class AioLaunch(QObject):
         self.nowPlayingChanged.connect(self._plugins_playing)
         QTimer.singleShot(1000, self._plugins_load)
         QTimer.singleShot(1500, self._remote_apply)
+        QTimer.singleShot(2500, self._lan_apply)
+        QTimer.singleShot(8000, self._lan_refresh)
         _FAMILY["only"] = family.rules(personal.current())["only"]
         self._pad_low = set()      # controllers already warned about (until they charge again)
         self._sleep_at = 0.0       # sleep timer: when the PC sleeps (0: off)
@@ -7560,6 +7567,144 @@ class AioLaunch(QObject):
     # --- phone remote and game night (remote.py) ---------------------------------------------
     remoteChanged = Signal()
     gameNightChanged = Signal()
+    # --- copy games from your other PCs (lancopy.py) ---------------------------------------
+    lanChanged = Signal()
+    _lan = None
+    _lan_have = {}      # game key -> [{"peer", "size"}] from the linked PCs
+    _lan_found = []     # PCs that answered the last search
+    _lan_copies = {}    # game key -> folder, for copies under way
+
+    def _lan_games(self):
+        return [{"key": g.key, "store": g.store, "id": g.id, "title": g.title, "path": g.install_path,
+                 "size": int(g.extra.get("size", 0) or 0)}
+                for g in list(self.model.games)
+                if g.installed and g.install_path and g.store in ("epic", "gog", "amazon") and os.path.isdir(g.install_path)]
+
+    def _lan_apply(self):
+        from . import lancopy
+        want = bool(settings.get("lan_share")) and not self.demo
+        if want and not self._lan:
+            if not settings.get("lan_code"):
+                settings.set("lan_code", lancopy.new_code())
+            srv = lancopy.Server(socket.gethostname(), settings.get("lan_code"), self._lan_games)
+            try:
+                srv.start()
+                self._lan = srv
+            except OSError as e:
+                self.toast.emit(_t("Could not share games with your other PCs:") + " " + (e.strerror or str(e)))
+        elif not want and self._lan:
+            self._lan.stop()
+            self._lan = None
+        self.lanChanged.emit()
+
+    def _lan_refresh(self):
+        """What the linked PCs have, for "Copy from <PC>" on games not installed here."""
+        peers = dict(settings.get("lan_peers") or {})
+        if not peers or self.demo:
+            return
+        from . import lancopy
+
+        def work():
+            have = {}
+            for name, p in peers.items():
+                try:
+                    for g in lancopy.games_on(p):
+                        have.setdefault(g.get("key"), []).append({"peer": name, "size": g.get("size") or 0,
+                                                                  "folder": g.get("folder") or ""})
+                except PermissionError:
+                    pass
+            def done():
+                self._lan_have = self.model.lan_have = have
+                self.model.touch()
+                self.lanChanged.emit()
+            return done
+        self._bg(work)
+
+    def _lan_info(self):
+        return {"sharing": bool(self._lan), "code": settings.get("lan_code") if self._lan else "",
+                "name": socket.gethostname(), "found": list(self._lan_found),
+                "peers": sorted((settings.get("lan_peers") or {}).keys())}
+    lanInfo = Property("QVariantMap", _lan_info, notify=lanChanged)
+
+    @Slot()
+    def lanFind(self):
+        from . import lancopy
+
+        def work():
+            mine = socket.gethostname()
+            found = [p for p in lancopy.discover() if p["name"] != mine]
+
+            def done():
+                self._lan_found = found
+                self.lanChanged.emit()
+                if not found:
+                    self.toast.emit("No PCs found: turn on sharing in Cornerplay on the other PC, on the same network")
+            return done
+        self._bg(work)
+
+    @Slot(str, str, int, str)
+    def lanLink(self, name, host, port, code):
+        from . import lancopy
+        peer = {"host": host, "port": int(port or lancopy.PORT), "code": lancopy.tidy_code(code)}
+
+        def work():
+            try:
+                games = lancopy.games_on(peer)
+            except PermissionError:
+                return lambda: self.toast.emit(f"Wrong code for {name}: it is under Settings > People & sync on that PC")
+            def done():
+                peers = dict(settings.get("lan_peers") or {})
+                peers[name] = peer
+                settings.set("lan_peers", peers)
+                self.lanChanged.emit()
+                self.toast.emit(f"Linked {name}: {len(games)} games to copy from")
+                self._lan_refresh()
+            return done
+        self._bg(work)
+
+    @Slot(str)
+    def lanUnlink(self, name):
+        peers = dict(settings.get("lan_peers") or {})
+        peers.pop(name, None)
+        settings.set("lan_peers", peers)
+        self._lan_have = self.model.lan_have = {k: [x for x in v if x["peer"] != name] for k, v in self._lan_have.items()}
+        self.model.touch()
+        self.lanChanged.emit()
+
+    @Slot(str, str)
+    def copyFromPc(self, key, peer_name):
+        from . import lancopy
+        g, store = self._guard(key)
+        p = (settings.get("lan_peers") or {}).get(peer_name)
+        src = next((x for x in self._lan_have.get(key, []) if x["peer"] == peer_name), None)
+        if not g or not p or not src or key in self.procs or self.demo:
+            return
+        dest = os.path.join(str(settings.games_dir), src["folder"] or re.sub(r"[^A-Za-z0-9_.-]", "_", g.title))
+        try:
+            free = shutil.disk_usage(os.path.dirname(dest) if os.path.isdir(os.path.dirname(dest)) else str(Path.home())).free
+        except OSError:
+            free = 0
+        if src["size"] and free and free < src["size"] * 1.02:
+            self.toast.emit(f"Not enough space for {g.title}: it needs {storage.nice(src['size'])}")
+            return
+        imp = []
+        try:
+            if g.store == "epic":
+                imp = [store.tool(), "import", g.id, dest, "--disable-check"]
+            elif g.store == "amazon":
+                imp = [store.tool(), "import", g.id, "--path", dest]
+        except StoreError as e:
+            self.toast.emit(str(e))
+            return
+        pkg_root = str(Path(__file__).resolve().parent.parent)
+        env = {"PYTHONPATH": pkg_root, "CORNERPLAY_LAN_CODE": p.get("code", "")}
+        from .stores.base import Command
+        cmd = Command([sys.executable, "-m", "cornerplay.lancopy", "fetch", p["host"], str(p.get("port") or lancopy.PORT),
+                       key, dest, *imp], env)
+        self._lan_copies[key] = dest
+        self.toast.emit(f"Copying {g.title} from {peer_name}")
+        self._start_job(g, "install", cmd)
+
     _remote = None
     _remote_error = ""
     _gamenight = {"open": False, "keys": [], "votes": {}}
@@ -7797,6 +7942,8 @@ class AioLaunch(QObject):
                 self.storesChanged.emit()
             if key == "phone_remote":
                 self._remote_apply()
+            if key == "lan_share":
+                self._lan_apply()
             if key == "wishlist_sales":
                 if value:
                     self._load_wishlist(True)
@@ -7823,6 +7970,8 @@ class AioLaunch(QObject):
 
     def shutdown(self):
         self._quitting = True  # stops the background details fetch
+        if self._lan:
+            self._lan.stop()
         if getattr(self, "_freezer", None):
             self._freezer.stop()  # never leave a game stopped behind
         for th in list(self._throttles.values()):

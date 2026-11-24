@@ -4614,6 +4614,15 @@ ApplicationWindow {
                 text: tonight ? qsTr("Don't install tonight") : qsTr("Install tonight")
                 onPicked: { app.installTonight(gameMenu.key, !tonight); gameMenu.close() }
             }
+            Repeater {  // a linked PC at home has it installed (lancopy.py)
+                model: !gameMenu.g.job && !gameMenu.g.installed ? (gameMenu.g.lanFrom || []) : []
+                delegate: MenuRow {
+                    required property var modelData
+                    icon: "hard-drive"
+                    text: qsTr("Copy from %1").replace("%1", modelData.peer) + (modelData.size ? "  ·  " + app.niceSize(modelData.size) : "")
+                    onPicked: { const k = gameMenu.key, p = modelData.peer; gameMenu.close(); app.copyFromPc(k, p) }
+                }
+            }
             MenuRow {
                 visible: !!gameMenu.g.job
                 icon: "x"; text: qsTr("Cancel")
@@ -7811,6 +7820,43 @@ ApplicationWindow {
                                 Text { text: app.syncState.error ? qsTr("Last sync failed: ") + app.syncState.error
                                              : app.syncState.when ? qsTr("Last synced ") + app.syncState.when : ""
                                        color: app.syncState.error ? theme.error : theme.onSurfaceVariant; font.pixelSize: 12 }
+                            }
+                            // Copy games from your other PCs (lancopy.py): share here, link the others by their code.
+                            Rectangle { Layout.fillWidth: true; height: 1; color: theme.outlineVariant }
+                            Toggle { label: qsTr("Let my other PCs copy games from this one (Epic, GOG, Amazon), instead of downloading them again"); settingKey: "lan_share" }
+                            Text {
+                                visible: app.lanInfo.sharing
+                                Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
+                                text: qsTr("This PC (%1) gives its code to your other PCs: %2. With a firewall, open port 47113 (TCP and UDP) on your home network.")
+                                      .replace("%1", app.lanInfo.name).replace("%2", app.lanInfo.code)
+                            }
+                            Row2 {
+                                label: qsTr("Copy games from my other PCs")
+                                hint: app.lanInfo.peers.length ? qsTr("Linked: %1. A game they have shows Copy from in its menu.").replace("%1", app.lanInfo.peers.join(", "))
+                                                               : qsTr("Find the PCs at home that share their games, then type the code each one shows.")
+                                KButton { theme: win.theme; text: qsTr("Find my PCs"); iconName: "search"; onClicked: app.lanFind() }
+                            }
+                            Repeater {
+                                model: app.lanInfo.found
+                                delegate: RowLayout {
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Text { text: modelData.name + "  ·  " + modelData.host; color: theme.onSurface; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight }
+                                    KField { id: lanCode; theme: win.theme; Layout.preferredWidth: 150; placeholderText: qsTr("Its code") }
+                                    KButton { theme: win.theme; text: qsTr("Link"); enabled: lanCode.text.trim().length >= 6
+                                              onClicked: app.lanLink(modelData.name, modelData.host, modelData.port, lanCode.text) }
+                                }
+                            }
+                            Repeater {
+                                model: app.lanInfo.peers
+                                delegate: RowLayout {
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Text { text: modelData; color: theme.onSurfaceVariant; font.pixelSize: 13; Layout.fillWidth: true }
+                                    KButton { theme: win.theme; text: qsTr("Unlink"); onClicked: app.lanUnlink(modelData) }
+                                }
                             }
                             Rectangle { Layout.fillWidth: true; height: 1; color: theme.outlineVariant; visible: app.inFlatpak }
                             Row2 {
