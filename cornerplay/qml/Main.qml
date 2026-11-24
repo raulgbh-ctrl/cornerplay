@@ -7595,6 +7595,7 @@ ApplicationWindow {
                             Toggle { label: qsTr("Performance overlay levels in quick access (off / FPS / basic / full, while playing)"); settingKey: "hud_levels" }
                             // Linux extras: NTSYNC, the graphics card on two-card PCs, safety copies on btrfs.
                             Toggle { visible: app.ntsyncAvailable; label: qsTr("NTSYNC for Proton games (smoother; the kernel has it)"); settingKey: "ntsync" }
+                            Toggle { visible: app.fastCores !== ""; label: qsTr("Games on the fast cores (%1); other programs keep the rest").replace("%1", app.fastCores); settingKey: "fast_cores" }
                             Toggle { visible: app.canCompress; label: qsTr("A free safety copy before a game updates (btrfs), to undo a bad update for a week"); settingKey: "update_safety" }
                             Row2 {
                                 id: gpuRow
@@ -8282,6 +8283,7 @@ ApplicationWindow {
             gpus = app.gpuChoices()
             optGpu.select(opts.gpu === undefined ? "default" : opts.gpu)
             optNtsync.select(opts.ntsync === undefined ? "default" : opts.ntsync)
+            optCores.select(opts.fast_cores === undefined ? "default" : opts.fast_cores)
             optWayland.select(opts.wayland === undefined ? "default" : opts.wayland)
             optDlls.text = opts.dll_overrides || ""
             optAudioLat.select(opts.audio_lowlat === true)
@@ -8490,6 +8492,13 @@ ApplicationWindow {
                     visible: gameOpts.compat
                     Layout.fillWidth: true
                     spacing: 12
+                    Row2 {
+                        visible: app.fastCores !== ""
+                        label: qsTr("Fast cores")
+                        hint: qsTr("Only on the CPU's fastest cores (%1). Off for games that want every core.").replace("%1", app.fastCores)
+                        KCombo { id: optCores; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
+                                 onActivated: app.setGameOption(gameOpts.key, "fast_cores", currentValue) }
+                    }
                     Row2 {
                         visible: app.ntsyncAvailable
                         label: qsTr("NTSYNC")

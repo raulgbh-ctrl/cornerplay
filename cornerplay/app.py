@@ -5793,6 +5793,9 @@ class AioLaunch(QObject):
         return out
 
     ntsyncAvailable = Property(bool, lambda s: runner.ntsync_ok(), constant=True)
+    # Fast cores (cores.py): "" on CPUs whose cores are all alike, else what they are
+    fastCores = Property(str, lambda s: (__import__("cornerplay.cores", fromlist=["fast"]).fast().get("label", "")
+                                         if __import__("shutil").which("taskset") else ""), constant=True)
 
     @Slot(result="QVariantList")
     def audioOutputs(self):

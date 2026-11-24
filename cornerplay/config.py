@@ -180,6 +180,7 @@ DEFAULTS = {
     "tv_rumble": False,        # TV mode: the controller buzzes lightly when moving and choosing
     "tv_music": False,         # TV mode: a calm, original ambient loop (fades out for trailers and games)
     "gpu": "auto",             # graphics card for games on two-card PCs: auto (the fast one) / discrete / integrated (gpu.py)
+    "fast_cores": False,       # games pinned to the fast cores on hybrid Intel / dual-group X3D AMD CPUs (cores.py)
     "ntsync": True,            # Proton uses the kernel's NTSYNC when /dev/ntsync is there (runner.proton_extras)
     "focus_scheduler": False,
     "focus_lowlat": True,      # Hyprland: tearing + VRR for full-screen games while playing (Ryoku: its Game Mode) (playtweaks.py)

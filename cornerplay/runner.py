@@ -340,6 +340,9 @@ def extras(gamescope: bool = True) -> list:
         out.append("gamemoderun")
     if _wants_hud() and "--mangoapp" not in out and shutil.which("mangohud"):
         out.append("mangohud")
+    if opt("fast_cores"):  # Intel P-cores / AMD X3D V-Cache cores, inherited by all it starts (cores.py)
+        from . import cores
+        out = cores.argv() + out
     return out
 
 

@@ -97,8 +97,16 @@ def _battlenet(game, proc, out, started):
         write_json(out, {"key": game.key, "state": "playing", "since": started, "title": game.title,
                          "pid": os.getpid(), "pids": state["pids"], "needs": state["needs"]})
 
+    from .config import game_options
+    own = game_options.get(game.key)
+    fast = own["fast_cores"] if "fast_cores" in own else settings.get("fast_cores")
+
     def changed(pids):
         state["pids"] = pids
+        if fast:  # Battle.net starts the game, so taskset at our start does not reach it
+            from . import cores
+            for pid in pids:
+                cores.pin(pid)
         status()
 
     def tick(running):
