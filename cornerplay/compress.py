@@ -32,6 +32,15 @@ def low_priority(argv: list) -> list:
     return out
 
 
+def sync(path):
+    """Flush the drive so its free space is up to date. A slow drive may not finish: that only
+    makes the estimate lower, so it never fails the job."""
+    try:
+        subprocess.run(["sync", "-f", path], capture_output=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
 def filesystem(path) -> dict:
     """{"btrfs": bool, "auto": "zstd:1" or ""}: the drive under `path`, and whether it already
     compresses new files (its mount option)."""
@@ -66,8 +75,11 @@ def compress(path) -> dict:
                            capture_output=True, text=True, timeout=6 * 3600)
     except (OSError, subprocess.TimeoutExpired) as e:
         return {"ok": False, "saved": 0, "error": type(e).__name__}
-    subprocess.run(["sync", "-f", path], capture_output=True, timeout=120) if shutil.which("sync") else None
-    saved = max(0, shutil.disk_usage(path).free - before)
+    sync(path)
+    try:
+        saved = max(0, shutil.disk_usage(path).free - before)
+    except OSError:
+        saved = 0
     if r.returncode != 0:
         err = (r.stderr or r.stdout or "").strip().splitlines()
         return {"ok": False, "saved": saved, "error": (err[-1] if err else "btrfs failed")[-160:]}

@@ -5651,7 +5651,10 @@ class AioLaunch(QObject):
                 if self._now_playing():  # a game started: never slow it down with disk work
                     failed.append(g.title)
                     continue
-                r = compress.compress(g.install_path)
+                try:
+                    r = compress.compress(g.install_path)
+                except Exception as e:  # its own thread: an escape would leave the game "Compressing…" for good
+                    r = {"ok": False, "saved": 0, "error": str(e)}
                 total += r["saved"]
                 if r["ok"]:
                     self._after.emit(lambda k=g.key: game_options.set(k, "compressed", int(time.time())))
@@ -6806,7 +6809,10 @@ class AioLaunch(QObject):
         self.toast.emit("Sharing identical files between your Proton prefixes…")
 
         def work():
-            r = safety.share_prefix_files(str(settings.games_dir / "prefixes"))
+            try:
+                r = safety.share_prefix_files(str(settings.games_dir / "prefixes"))
+            except Exception as e:  # its own thread: say so rather than go quiet
+                r = {"files": 0, "saved": 0, "error": f"{type(e).__name__}: {e}"}
 
             def done():
                 if r["error"]:

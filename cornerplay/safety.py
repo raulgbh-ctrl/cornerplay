@@ -152,5 +152,9 @@ def share_prefix_files(prefixes_dir, min_size=64 * 1024) -> dict:
                 except (OSError, subprocess.TimeoutExpired):
                     if os.path.exists(tmp):
                         os.remove(tmp)
-    subprocess.run(["sync", "-f", prefixes_dir], capture_output=True, timeout=120)
-    return {"files": shared, "saved": max(0, shutil.disk_usage(prefixes_dir).free - before), "error": ""}
+    compress.sync(prefixes_dir)
+    try:
+        saved = max(0, shutil.disk_usage(prefixes_dir).free - before)
+    except OSError:
+        saved = 0
+    return {"files": shared, "saved": saved, "error": ""}
