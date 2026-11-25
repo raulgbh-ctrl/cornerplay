@@ -1,0 +1,188 @@
+"""Xbox / PC Game Pass: Nexus Launcher on Linux, the Xbox app on Windows, the Game Pass catalog."""
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+
+import pytest
+
+from cornerplay import gamepass, nexus, session, winxbox
+from cornerplay.stores import xbox as X
+from cornerplay.stores.base import Game
+
+CATALOG = [{"id": "9NFORZA", "title": "Forza Horizon 6", "cover": "https://img/forza.jpg", "hero": "https://img/fh.jpg",
+            "publisher": "Xbox Game Studios"},
+           {"id": "9NPAL", "title": "Palworld", "cover": "https://img/pal.jpg", "hero": "", "publisher": "Pocketpair"}]
+
+
+@pytest.fixture
+def nexus_home(tmp_path, monkeypatch):
+    """A Nexus Launcher install and profile in a temp folder, with one installed game."""
+    app = tmp_path / "opt"
+    app.mkdir()
+    exe = app / "Nexus-Launcher.AppImage"
+    exe.write_text("#!/bin/sh\n")
+    exe.chmod(0o755)
+    profile = tmp_path / "profile"
+    profile.mkdir()
+    game_dir = tmp_path / "Games" / "Forza"
+    game_dir.mkdir(parents=True)
+    (profile / "launcher-state.json").write_text(json.dumps({"games": [
+        {"id": "fh6", "title": "Forza Horizon 6 (local name)", "path": str(game_dir), "storeId": "9NFORZA",
+         "coverUrl": "https://img/local.jpg", "installState": "ready"},
+        {"id": "half", "title": "Half Installed", "path": str(tmp_path / "Games" / "Half"), "installState": "incomplete"},
+        {"title": "no id: skipped"}], "settings": {}}))
+    (profile / "xbox-profile.json").write_text(json.dumps({"schema": 1, "gamertag": "Raul GBH"}))
+    monkeypatch.setattr(nexus, "APP_DIR", app)
+    monkeypatch.setattr(nexus, "PROFILE", profile)
+    monkeypatch.setattr(nexus.shutil, "which", lambda n: None)
+    monkeypatch.setattr(gamepass, "catalog", lambda force=False: CATALOG)
+    monkeypatch.setattr(X, "WINDOWS", False)
+    return tmp_path
+
+
+def test_nexus_games_and_account(nexus_home):
+    games = nexus.games()
+    assert [g["id"] for g in games] == ["fh6", "half"]
+    assert games[0]["ready"] and not games[1]["ready"]
+    assert nexus.gamertag() == "Raul GBH"
+    assert nexus.argv("fh6") == [str(nexus_home / "opt" / "Nexus-Launcher.AppImage"), "--launch-game", "fh6"]
+
+
+def test_store_lists_installed_games_and_the_catalog(nexus_home):
+    s = X.Xbox()
+    assert s.logged_in() and "Raul GBH" in s.account()
+    games = {g.id: g for g in s.fetch()}
+    assert games[X.NEXUS_ID].installed  # Nexus Launcher's own tile
+    fh = games["fh6"]
+    assert fh.installed and fh.title == "Forza Horizon 6" and fh.cover == "https://img/forza.jpg"  # the catalog's
+    assert fh.extra["gamepass"] and fh.extra["store_id"] == "9NFORZA"
+    assert not games["half"].installed
+    assert "gp-9NFORZA" not in games  # installed already: no catalog tile for it
+    pal = games["gp-9NPAL"]
+    assert not pal.installed and pal.extra["owned_only"] and pal.extra["store_id"] == "9NPAL"
+
+
+def test_store_launch_and_install_commands(nexus_home):
+    s = X.Xbox()
+    g = Game(store="xbox", id="fh6", title="Forza", installed=True, install_path="/x")
+    assert s.launch(g).argv[-2:] == ["--launch-game", "fh6"]
+    assert s.launch(Game(store="xbox", id=X.NEXUS_ID, title="Nexus")).argv[-1].endswith(".AppImage")
+    cmd = s.install(Game(store="xbox", id="gp-9NPAL", title="Palworld", extra={"store_id": "9NPAL"}))
+    assert cmd.argv[-2:] == ["cornerplay.nexus", "open"]  # installs Nexus Launcher if needed, then opens it
+    with pytest.raises(X.StoreError):
+        s.uninstall(g)
+
+
+def test_catalog_only_once_connected(nexus_home, monkeypatch):
+    shutil.rmtree(nexus_home / "opt")
+    monkeypatch.setattr(nexus, "APP_DIR", nexus_home / "missing")
+    s = X.Xbox()
+    assert not s.logged_in()
+    assert not any(g.id.startswith("gp-") for g in s.fetch())
+
+
+def test_connect_installs_nexus_through_a_helper(nexus_home, monkeypatch):
+    monkeypatch.setattr(nexus, "unsupported", lambda: "")
+    info = X.Xbox().login_begin()
+    assert info["command"][-2:] == ["cornerplay.nexus", "open"]
+
+
+def test_store_on_windows(monkeypatch):
+    monkeypatch.setattr(X, "WINDOWS", True)
+    monkeypatch.setattr(gamepass, "catalog", lambda force=False: CATALOG)
+    monkeypatch.setattr(winxbox, "xbox_app_installed", lambda: True)
+    monkeypatch.setattr(winxbox, "games", lambda: [
+        {"id": "Microsoft.ForzaHorizon6_8wekyb3d8bbwe", "title": "ms-resource:Title", "path": "C:/XboxGames/Forza/Content",
+         "storeId": "9NFORZA", "appId": "Game", "exe": "ForzaHorizon6.exe"}])
+    s = X.Xbox()
+    games = {g.id: g for g in s.fetch()}
+    fh = games["Microsoft.ForzaHorizon6_8wekyb3d8bbwe"]
+    assert fh.title == "Forza Horizon 6" and fh.installed
+    assert s.launch(fh).argv == ["explorer.exe", r"shell:AppsFolder\Microsoft.ForzaHorizon6_8wekyb3d8bbwe!Game"]
+    assert s.install(games["gp-9NPAL"]).argv == ["explorer.exe", "ms-windows-store://pdp/?ProductId=9NPAL"]
+    assert X.NEXUS_ID not in games
+
+
+def test_windows_game_manifest(tmp_path):
+    cfg = tmp_path / "MicrosoftGame.config"
+    cfg.write_text('<?xml version="1.0"?><Game configVersion="1">'
+                   '<Identity Name="Microsoft.Forza" Publisher="CN=Microsoft" Version="1.0.0.0"/>'
+                   '<StoreId>9NFORZA</StoreId>'
+                   '<ExecutableList><Executable Name="Forza.exe" Id="Game" TargetDeviceFamily="PC"/></ExecutableList>'
+                   '<ShellVisuals DefaultDisplayName="Forza Horizon 6" PublisherDisplayName="Xbox"/></Game>')
+    assert winxbox.parse_config(str(cfg)) == {"title": "Forza Horizon 6", "storeId": "9NFORZA", "appId": "Game",
+                                              "exe": "Forza.exe", "name": "Microsoft.Forza"}
+    assert winxbox.parse_config(str(tmp_path / "missing")) == {}
+
+
+def test_catalog_market(monkeypatch):
+    from cornerplay.config import settings
+    monkeypatch.setitem(settings.data, "gamepass_market", "ro")
+    assert gamepass.market() == "RO"
+    monkeypatch.setitem(settings.data, "gamepass_market", "")
+    monkeypatch.setenv("LC_ALL", "de_DE.UTF-8")
+    assert gamepass.market() == "DE"
+
+
+def test_catalog_falls_back_to_the_cached_copy(monkeypatch, tmp_path):
+    monkeypatch.setattr(gamepass, "CACHE", tmp_path / "gp.json")
+    (tmp_path / "gp.json").write_text(json.dumps({"t": 0, "market": "XX", "games": CATALOG}))
+
+    def offline(*a, **k):
+        raise gamepass.requests.ConnectionError("offline")
+    monkeypatch.setattr(gamepass, "_ids", offline)
+    assert gamepass.catalog() == CATALOG
+
+
+@pytest.mark.skipif(not shutil.which("sleep"), reason="needs a sleep program")
+def test_session_follows_the_game_folder(tmp_path, monkeypatch):
+    """The launcher returns at once; the session lasts as long as a program from the game's folder runs."""
+    folder = tmp_path / "Game"
+    folder.mkdir()
+    prog = folder / "game"  # a real program in the game's folder (a script would show as /bin/sh)
+    shutil.copy(shutil.which("sleep"), prog)
+    launcher = subprocess.Popen([sys.executable, "-c", "pass"])
+    game_proc = subprocess.Popen([str(prog), "3"])
+    g = Game(store="xbox", id="x", title="X", installed=True, install_path=str(folder))
+    t = time.time()
+    code, started, ended = session._follow_folder(g, launcher, tmp_path / "s.json", t, wait_start=20, poll=0.3, grace=0.5)
+    game_proc.wait()
+    assert code == 0 and started and ended - started >= 2
+
+
+def test_wine_paths_match_linux_folders():
+    assert session._norm(r"Z:\home\raul\Games\Forza\Content\Forza.exe").startswith("/home/raul/games/forza/content")
+    assert session._norm("C:/XboxGames/Forza") == "c:/xboxgames/forza"
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Nexus Launcher is Linux only")
+def test_nexus_needs_x86_and_new_glibc(monkeypatch):
+    import platform
+    monkeypatch.setattr(platform, "machine", lambda: "aarch64")
+    assert "x86_64" in nexus.unsupported()
+    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(nexus, "glibc", lambda: (2, 35))
+    assert "glibc" in nexus.unsupported()
+    monkeypatch.setattr(nexus, "glibc", lambda: (2, 41))
+    assert nexus.unsupported() == ""
+
+
+def test_appimage_runs_without_fuse(monkeypatch):
+    monkeypatch.setattr(nexus.ctypes.util, "find_library", lambda n: None)
+    assert nexus.env() == {"APPIMAGE_EXTRACT_AND_RUN": "1"}
+    monkeypatch.setattr(nexus.ctypes.util, "find_library", lambda n: "libfuse.so.2")
+    assert nexus.env() == {}
+    assert os.environ.get("APPIMAGE_EXTRACT_AND_RUN") is None
+
+
+@pytest.mark.skipif(os.name != "nt", reason="the Xbox app is Windows only")
+def test_windows_package_listing_runs():
+    """On a real Windows (CI): PowerShell lists the app packages and nothing breaks on them."""
+    winxbox._cache = (0.0, [])
+    packages = winxbox._packages()
+    assert packages and all(isinstance(p, dict) for p in packages)
+    assert isinstance(winxbox.games(), list)
+    assert isinstance(winxbox.xbox_app_installed(), bool)

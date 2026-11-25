@@ -54,6 +54,8 @@ def run(game, argv, env_extra, cwd, log_path, sync):
                              "pid": proc.pid})
             if game.store == "battlenet":
                 code, started, ended = _battlenet(game, proc, out, started)
+            elif game.store == "xbox" and game.install_path:
+                code, started, ended = _follow_folder(game, proc, out, started)
             else:
                 code = proc.wait()
         except OSError as e:
@@ -79,6 +81,42 @@ def run(game, argv, env_extra, cwd, log_path, sync):
     write_json(out, {"key": game.key, "state": "done", "exit": code, "sync": result,
                      "title": game.title, "since": time.time(), "started": started, "log": log_path})
     return code
+
+
+def _norm(path):
+    r"""A program path to compare folders by: / between parts, lower case, and Wine's Z:\ (the
+    Linux root) taken off, so a game seen as Z:\home\... matches /home/..."""
+    p = (path or "").replace("\\", "/").rstrip("/").lower()
+    return p[2:] if p.startswith("z:/") else p
+
+
+def _follow_folder(game, proc, out, started, wait_start=600, poll=2.0, grace=8.0):
+    """Xbox games are started by someone else (explorer.exe on Windows, Nexus Launcher on Linux,
+    which may hand the game to its window that is already open and return at once): follow the
+    processes whose program is in the game's folder. Returns (exit code, started, ended);
+    started is 0 when the game never showed up."""
+    from .osinfo import process_programs
+    root = _norm(game.install_path) + "/"
+    t0, seen, gone_since, code = time.time(), None, None, None
+    while True:
+        if code is None:
+            code = proc.poll()
+        pids = [pid for pid, prog in process_programs() if _norm(prog).startswith(root)]
+        if pids:
+            if seen is None:
+                seen = time.time()
+            gone_since = None
+            write_json(out, {"key": game.key, "state": "playing", "since": started, "title": game.title,
+                             "pid": os.getpid(), "pids": pids})
+        elif seen is not None:
+            gone_since = gone_since or time.time()
+            if time.time() - gone_since >= grace:  # gone for a while, not just restarting itself
+                return (code or 0), seen, gone_since
+        elif code is not None and time.time() - t0 > wait_start:
+            return code, 0, 0  # it never started
+        elif code not in (None, 0) and time.time() - t0 > 30:
+            return code, 0, 0  # the launcher failed and nothing came up
+        time.sleep(poll)
 
 
 def _battlenet(game, proc, out, started):

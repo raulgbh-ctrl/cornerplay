@@ -66,6 +66,8 @@ themselves, and the old `aiolaunch` command keeps working.*
 Cornerplay also runs on Windows 10 and 11 (64-bit). Download `cornerplay-<version>-windows-setup.exe`
 from the releases page and run it: it installs for your account only, no administrator needed,
 and brings legendary, gogdl, nile and SDL2 with it.
+Also through winget once it is listed: `winget install raulgbh-ctrl.Cornerplay`
+(packaging/winget). The installer's code signing: [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md).
 
 On Windows games run as they are, so there is no Proton, no prefixes and none of the Linux tools
 (gamescope, MangoHud, GameMode, the Hyprland extras, btrfs snapshots); Settings hides them. Steam,
@@ -84,6 +86,7 @@ To build it yourself on Windows: `powershell -ExecutionPolicy Bypass -File packa
 | **GOG** | Accounts > GOG > Sign in. Installs go through [gogdl](https://github.com/Heroic-Games-Launcher/heroic-gogdl); Linux versions are used when a game has one. | Nothing else. |
 | **Amazon Games** | Accounts > Amazon Games > Sign in, through [nile](https://github.com/imLinguin/nile). | Nothing else. |
 | **Battle.net** | See below. | The Battle.net app, under Proton. |
+| **Xbox / PC Game Pass** | See below. | Nexus Launcher on Linux (Cornerplay installs it), the Xbox app on Windows. |
 | **Humble Bundle** | Accounts > Humble Bundle > Sign in: log in on Humble's page in the sign-in window (or paste your `_simpleauth_sess` cookie). Every DRM-free game in your library (bundles, the store, Humble Choice) is listed; the Linux download installs when there is one (archives and MojoSetup `.sh` installers are unpacked without running them), otherwise the Windows one through Proton (an installer runs once in its own window). Steam keys show up through Steam once redeemed. | Nothing else. |
 
 **Steam Web API key (optional).** Without one, Cornerplay lists the Steam games in your Steam
@@ -98,6 +101,19 @@ IGDB). A free [SteamGridDB](https://www.steamgriddb.com) key adds art for games 
 better wide banners and animated covers in TV mode: sign in there, open
 [Preferences > API](https://www.steamgriddb.com/profile/preferences/api), generate a key and paste
 it in **Settings > Library**.
+
+**Xbox and PC Game Pass.** Games are installed and run on your PC, not streamed.
+
+- **Linux:** Accounts > Xbox / Game Pass > Connect. Cornerplay installs
+  [Nexus Launcher](https://github.com/domsvoboda/nexus-launcher) (built on
+  [Xodus](https://github.com/xodus-gaming/xodus); checked against its published checksums) and
+  opens it: sign in to your Microsoft account there and install the runtime it offers. The games
+  it installs appear in Cornerplay and start from there. Nexus and Xodus are unofficial, not from
+  Microsoft: newer (GDK) games are supported, some do not run yet, and it needs an x86_64 PC
+  with glibc 2.38 or later (Ubuntu 24.04, current Fedora, Arch, SteamOS).
+- **Windows:** games the Xbox app installed appear by themselves; Connect opens the Xbox app.
+- **Both:** the PC Game Pass catalog is listed too (Settings > Library can hide it). Install on
+  one of those opens Nexus Launcher (Linux) or the game's Microsoft Store page (Windows).
 
 **Battle.net under Proton.** Blizzard has no API for other launchers, so Cornerplay runs
 Blizzard's own app:

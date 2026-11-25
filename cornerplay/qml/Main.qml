@@ -6714,6 +6714,8 @@ ApplicationWindow {
                                 text: modelData.problem ? modelData.problem
                                       : modelData.loggedIn ? ("Connected" + (modelData.account ? " · " + modelData.account : ""))
                                       : modelData.id === "battlenet" ? qsTr("Install the Battle.net app from the library, or link your Blizzard account to list your games")
+                                      : modelData.id === "xbox" ? (app.onWindows ? qsTr("Connect opens the Xbox app; games it installs show up here")
+                                                                                 : qsTr("Connect installs Nexus Launcher (unofficial) to sign in"))
                                       : qsTr("Not connected")
                                 }
                             }
@@ -6762,8 +6764,11 @@ ApplicationWindow {
                             primary: !modelData.loggedIn
                             visible: !(modelData.loginKind === "paste" && modelData.loggedIn)
                             enabled: modelData.id === "gog" || !modelData.problem
-                            text: modelData.loginKind === "external" ? qsTr("Open") : qsTr("Sign in")
-                            iconName: modelData.loginKind === "external" ? "external-link" : "log-in"
+                            // Xbox before it is set up: Connect installs Nexus Launcher (Linux) first.
+                            text: modelData.id === "xbox" && !modelData.loggedIn ? qsTr("Connect")
+                                  : modelData.loginKind === "external" ? qsTr("Open") : qsTr("Sign in")
+                            iconName: modelData.id === "xbox" && !modelData.loggedIn ? "log-in"
+                                      : modelData.loginKind === "external" ? "external-link" : "log-in"
                             onClicked: app.loginBegin(modelData.id)
                         }
                     }
@@ -8170,6 +8175,7 @@ ApplicationWindow {
                             }
                             Toggle { label: qsTr("Before installing from Epic, GOG or Amazon, ask where, which language and which DLCs"); settingKey: "install_window" }
                             Toggle { label: qsTr("Show a game owned on several stores only once"); settingKey: "merge_duplicates" }
+                            Toggle { label: qsTr("Xbox / Game Pass: the PC Game Pass games you have not installed, ready to install"); settingKey: "gamepass_catalog" }
                             Toggle { label: qsTr("Back up a game's saves before it starts (keeps the last 5; a game's More > Save backups to restore)"); settingKey: "save_backups" }
                             Toggle { label: qsTr("Update Epic, GOG and Amazon games overnight (plugged in, not on a metered connection, while Cornerplay is open)"); settingKey: "auto_update" }
                             RowLayout {

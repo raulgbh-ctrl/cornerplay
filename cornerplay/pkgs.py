@@ -30,6 +30,13 @@ NAMES = {
     "snap-pac": {"pacman": "snap-pac", "dnf": "python3-dnf-plugin-snapper"},
     "timeshift-autosnap": {"pacman": "timeshift-autosnap", "apt-get": "timeshift-autosnap-apt"},
     "moonlight": {"pacman": "moonlight-qt", "apt-get": "moonlight-qt", "zypper": "moonlight-qt"},
+    # Nexus Launcher (Xbox / Game Pass on Linux, nexus.py): the libraries its own installer adds
+    "nexus-fuse": {"pacman": "fuse2", "apt-get": "libfuse2t64", "dnf": "fuse", "zypper": "libfuse2"},
+    "nexus-webkit": {"pacman": "webkit2gtk-4.1", "apt-get": "libwebkit2gtk-4.1-0", "dnf": "webkit2gtk4.1",
+                     "zypper": "libwebkit2gtk-4_1-0"},
+    "nexus-gtk": {"pacman": "gtk3", "apt-get": "libgtk-3-0t64", "dnf": "gtk3", "zypper": "libgtk-3-0"},
+    "nexus-nss": {"pacman": "nss", "apt-get": "libnss3", "dnf": "nss", "zypper": "mozilla-nss"},
+    "nexus-xtst": {"pacman": "libxtst", "apt-get": "libxtst6", "dnf": "libXtst", "zypper": "libXtst6"},
     # Vulkan drivers, 64- and 32-bit (Proton runs 32-bit games too)
     "vulkan-intel": {"pacman": "vulkan-intel lib32-vulkan-intel", "apt-get": "mesa-vulkan-drivers mesa-vulkan-drivers:i386",
                      "dnf": "mesa-vulkan-drivers mesa-vulkan-drivers.i686", "zypper": "libvulkan_intel libvulkan_intel-32bit"},

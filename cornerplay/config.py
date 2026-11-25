@@ -75,6 +75,8 @@ DEFAULTS = {
     "auto_update_from": 2,
     "auto_update_to": 6,
     "gog_native": True,    # GOG: install the Linux version when the game has one (no Proton)
+    "gamepass_catalog": True,  # Xbox / Game Pass: the PC Game Pass games not installed yet, as tiles to install (gamepass.py)
+    "gamepass_market": "",     # the Game Pass country ("RO", "US"...); "" = from the system's language settings
     "view": "grid",            # main window: "grid" of covers or "list" (a table)
     "home_collapsed": ["free"],  # home sections folded away: "banner", "continue", "free" (Free on Epic starts as one line)
     "smart_lists": [],         # saved filters shown as lists in the sidebar: [{"name", "store", "installed", "tags"}]

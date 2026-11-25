@@ -85,6 +85,7 @@ def _t(text):
 def _translatable_names():
     """Never called: lists names that reach _t() through variables, so lupdate finds them."""
     return (QCoreApplication.translate("app", "Too many wrong PINs: try again in %1 s"),
+            QCoreApplication.translate("app", "Installing Nexus Launcher for Xbox and Game Pass (about 130 MB); it opens when ready: sign in there, then press Refresh"),
             QCoreApplication.translate("app", 'As it is'),
             QCoreApplication.translate("app", 'Automatic (the fast one for games)'),
             QCoreApplication.translate("app", 'Bottles is not installed'),
@@ -3542,9 +3543,14 @@ class AioLaunch(QObject):
         def work():
             info = store.login_begin()
             if "command" in info:
+                first_nexus = store_id == "xbox" and os.name != "nt" and not store.logged_in()
+
                 def start():
                     self._detach(info["command"], info.get("env", {}), "", f"{store_id}-client")
-                    self.toast.emit(f"Opening {store.name}; sign in there, then press Refresh")
+                    if first_nexus:  # stores/xbox.py: Nexus Launcher is downloaded first (about 130 MB)
+                        self.toast.emit(_t("Installing Nexus Launcher for Xbox and Game Pass (about 130 MB); it opens when ready: sign in there, then press Refresh"))
+                    else:
+                        self.toast.emit(f"Opening {store.name}; sign in there, then press Refresh")
                 return start
             if self.web_login and not browser:
                 return lambda: (web_types(), self.loginWeb.emit(store_id, store.name, info["url"]))
