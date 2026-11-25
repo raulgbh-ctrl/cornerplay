@@ -178,3 +178,35 @@ def test_no_sys_executable_dash_m():
                 if path.name != "osinfo.py":
                     bad.append(f"{path.relative_to(SRC)}:{i}")
     assert not bad, "sys.executable -m/-c: " + ", ".join(bad)
+
+
+def test_no_linux_only_os_calls_outside_osinfo():
+    """os.sysconf, os.posix_fadvise and SIGSTOP/SIGCONT do not exist on Windows. osinfo wraps
+    them (total_ram_gb, suspend); the Linux-only features that still use them directly (freeze,
+    clips, fast cores) are hidden on Windows, so they are listed here on purpose."""
+    allowed = {"osinfo.py", "freeze.py", "clips.py", "cores.py"}
+    bad = []
+    for path, text in _sources():
+        if path.name in allowed:
+            continue
+        for i, line in enumerate(text.splitlines(), 1):
+            if "os.sysconf(" in line or "signal.SIGSTOP" in line or "signal.SIGCONT" in line or (
+                    "os.posix_fadvise(" in line and "hasattr" not in text.splitlines()[i - 2]):
+                bad.append(f"{path.relative_to(SRC)}:{i}")
+    assert not bad, "Linux-only os call: " + ", ".join(bad)
+
+
+def test_process_tree_and_suspend():
+    import subprocess
+    import time
+    p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    try:
+        assert p.pid in osinfo.process_tree(os.getpid())
+        osinfo.suspend([p.pid], True)
+        time.sleep(0.1)
+        assert p.poll() is None
+        osinfo.suspend([p.pid], False)
+    finally:
+        p.kill()
+        p.wait()
+    assert 0.5 < osinfo.total_ram_gb() < 100000

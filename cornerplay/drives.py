@@ -101,7 +101,8 @@ def speed(folder, mb: int = 256) -> dict:
         wrote = time.monotonic() - t0
         fd = os.open(path, os.O_RDONLY)
         try:
-            os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)  # forget the cached copy: read the drive
+            if hasattr(os, "posix_fadvise"):  # forget the cached copy: read the drive (Linux)
+                os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)
             t0 = time.monotonic()
             while os.read(fd, 1 << 20):
                 pass

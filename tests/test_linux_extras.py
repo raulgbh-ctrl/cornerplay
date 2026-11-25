@@ -243,6 +243,8 @@ def test_system_changes_since_a_game_last_worked(tmp_path, monkeypatch):
     assert not next(g for g in groups if g["name"] == "linux-cachyos")["canUndo"]  # not in the cache
     argv = syschanges.downgrade_argv([c for c in ch if c["pkg"] in mesa["pkgs"]])
     assert argv[:4] == ["pkexec", "pacman", "-U", "--noconfirm"] and len(argv) == 6 and not any(a.endswith(".sig") for a in argv)
-    snaps = [{"number": 180, "when": syschanges._ts("2026-11-21 12:09:58"), "what": "pacman -Syu", "kind": "pre"},
-             {"number": 181, "when": syschanges._ts("2026-11-21 12:10:09"), "what": "", "kind": "post"}]
+    # snapper's own times have no zone (local time); here they carry pacman's, so the test does
+    # not depend on the time zone of the PC that runs it (CI runs in UTC).
+    snaps = [{"number": 180, "when": syschanges._ts("2026-11-21T12:09:58+0200"), "what": "pacman -Syu", "kind": "pre"},
+             {"number": 181, "when": syschanges._ts("2026-11-21T12:10:09+0200"), "what": "", "kind": "post"}]
     assert syschanges.snapshot_before(ch[0]["when"], snaps)["number"] == 180

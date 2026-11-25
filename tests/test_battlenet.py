@@ -113,6 +113,7 @@ def test_launch_without_battlenet_for_wow(tmp_path, monkeypatch):
              extra={"uid": "wow", "launch": "WoW"})
     s = B.BattleNet()
     monkeypatch.setattr(s, "launcher_exe", lambda: "/x/Battle.net.exe")
+    monkeypatch.setattr(B, "wrapper_argv", lambda gamescope=True: ["umu-run"])  # CI has no umu-launcher
     monkeypatch.setattr(B.game_options, "get", lambda k: {"bnet_direct": True})
     assert s.launch(g).argv[-1] == str(exe)
     monkeypatch.setattr(B.game_options, "get", lambda k: {})

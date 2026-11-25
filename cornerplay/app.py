@@ -3636,10 +3636,8 @@ class AioLaunch(QObject):
         mode = settings.get("performance")
         if mode in ("light", "full"):
             return mode == "light"
-        try:
-            ram_gb = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 2**30
-        except (ValueError, OSError):
-            ram_gb = 8
+        from .osinfo import total_ram_gb
+        ram_gb = total_ram_gb()
         from PySide6.QtQuick import QQuickWindow, QSGRendererInterface
         software = QQuickWindow.graphicsApi() == QSGRendererInterface.GraphicsApi.Software
         return software or (os.cpu_count() or 2) <= 2 or ram_gb < 6

@@ -280,3 +280,114 @@ def hide_console_windows() -> None:
 
     subprocess.Popen.__init__ = __init__
     subprocess.Popen._cornerplay_quiet = True
+
+
+def total_ram_gb() -> float:
+    """The PC's memory in GiB (8 when it cannot be read)."""
+    try:
+        if not WINDOWS:
+            return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 2**30
+        import ctypes
+        from ctypes import wintypes
+
+        class MemoryStatus(ctypes.Structure):
+            _fields_ = [("dwLength", wintypes.DWORD), ("dwMemoryLoad", wintypes.DWORD),
+                        ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
+                        ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
+                        ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
+                        ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+        st = MemoryStatus()
+        st.dwLength = ctypes.sizeof(st)
+        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(st)):
+            return st.ullTotalPhys / 2**30
+    except (ValueError, OSError, AttributeError):
+        pass
+    return 8.0
+
+
+def _windows_parents() -> dict:
+    """{pid: parent pid} for every process (a Toolhelp snapshot)."""
+    import ctypes
+    from ctypes import wintypes
+
+    class Entry(ctypes.Structure):
+        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("th32ProcessID", wintypes.DWORD),
+                    ("th32DefaultHeapID", ctypes.c_size_t), ("th32ModuleID", wintypes.DWORD),
+                    ("cntThreads", wintypes.DWORD), ("th32ParentProcessID", wintypes.DWORD),
+                    ("pcPriClassBase", ctypes.c_long), ("dwFlags", wintypes.DWORD), ("szExeFile", ctypes.c_wchar * 260)]
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    k32.CreateToolhelp32Snapshot.argtypes = (wintypes.DWORD, wintypes.DWORD)
+    k32.Process32FirstW.argtypes = k32.Process32NextW.argtypes = (wintypes.HANDLE, ctypes.POINTER(Entry))
+    k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    snap = k32.CreateToolhelp32Snapshot(0x2, 0)  # TH32CS_SNAPPROCESS
+    if not snap or snap == wintypes.HANDLE(-1).value:
+        return {}
+    out = {}
+    try:
+        e = Entry()
+        e.dwSize = ctypes.sizeof(e)
+        ok = k32.Process32FirstW(snap, ctypes.byref(e))
+        while ok:
+            out[int(e.th32ProcessID)] = int(e.th32ParentProcessID)
+            ok = k32.Process32NextW(snap, ctypes.byref(e))
+    finally:
+        k32.CloseHandle(snap)
+    return out
+
+
+def process_tree(pid: int) -> list:
+    """pid and all its descendants: /proc's children lists on Linux, a process snapshot on Windows."""
+    out, todo = [], [int(pid)]
+    if WINDOWS:
+        parents = _windows_parents()
+        children = {}
+        for child, parent in parents.items():
+            if child != parent:
+                children.setdefault(parent, []).append(child)
+        while todo:
+            p = todo.pop()
+            if p in out:
+                continue
+            out.append(p)
+            todo += children.get(p, [])
+        return out
+    while todo:
+        p = todo.pop()
+        out.append(p)
+        try:
+            for task in os.listdir(f"/proc/{p}/task"):
+                with open(f"/proc/{p}/task/{task}/children") as f:
+                    todo += [int(c) for c in f.read().split()]
+        except (OSError, ValueError):
+            pass
+    return out
+
+
+def suspend(pids, on: bool) -> None:
+    """Freeze (on) or let go of processes: SIGSTOP / SIGCONT on Linux, NtSuspendProcess /
+    NtResumeProcess on Windows. Processes that are gone or not ours are skipped."""
+    if not WINDOWS:
+        import signal
+        for p in pids:
+            try:
+                os.kill(p, signal.SIGSTOP if on else signal.SIGCONT)
+            except OSError:
+                pass
+        return
+    import ctypes
+    from ctypes import wintypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    ntdll = ctypes.WinDLL("ntdll")
+    k32.OpenProcess.restype = wintypes.HANDLE
+    k32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    call = ntdll.NtSuspendProcess if on else ntdll.NtResumeProcess
+    call.argtypes = (wintypes.HANDLE,)
+    for p in pids:
+        h = k32.OpenProcess(0x0800, False, int(p))  # PROCESS_SUSPEND_RESUME
+        if h:
+            try:
+                call(h)
+            finally:
+                k32.CloseHandle(h)

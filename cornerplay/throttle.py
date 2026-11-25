@@ -1,40 +1,25 @@
 """A download speed limit for tools that have none (legendary, gogdl, nile).
 
-The tool's processes are frozen (SIGSTOP) for part of every short cycle and let go again
+The tool's processes are frozen (SIGSTOP; NtSuspendProcess on Windows) for part of every short cycle and let go again
 (SIGCONT): running a quarter of the time gives about a quarter of the speed. How much of each
 cycle it runs is steered by the speed the tool itself reports ("+ Download - 12.3 MiB/s"),
 which already counts the frozen moments. Network connections survive pauses this short.
 """
-import os
-import signal
-
 from PySide6.QtCore import QObject, QTimer
+
+from .osinfo import process_tree, suspend
 
 PERIOD_MS = 500
 MIN_SHARE = 0.03
 
 
 def tree(pid: int) -> list:
-    """pid and all its descendants (from /proc's children lists)."""
-    out, todo = [], [pid]
-    while todo:
-        p = todo.pop()
-        out.append(p)
-        try:
-            for task in os.listdir(f"/proc/{p}/task"):
-                with open(f"/proc/{p}/task/{task}/children") as f:
-                    todo += [int(c) for c in f.read().split()]
-        except (OSError, ValueError):
-            pass
-    return out
+    """pid and all its descendants."""
+    return process_tree(pid)
 
 
 def _signal(pids, sig):
-    for p in pids:
-        try:
-            os.kill(p, sig)
-        except OSError:
-            pass
+    suspend(pids, sig == "stop")
 
 
 class Throttle(QObject):
@@ -69,12 +54,12 @@ class Throttle(QObject):
             self._thaw()
             self.timer.start(max(20, int(PERIOD_MS * self.share)))
         else:
-            _signal(tree(self.pid), signal.SIGSTOP)
+            _signal(tree(self.pid), "stop")
             self.frozen = True
             self.timer.start(max(20, int(PERIOD_MS * (1 - self.share))))
 
     def _thaw(self):
-        _signal(tree(self.pid), signal.SIGCONT)
+        _signal(tree(self.pid), "cont")
         self.frozen = False
 
     def stop(self):
