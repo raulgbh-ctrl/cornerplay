@@ -5,6 +5,7 @@ on:
     branches: [main, windows]
     tags: ["v*"]  # a release: the Windows installer is also signed (SignPath), see CODE_SIGNING_POLICY.md
   pull_request:
+  workflow_dispatch:  # run it by hand (gh workflow run CI --ref <branch>), e.g. when GitHub missed a push
 
 jobs:
   test:
