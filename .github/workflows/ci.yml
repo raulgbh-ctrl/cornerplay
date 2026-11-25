@@ -39,7 +39,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - run: pip install "PySide6-Essentials>=6.6" "PySide6-Addons>=6.6" requests pyyaml pytest
+      - run: pip install "PySide6-Essentials>=6.6" "PySide6-Addons>=6.6" "PySide6-WebEngine" requests pyyaml pytest
       - name: QML compiles
         run: python -m cornerplay --check
         env:

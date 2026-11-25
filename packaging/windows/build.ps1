@@ -15,7 +15,8 @@ $Version = (Select-String -Path "cornerplay\__init__.py" -Pattern '^__version__ 
 Write-Host "==> Cornerplay $Version for Windows"
 
 python -m pip install --upgrade pip | Out-Null
-python -m pip install "PySide6-Essentials>=6.6" "PySide6-Addons>=6.6" requests pyyaml "pyinstaller>=6.10"
+# PySide6-WebEngine: the store sign-in window (its own package since PySide6 6.12)
+python -m pip install "PySide6-Essentials>=6.6" "PySide6-Addons>=6.6" "PySide6-WebEngine" requests pyyaml "pyinstaller>=6.10"
 if ($LASTEXITCODE) { throw "pip failed" }
 
 Write-Host "==> legendary, gogdl, nile and SDL2.dll (checked against their SHA-256)"
