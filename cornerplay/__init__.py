@@ -1,2 +1,2 @@
-"""Cornerplay: your cosy corner for every game you own, from Steam, Epic, GOG, Amazon and Battle.net."""
-__version__ = "0.24.0"
+"""Cornerplay: your cosy corner for every game you own, from Steam, Epic, GOG, Amazon, Battle.net and Xbox."""
+__version__ = "0.25.0"

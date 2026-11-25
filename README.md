@@ -1,7 +1,7 @@
 <p align="center"><img src="docs/banner.jpg" alt="Cornerplay: your games, in one cozy place"></p>
 
 <p align="center">
-  <b>Steam, Epic Games, GOG, Amazon Games, Battle.net and Humble Bundle in one cosy library on Linux,<br>
+  <b>Steam, Epic Games, GOG, Amazon Games, Battle.net, Xbox / Game Pass and Humble Bundle in one cosy library on Linux and Windows,<br>
   with a couch-friendly TV mode for your controller.</b>
 </p>
 
