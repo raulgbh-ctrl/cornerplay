@@ -31,6 +31,7 @@ jobs:
     # The Windows version: the tests, the window itself (sample games), then Cornerplay.exe and
     # its installer, started once each. The installer is kept as a build artifact.
     runs-on: windows-latest
+    timeout-minutes: 45
     env:
       PYTHONUTF8: "1"  # as Cornerplay.exe runs (its spec turns UTF-8 mode on)
     steps:
@@ -82,7 +83,9 @@ jobs:
         run: |
           $setup = Get-ChildItem dist\cornerplay-*-windows-setup.exe | Select-Object -First 1
           $dir = Join-Path $env:RUNNER_TEMP "Cornerplay-installed"
-          $i = Start-Process -FilePath $setup.FullName -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$dir`"" -Wait -PassThru
+          # Wait for the installer alone: -Wait would also wait for the Cornerplay it opens at the end.
+          $i = Start-Process -FilePath $setup.FullName -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$dir`"" -PassThru
+          if (-not $i.WaitForExit(300000)) { throw "the installer did not finish in 5 minutes" }
           if ($i.ExitCode -ne 0) { throw "the installer exited $($i.ExitCode)" }
           Stop-Process -Name Cornerplay -ErrorAction SilentlyContinue  # a silent install opens it (as an update would)
           Start-Sleep -Seconds 2
@@ -92,9 +95,9 @@ jobs:
           if (-not $web) { throw "QtWebEngineProcess.exe missing: the sign-in window would not open" }
           $p = Start-Process -FilePath "$dir\Cornerplay.exe" -ArgumentList "--smoke-test" -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "the installed Cornerplay.exe --smoke-test exited $($p.ExitCode)" }
-          $u = Start-Process -FilePath "$dir\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
-          if ($u.ExitCode -ne 0) { throw "the uninstaller exited $($u.ExitCode)" }
-          Start-Sleep -Seconds 3
+          $u = Start-Process -FilePath "$dir\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -PassThru
+          if (-not $u.WaitForExit(300000)) { throw "the uninstaller did not finish" }
+          Start-Sleep -Seconds 8  # it hands the removal to a copy of itself in %TEMP%
           if (Test-Path "$dir\Cornerplay.exe") { throw "the uninstaller left Cornerplay.exe behind" }
       - uses: actions/upload-artifact@v4
         with:
