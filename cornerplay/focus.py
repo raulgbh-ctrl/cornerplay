@@ -91,8 +91,30 @@ def dnd_off(undo: dict):
         _run(["gsettings", "set", "org.gnome.desktop.notifications", "show-banners", "true"])
 
 
+class _WindowsAwake:
+    """Windows: the screen stays on and the PC awake (SetThreadExecutionState) until terminate().
+    The state belongs to the thread that set it: Cornerplay's main thread, which lives on."""
+    ES_CONTINUOUS, ES_SYSTEM_REQUIRED, ES_DISPLAY_REQUIRED = 0x80000000, 0x00000001, 0x00000002
+
+    def __init__(self):
+        import ctypes
+        self._set = ctypes.windll.kernel32.SetThreadExecutionState
+        self._set.restype = ctypes.c_uint32
+        self._set.argtypes = (ctypes.c_uint32,)
+        if not self._set(self.ES_CONTINUOUS | self.ES_SYSTEM_REQUIRED | self.ES_DISPLAY_REQUIRED):
+            raise OSError("SetThreadExecutionState failed")
+
+    def terminate(self):
+        self._set(self.ES_CONTINUOUS)
+
+
 def stay_awake():
     """A process that keeps the screen on and the PC awake until it is stopped."""
+    if os.name == "nt":
+        try:
+            return _WindowsAwake()
+        except (OSError, AttributeError):
+            return None
     if not host.which("systemd-inhibit"):
         return None
     try:

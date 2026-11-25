@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from ..config import XDG_CONFIG, find_tool, read_json, settings
-from ..runner import StoreError, wine_env, wrapper_string
+from ..runner import StoreError, wine_env, wrapper_flags
 from .base import Command, Game, PartialResult, Store, run
 
 NILE_DIR = XDG_CONFIG / "nile"
@@ -146,6 +146,6 @@ class Amazon(Store):
 
     def launch(self, game):
         return Command(
-            [self.tool(), "launch", game.id, "--no-wine", "--wrapper", wrapper_string()],
+            [self.tool(), "launch", game.id, *wrapper_flags()],
             env=wine_env(self.id, game.id),
         )

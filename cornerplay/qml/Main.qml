@@ -8,6 +8,13 @@ import "protondb.js" as ProtonDB
 
 ApplicationWindow {
     id: win
+    // Settings that only mean something on Linux (Proton, MangoHud, GameMode, Steam's Game Mode,
+    // Sunshine's display tricks...): their switches are hidden on Windows, where games run natively.
+    readonly property var linuxOnlySettings: ({ focus_dnd: true, focus_power: true, gamemode: true, hud_levels: true,
+        mangohud: true, show_fps: true, perf_log: true, gog_native: true, shader_cache: true, shader_warmup: true,
+        peer_reports: true, show_protondb: true, steam_games: true, stream_fit: true, stream_screen_off: true,
+        clips: true, ntsync: true, fast_cores: true, update_safety: true, gamescope_hdr: true, game_workspace: true,
+        focus_lowlat: true, battlenet_hide: true, battlenet_warm: true })
     width: 1320
     height: 840
     minimumWidth: 760
@@ -4656,7 +4663,7 @@ ApplicationWindow {
             }
             // Proton's log for one start (what ProtonDB and forums ask for), and opening it after.
             MenuRow {
-                readonly property bool proton: ["epic", "gog", "amazon", "custom", "humble"].indexOf(gameMenu.g.store) !== -1
+                readonly property bool proton: !app.onWindows && ["epic", "gog", "amazon", "custom", "humble"].indexOf(gameMenu.g.store) !== -1
                 visible: proton && !!gameMenu.g.installed && !gameMenu.g.job
                 icon: "info"; text: qsTr("Start with a Proton log")
                 onPicked: { const k = gameMenu.key; gameMenu.close(); app.playWithLog(k) }
@@ -4675,7 +4682,7 @@ ApplicationWindow {
             }
             // A system update since it last ran (Mesa, kernel, driver): what changed, undo it (syschanges.py).
             MenuRow {
-                visible: !!gameMenu.g.installed && gameMenu.g.store !== "retro"
+                visible: !app.onWindows && !!gameMenu.g.installed && gameMenu.g.store !== "retro"
                 icon: "history"; text: qsTr("Broke after a system update?")
                 onPicked: { const k = gameMenu.key, t = gameMenu.g.title; gameMenu.close(); changesBox.show(k, t) }
             }
@@ -6831,8 +6838,10 @@ ApplicationWindow {
         readonly property var theme: app.theme
         property string label
         property string hint: ""
+        property bool linuxOnly: false  // hidden on Windows (Proton, gamescope, GameMode...)
         default property alias body: slot.data
         readonly property bool hit: prefs.query !== "" && (label + " " + hint).toLowerCase().indexOf(prefs.query) !== -1
+        visible: !(linuxOnly && app.onWindows)
         Layout.fillWidth: true
         implicitHeight: r2col.implicitHeight + 28
         radius: 12
@@ -6866,6 +6875,7 @@ ApplicationWindow {
         property var act: null  // set: called with the new state instead of saving settingKey
         property var state: undefined  // set: shown instead of the setting (with act)
         readonly property bool hit: prefs.query !== "" && label.toLowerCase().indexOf(prefs.query) !== -1
+        visible: !(app.onWindows && win.linuxOnlySettings[settingKey] === true)
         Layout.fillWidth: true
         implicitHeight: Math.max(48, tgText.implicitHeight + 24)  // a long label wraps instead of losing its end
         radius: 12
@@ -7660,6 +7670,7 @@ ApplicationWindow {
                         ColumnLayout {
                             spacing: 16
                             Row2 {
+                                linuxOnly: true
                                 label: qsTr("Default Proton version")
                                 hint: qsTr("Used for Epic, GOG, Amazon and Battle.net games; each game can pick its own under Options. Steam games use the version set inside Steam.")
                                 KCombo {
@@ -7674,10 +7685,11 @@ ApplicationWindow {
                             // Proton-CachyOS: tuned builds from CachyOS (faster v3 build on newer CPUs).
                             Rectangle {
                                 Layout.fillWidth: true
+                                visible: !app.onWindows
                                 implicitHeight: cachyRow.implicitHeight + 28
                                 radius: 12
                                 color: theme.surfaceContainerHigh
-                                Component.onCompleted: app.checkCachy()
+                                Component.onCompleted: if (!app.onWindows) app.checkCachy()
                                 ColumnLayout {
                                     id: cachyRow
                                     anchors { left: parent.left; right: parent.right; top: parent.top; margins: 14 }
@@ -7718,10 +7730,11 @@ ApplicationWindow {
                             }
                             Rectangle {
                                 Layout.fillWidth: true
+                                visible: !app.onWindows
                                 implicitHeight: geCol.implicitHeight + 28
                                 radius: 12
                                 color: theme.surfaceContainerHigh
-                                Component.onCompleted: app.checkGe()
+                                Component.onCompleted: if (!app.onWindows) app.checkGe()
                                 ColumnLayout {
                                     id: geCol
                                     anchors { left: parent.left; right: parent.right; top: parent.top; margins: 14 }
@@ -7823,6 +7836,7 @@ ApplicationWindow {
                             }
                             Toggle { label: qsTr("Record how games run (FPS, stutters, temperatures; needs MangoHud). A game's page shows it, by Proton version too"); settingKey: "perf_log" }
                             Row2 {
+                                linuxOnly: true
                                 label: qsTr("Gamescope for every game")
                                 hint: app.hasGamescope
                                       ? qsTr("Runs Epic, GOG, Amazon and added games inside Valve's gamescope: a clean full-screen window at your screen's resolution, or drawn smaller and upscaled with FSR for more frames. Each game can choose its own under Options. Steam games: use Steam's launch options.")
@@ -7838,6 +7852,7 @@ ApplicationWindow {
                             Toggle { label: qsTr("HDR in gamescope (HDR screen and compositor needed)"); settingKey: "gamescope_hdr"; visible: app.hasGamescope }
                             Toggle { label: qsTr("GOG: install the Linux version when a game has one (no Proton needed)"); settingKey: "gog_native" }
                             Row2 {
+                                linuxOnly: true
                                 label: qsTr("Performance profile for every game")
                                 hint: qsTr("Battery saver caps at 30 fps and Balanced at 60, both with FSR upscaling. Each game can choose its own under Options. Steam games use Steam's settings.")
                                 KCombo {
@@ -7849,6 +7864,7 @@ ApplicationWindow {
                                 }
                             }
                             Row2 {
+                                linuxOnly: true
                                 label: qsTr("Frame cap for every game")
                                 hint: qsTr("Steadier and cooler, and longer on battery. Each game can choose its own under Options. Works through DXVK, VKD3D-Proton and MangoHud.")
                                 KCombo {
@@ -8075,6 +8091,7 @@ ApplicationWindow {
                             }
                             Rectangle {
                                 Layout.fillWidth: true
+                                visible: !app.onWindows  // Steam's Game Mode is SteamOS / Linux
                                 implicitHeight: steamCol.implicitHeight + 28
                                 radius: 12
                                 color: theme.surfaceContainerHigh
@@ -8282,6 +8299,7 @@ ApplicationWindow {
                                 }
                             }
                             Row2 {
+                                linuxOnly: true
                                 label: qsTr("Or a custom Proton folder")
                                 KField {
                                     theme: win.theme; Layout.fillWidth: true
@@ -8308,6 +8326,7 @@ ApplicationWindow {
                             // Play on another screen: Sunshine here (this PC hosts) or Moonlight here (this PC is the screen).
                             Row2 {
                                 id: sunRow
+                                linuxOnly: true
                                 readonly property var st: app.sunshine
                                 label: qsTr("This PC is the gaming PC (Sunshine)")
                                 hint: qsTr("Moonlight on the TV, a laptop or a Steam Deck then plays this PC's games: Cornerplay's TV mode, your favourites and your recently played games, with their covers.")
@@ -8378,6 +8397,7 @@ ApplicationWindow {
                             }
                             Row2 {
                                 id: moonRow
+                                linuxOnly: true
                                 label: qsTr("This PC is the screen (Moonlight)")
                                 hint: qsTr("Plays the gaming PC's games here. It is woken first when its MAC address is set; TV mode's menu gets Play on it too.")
                                 RowLayout {
@@ -8470,7 +8490,8 @@ ApplicationWindow {
         property var gpus: []      // the graphics cards a game can use (two-card PCs)
         readonly property var fixes: app.commonFixes()
         property var steamProton: ({ choices: [], current: "" })
-        readonly property bool compat: ["epic", "gog", "amazon", "custom", "humble"].includes(game.store) || key === "battlenet:battlenet-app"
+        // Runs through Proton (Linux only: on Windows every game runs as it is)
+        readonly property bool compat: !app.onWindows && (["epic", "gog", "amazon", "custom", "humble"].includes(game.store) || key === "battlenet:battlenet-app")
         // Runs without Proton: a GOG Linux version, or a Linux program added by hand.
         readonly property bool runsNative: game.platform === "linux"
         heading: qsTr("Options · ") + (game.title || "")
@@ -8594,6 +8615,7 @@ ApplicationWindow {
                                  onActivated: app.setGameOption(gameOpts.key, "mangohud", currentValue) }
                     }
                     Row2 {
+                        linuxOnly: true
                         label: qsTr("GameMode")
                         KCombo { id: optMode; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
                                  onActivated: app.setGameOption(gameOpts.key, "gamemode", currentValue) }
@@ -8733,6 +8755,7 @@ ApplicationWindow {
                                  onActivated: app.setGameOption(gameOpts.key, "ntsync", currentValue) }
                     }
                     Row2 {
+                        linuxOnly: true
                         label: qsTr("Wayland (no XWayland)")
                         hint: qsTr("Wine's own Wayland driver: can help HDR, scaling and frame pacing; some games do not like it yet.")
                         KCombo { id: optWayland; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
@@ -8788,6 +8811,7 @@ ApplicationWindow {
                 }
                 // Rhythm and fighting games: a small PipeWire buffer while it plays (playtweaks.py).
                 Row2 {
+                    linuxOnly: true
                     label: qsTr("Low audio latency")
                     hint: qsTr("Sound in time with your button presses (rhythm and fighting games). Uses a little more CPU.")
                     KCombo { id: optAudioLat; theme: win.theme; Layout.fillWidth: true

@@ -21,6 +21,9 @@ FLATPAK = HOME / ".var/app"
 STEAM_ROOTS = [HOME / ".local/share/Steam", HOME / ".steam/steam", HOME / ".steam/root",
                HOME / ".steam/debian-installation", FLATPAK / "com.valvesoftware.Steam/.local/share/Steam",
                FLATPAK / "com.valvesoftware.Steam/data/Steam", HOME / "snap/steam/common/.local/share/Steam"]
+if os.name == "nt":  # Windows: the Steam folder the registry names (no Proton there, but the libraries matter)
+    from .osinfo import steam_windows
+    STEAM_ROOTS = [r for r in (steam_windows()[0],) if r]
 # Folders Steam reads compatibility tools from, besides <steam root>/compatibilitytools.d.
 SYSTEM_TOOLS = ["/usr/share/steam/compatibilitytools.d", "/usr/local/share/steam/compatibilitytools.d"]
 OTHER = [  # (glob, source label)

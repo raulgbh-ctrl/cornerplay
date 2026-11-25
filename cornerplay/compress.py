@@ -22,7 +22,7 @@ def low_priority(argv: list) -> list:
     or compression never makes the game you are playing stutter. ionice and nice exec the
     program, so it keeps the same process id (pausing and cancelling still work)."""
     from .config import settings
-    if not settings.get("jobs_low_priority", True):
+    if not settings.get("jobs_low_priority", True) or os.name == "nt":  # Windows: no nice/ionice
         return list(argv)
     out = list(argv)
     if shutil.which("nice"):

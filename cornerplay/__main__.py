@@ -117,6 +117,7 @@ def fetch_backends():
     from .config import BACKEND_REPOS, BIN_DIR, find_tool
     from .host import BUNDLED_BIN
     from .net import download_checked, github_asset
+    from .osinfo import WINDOWS, exe
     failed = 0
     for name, repo in BACKEND_REPOS.items():
         existing = find_tool(name)
@@ -124,15 +125,16 @@ def fetch_backends():
             print(f"{name}: already available at {existing}")
             continue
         try:
-            tag, url, sha = github_asset(repo, lambda n, name=name: n == f"{name}_linux_x86_64")
+            asset = f"{name}_windows_x86_64.exe" if WINDOWS else f"{name}_linux_x86_64"
+            tag, url, sha = github_asset(repo, lambda n, asset=asset: n == asset)
             print(f"{name} {tag}: downloading {url}" + ("" if sha else " (no checksum published)"))
-            print(f"{name}: installed to {download_checked(url, BIN_DIR / name, sha, mode=0o755)}")
+            print(f"{name}: installed to {download_checked(url, BIN_DIR / exe(name), sha, mode=0o755)}")
         except Exception as e:
             print(f"{name}: not downloaded: {e}")
             failed += 1
     # umu-launcher (Proton for non-Steam games): most distributions other than Arch do not
     # package it, so a portable copy (one Python zipapp) goes next to the others when it is missing.
-    if not find_tool("umu-run") and not shutil.which("wine"):
+    if not WINDOWS and not find_tool("umu-run") and not shutil.which("wine"):
         try:
             fetch_umu(BIN_DIR)
         except Exception as e:
@@ -246,6 +248,10 @@ def play(key):
 
 
 def main():
+    from .osinfo import hide_console_windows, run_frozen_helper
+    if run_frozen_helper():  # the packaged Windows build, started as a helper (osinfo.python_argv)
+        return 0
+    hide_console_windows()
     ap = argparse.ArgumentParser(prog="cornerplay", description=__doc__)
     ap.add_argument("--fetch-backends", action="store_true",
                     help="download the legendary, gogdl and nile CLIs into ~/.local/share/cornerplay/bin")

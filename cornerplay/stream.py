@@ -836,7 +836,6 @@ def watch_screen(log: Path = None, state_dir: Path = None, poll: float = 1.0, al
 
 def _start_watch(state_dir: Path = None):
     """One watcher, detached (Sunshine waits for the prep step to finish)."""
-    import sys
     from .config import CACHE_DIR
     pidf = (state_dir or CACHE_DIR) / WATCH_PID
     from .osinfo import pid_alive
@@ -848,7 +847,8 @@ def _start_watch(state_dir: Path = None):
     env = dict(os.environ)
     here = str(Path(__file__).resolve().parent.parent)   # this copy of Cornerplay, however it was installed
     env["PYTHONPATH"] = here + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
-    p = subprocess.Popen([sys.executable, "-c", "from cornerplay import stream; stream.watch_screen()"],
+    from .osinfo import python_argv
+    p = subprocess.Popen(python_argv(code="from cornerplay import stream; stream.watch_screen()"),
                          stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                          start_new_session=True, cwd=str(Path.home()), env=env)
     pidf.write_text(str(p.pid))

@@ -24,6 +24,7 @@ from . import __version__
 from .config import CACHE_DIR, CONFIG_DIR as CONFIG_DIR_STREAM, DATA_DIR as DATA_DIR_STREAM, DEFAULTS, LANGUAGES, LOG_DIR, game_options, read_json, settings, write_json
 from .net import redact
 from .runner import StoreError
+from .osinfo import python_argv
 from .stores.base import Command, Game, PartialResult, drop_side_builds, run as store_run
 from .stores import battlenet
 from .stores.battlenet import LAUNCHER_COVER
@@ -1622,7 +1623,7 @@ class AioLaunch(QObject):
     @Slot()
     def fetchBackends(self):
         self.toast.emit("Downloading the store tools…")
-        self._detach([sys.executable, "-m", "cornerplay", "--fetch-backends"],
+        self._detach(python_argv("cornerplay", "--fetch-backends"),
                      {"PYTHONPATH": str(Path(__file__).resolve().parent.parent)}, "", "fetch-backends")
         QTimer.singleShot(20000, self.checkHealth)
 
@@ -2232,7 +2233,8 @@ class AioLaunch(QObject):
         if os.path.exists(launcher):
             QProcess.startDetached(launcher, args)
         else:
-            QProcess.startDetached(sys.executable, ["-m", "cornerplay"] + args)
+            _argv = python_argv("cornerplay", *args)
+            QProcess.startDetached(_argv[0], _argv[1:])
         QGuiApplication.quit()
 
     # --- the tray and starting with the PC (tray.py) ---------------------------------
@@ -2278,6 +2280,8 @@ class AioLaunch(QObject):
         self._bg(work)
 
     inFlatpak = Property(bool, lambda s: host.IN_FLATPAK, constant=True)
+    # Windows: games run natively, so Proton, gamescope, MangoHud and the other Linux tools are hidden.
+    onWindows = Property(bool, lambda s: __import__("cornerplay.osinfo", fromlist=["WINDOWS"]).WINDOWS, constant=True)
     # Started as the whole session from the login screen (cornerplay/session/cornerplay-session).
     inSession = Property(bool, lambda s: os.environ.get("CORNERPLAY_SESSION") == "1", constant=True)
     hostImport = Property("QVariantMap", lambda s: dict(s._host_import), notify=hostImportChanged)
@@ -2428,7 +2432,7 @@ class AioLaunch(QObject):
         self._moves[key] = (src, dst, dest_dir)
         root = str(Path(__file__).resolve().parent.parent)
         env = {"PYTHONPATH": root + (":" + os.environ["PYTHONPATH"] if os.environ.get("PYTHONPATH") else "")}
-        self._start_job(g, "move", Command([sys.executable, "-m", "cornerplay.mover", src, dst], env, root))
+        self._start_job(g, "move", Command(python_argv("cornerplay.mover", src, dst), env, root))
 
     _moves = {}
 
@@ -6446,7 +6450,7 @@ class AioLaunch(QObject):
             pkg_root = str(Path(__file__).resolve().parent.parent)
             env = dict(cmd.env)
             env["PYTHONPATH"] = pkg_root + (os.pathsep + os.environ["PYTHONPATH"] if os.environ.get("PYTHONPATH") else "")
-            ok = self._detach([sys.executable, "-m", "cornerplay.session", str(job)], env, "", g.key + ".session")
+            ok = self._detach(python_argv("cornerplay.session", str(job)), env, "", g.key + ".session")
         else:
             ok = self._detach(cmd.argv, cmd.env, cmd.cwd, g.key)
         self._launch_state(g.key, "ok" if ok else "fail")
@@ -7889,7 +7893,7 @@ class AioLaunch(QObject):
         pkg_root = str(Path(__file__).resolve().parent.parent)
         env = {"PYTHONPATH": pkg_root, "CORNERPLAY_LAN_CODE": p.get("code", "")}
         from .stores.base import Command
-        cmd = Command([sys.executable, "-m", "cornerplay.lancopy", "fetch", p["host"], str(p.get("port") or lancopy.PORT),
+        cmd = Command([*python_argv("cornerplay.lancopy"), "fetch", p["host"], str(p.get("port") or lancopy.PORT),
                        key, dest, *imp], env)
         self._lan_copies[key] = dest
         self.toast.emit(f"Copying {g.title} from {peer_name}")

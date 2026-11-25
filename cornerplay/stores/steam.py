@@ -10,6 +10,7 @@ from .. import vdf
 import json
 
 from ..config import HOME, settings
+from ..osinfo import WINDOWS, steam_windows
 from ..runner import StoreError
 from .base import Command, Game, PartialResult, Store
 
@@ -22,6 +23,8 @@ ROOTS = [
     HOME / "snap/steam/common/.local/share/Steam",  # Ubuntu's Snap Steam
     HOME / f".var/app/{FLATPAK_ID}/data/Steam",
 ]
+if WINDOWS:  # the folder the registry names (usually C:\Program Files (x86)\Steam)
+    ROOTS = [Path(r) for r in (steam_windows()[0],) if r]
 # Runtimes and tools that live in steamapps but are not games.
 TOOL_IDS = {"228980", "1070560", "1391110", "1628350", "1493710"}
 TOOL_PREFIXES = ("Proton ", "Steam Linux Runtime", "Steamworks Common", "Steam Controller Configs")
@@ -55,6 +58,9 @@ class Steam(Store):
         return path
 
     def client(self):
+        if WINDOWS:
+            exe = steam_windows()[1]
+            return [exe] if exe else None
         exe = host.which("steam")
         if not exe and not host.IN_FLATPAK and os.access("/usr/games/steam", os.X_OK):
             exe = "/usr/games/steam"  # Debian/Ubuntu's place, not always on PATH from a menu

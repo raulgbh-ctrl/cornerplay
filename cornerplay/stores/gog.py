@@ -13,6 +13,7 @@ from ..net import requests
 from pathlib import Path
 
 from ..config import CACHE_DIR, CONFIG_DIR, XDG_CONFIG, find_tool, read_json, settings, write_json, write_private
+from ..osinfo import WINDOWS
 from ..runner import StoreError, extras, wine_env, wrapper_argv
 from .base import Command, Game, PartialResult, Store
 
@@ -283,7 +284,9 @@ class Gog(Store):
     # --- actions ---------------------------------------------------------
     def platform_for(self, game):
         """"linux" when the game has a Linux version and the user wants it (per game, else the
-        Settings default), otherwise "windows" (through Proton)."""
+        Settings default), otherwise "windows" (through Proton). Always "windows" on Windows."""
+        if WINDOWS:
+            return "windows"
         if game.installed:
             return game.extra.get("platform", "windows")
         from ..config import game_options

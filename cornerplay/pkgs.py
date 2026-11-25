@@ -106,8 +106,16 @@ def note(thing: str) -> str:
     return NOTES.get((thing, manager()), "")
 
 
+# Windows: the same things through winget (built into Windows 10 and 11).
+WINGET = {"steam": "Valve.Steam", "retroarch": "Libretro.RetroArch", "prismlauncher": "PrismLauncher.PrismLauncher",
+          "sunshine": "LizardByte.Sunshine", "moonlight": "MoonlightGameStreamingProject.Moonlight",
+          "battlenet": "Blizzard.BattleNet", "gog-galaxy": "GOG.Galaxy", "epic": "EpicGames.EpicGamesLauncher"}
+
+
 def hint(thing: str) -> str:
     """Short advice for a message: "sudo apt-get install mangohud", "flatpak install flathub ..."."""
+    if os.name == "nt":
+        return f"winget install {WINGET[thing]}" if thing in WINGET else "from its website"
     cmd = install_command(thing)
     where = note(thing)
     if cmd and where and cmd.startswith("sudo"):

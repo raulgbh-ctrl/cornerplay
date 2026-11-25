@@ -1,4 +1,5 @@
-"""Running Windows games: Proton through umu-launcher, plain Wine as fallback."""
+"""Running Windows games: Proton through umu-launcher, plain Wine as fallback. On Windows
+itself they simply run: no wrapper, no prefix, only the environment the user set."""
 import os
 import re
 import shlex
@@ -7,6 +8,7 @@ import shutil
 from contextlib import contextmanager
 
 from .config import CACHE_DIR, find_tool, settings
+from .osinfo import WINDOWS
 
 _overrides: dict = {}
 
@@ -74,7 +76,10 @@ class StoreError(Exception):
 
 
 def compat():
-    """Return ("umu", path) or ("wine", path); raise if neither exists."""
+    """Return ("umu", path) or ("wine", path); raise if neither exists. ("native", "") on
+    Windows, where Windows games need nothing in between."""
+    if WINDOWS:
+        return "native", ""
     umu = find_tool("umu-run")
     if umu:
         return "umu", umu
@@ -119,7 +124,11 @@ def anticheat_runtimes() -> dict:
 
 
 def wine_env(store: str, game_id: str, umu_id: str = "umu-default") -> dict:
-    """Environment for umu-run / wine for one game."""
+    """Environment for umu-run / wine for one game. On Windows: only what the user set."""
+    if WINDOWS:
+        env = parse_env(settings.get("env"))
+        env.update(parse_env(_overrides.get("env", "")))
+        return env
     env = {"WINEPREFIX": prefix_path(store, game_id, create=True)}
     env.update(anticheat_runtimes())
     kind, _ = compat()
@@ -133,6 +142,12 @@ def wine_env(store: str, game_id: str, umu_id: str = "umu-default") -> dict:
     env.update(proton_extras())
     env.update(user_env())
     return env
+
+
+def wrapper_flags() -> list:
+    """legendary's and nile's launch flags: run through our wrapper instead of their own Wine
+    (Linux); nothing on Windows, where they start the game themselves."""
+    return [] if WINDOWS else ["--no-wine", "--wrapper", wrapper_string()]
 
 
 def ntsync_ok() -> bool:
@@ -334,7 +349,10 @@ def _wants_hud() -> bool:
 def extras(gamescope: bool = True) -> list:
     """Optional wrappers the user switched on in Settings, outermost first. Under gamescope the
     overlay is gamescope's own --mangoapp (MangoHud inside gamescope draws in the wrong place).
-    gamescope=False for launchers that stay open (the Battle.net app)."""
+    gamescope=False for launchers that stay open (the Battle.net app). None on Windows: these
+    are Linux tools."""
+    if WINDOWS:
+        return []
     out = gamescope_argv(mangoapp=_wants_hud() and bool(shutil.which("mangoapp"))) if gamescope else []
     if opt("gamemode") and shutil.which("gamemoderun"):
         out.append("gamemoderun")
@@ -347,8 +365,10 @@ def extras(gamescope: bool = True) -> list:
 
 
 def wrapper_argv(gamescope: bool = True) -> list:
-    """argv prefix that runs a Windows executable."""
+    """argv prefix that runs a Windows executable ([] on Windows: it runs as it is)."""
     kind, path = compat()
+    if kind == "native":
+        return []
     if kind == "umu":
         from . import userns
         if userns.blocked() and not userns.allow():  # Ubuntu: asks for the password once

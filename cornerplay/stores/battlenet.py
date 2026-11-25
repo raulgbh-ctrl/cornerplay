@@ -1,4 +1,5 @@
-"""Battle.net: runs Blizzard's own launcher under Proton and lists what it installed.
+"""Battle.net: runs Blizzard's own launcher (under Proton on Linux, as it is on Windows) and
+lists what it installed.
 
 Blizzard has no public library API, so games are installed inside the
 Battle.net app. Cornerplay installs/starts that app and reads its product database
@@ -8,6 +9,7 @@ import os
 from pathlib import Path
 
 from ..config import CACHE_DIR, CONFIG_DIR, game_options, read_json, write_json
+from ..osinfo import WINDOWS, process_programs, reg_subkeys, reg_value, terminate
 from ..runner import StoreError, compat, prefix_path, wine_env, wrapper_argv
 from .base import Command, Game, Store
 
@@ -145,8 +147,21 @@ class BattleNet(Store):
     def prefix(self):
         return prefix_path(self.id, "launcher")
 
+    def drive_c(self):
+        """C:\\ as Battle.net sees it: the prefix's drive_c on Linux, the real one on Windows."""
+        if WINDOWS:
+            return os.environ.get("SystemDrive", "C:") + "\\"
+        return os.path.join(self.prefix(), "drive_c")
+
     def launcher_exe(self):
-        root = os.path.join(self.prefix(), "drive_c")
+        root = self.drive_c()
+        if WINDOWS:
+            # Programs and Features' entry names the folder it was installed in.
+            folder = reg_value(r"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Battle.net", "InstallLocation", "")
+            for p in (os.path.join(folder, "Battle.net.exe") if folder else "",
+                      os.path.join(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"), "Battle.net", "Battle.net.exe")):
+                if p and os.path.isfile(p):
+                    return p
         for rel in ("Program Files (x86)/Battle.net/Battle.net.exe",
                     "Program Files/Battle.net/Battle.net.exe",
                     "Program Files (x86)/Battle.net/Battle.net Launcher.exe"):
@@ -229,6 +244,11 @@ class BattleNet(Store):
                 argv.append("--game=" + uid)
             return Command(argv, env=self.env(), cwd=os.path.dirname(exe))
         setup = str(CACHE_DIR / "Battle.net-Setup.exe")
+        if WINDOWS:  # download Blizzard's installer, then run it and wait
+            ps = ("$ErrorActionPreference='Stop'; Invoke-WebRequest -UseBasicParsing -Uri $args[0] -OutFile $args[1]; "
+                  "Start-Process -Wait -FilePath $args[1]")
+            return Command(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+                            "& {" + ps + "}", SETUP_URL, setup])
         script = 'curl -fL --retry 3 -o "$1" "$2" && shift 2 && exec "$@"'
         return Command(["sh", "-c", script, "cornerplay", setup, SETUP_URL, *wrapper_argv(gamescope=False), setup],
                        env=self.env())
@@ -237,17 +257,19 @@ class BattleNet(Store):
         """Blizzard's own uninstaller, with the command line Battle.net registered for the game."""
         if game.id == LAUNCHER_ID:
             raise StoreError("Battle.net itself stays: uninstall its games from their tiles")
-        argv = uninstall_argv(self.prefix(), game.extra.get("uid") or game.id)
+        argv = (uninstall_argv_windows if WINDOWS else uninstall_argv)(self.prefix(), game.extra.get("uid") or game.id)
         if not argv:
             raise StoreError("Uninstall " + game.title + " from inside the Battle.net app")
         exe = argv[0]
         return Command([*wrapper_argv(gamescope=False), *argv], env=self.env(), cwd=os.path.dirname(exe))
 
     def product_db(self):
-        return os.path.join(self.prefix(), "drive_c/ProgramData/Battle.net/Agent/product.db")
+        return os.path.join(self.drive_c(), "ProgramData", "Battle.net", "Agent", "product.db")
 
     def linux_path(self, win_path):
-        """"C:/Program Files (x86)/Overwatch" -> the folder inside this prefix."""
+        """"C:/Program Files (x86)/Overwatch" -> the folder inside this prefix (as it is on Windows)."""
+        if WINDOWS:
+            return os.path.normpath(win_path) if win_path else ""
         p = (win_path or "").replace("\\", "/")
         if len(p) > 1 and p[1] == ":":
             drive = os.path.join(self.prefix(), "dosdevices", p[0].lower() + ":")
@@ -408,12 +430,19 @@ def uninstall_argv(prefix, uid):
 # with its "exit when a game starts" setting), so neither tells when you stopped playing.
 # The game's processes are found by their program's path, in the game's folder.
 
-def _cmdline(pid):
-    try:
-        with open(f"/proc/{pid}/cmdline", "rb") as f:
-            return f.read().split(b"\0")[0].decode("utf-8", "replace")
-    except OSError:
-        return ""
+def uninstall_argv_windows(_prefix, uid):
+    """The same, from the real Windows registry (Programs and Features)."""
+    import shlex
+    base = r"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+    for sub in reg_subkeys(base):
+        raw = reg_value(base + "\\" + sub, "UninstallString", "") or ""
+        if "Blizzard Uninstaller" not in raw or f"--uid={uid}" not in raw.split():
+            continue
+        try:
+            return shlex.split(raw.replace("\\", "\\\\"))
+        except ValueError:
+            return []
+    return []
 
 
 def _norm_path(p):
@@ -425,14 +454,7 @@ def pids_under(folders):
     roots = [_norm_path(f) + "/" for f in folders if f and len(_norm_path(f)) > 3]
     if not roots:
         return []
-    out, me = [], os.getpid()
-    for d in os.listdir("/proc"):
-        if not d.isdigit() or int(d) == me:
-            continue
-        prog = _norm_path(_cmdline(d))
-        if prog and any(prog.startswith(r) for r in roots):
-            out.append(int(d))
-    return out
+    return [pid for pid, prog in process_programs() if any(_norm_path(prog).startswith(r) for r in roots)]
 
 
 def game_folders(store, game):
@@ -446,7 +468,9 @@ def game_folders(store, game):
 
 
 def _launcher_dirs(store):
-    return [os.path.join(store.prefix(), "drive_c/Program Files (x86)/Battle.net"), "C:/Program Files (x86)/Battle.net"]
+    exe = store.launcher_exe() if WINDOWS else ""
+    return [os.path.join(store.drive_c(), "Program Files (x86)", "Battle.net"), "C:/Program Files (x86)/Battle.net",
+            *([os.path.dirname(exe)] if exe else [])]
 
 
 def launcher_running(store):
@@ -458,10 +482,13 @@ def close_launcher(store) -> bool:
     only for a game that has now closed. Not while it downloads: that would stop the download."""
     if any(p["busy"] for p in products(store.product_db())):
         return False
-    import signal
-    pids = pids_under(_launcher_dirs(store) + [os.path.join(store.prefix(), "drive_c/ProgramData/Battle.net/Agent"),
+    pids = pids_under(_launcher_dirs(store) + [os.path.join(store.drive_c(), "ProgramData", "Battle.net", "Agent"),
                                                "C:/ProgramData/Battle.net/Agent"])
     for pid in pids:
+        if WINDOWS:
+            terminate(pid)
+            continue
+        import signal
         try:
             os.kill(pid, signal.SIGTERM)
         except OSError:
@@ -473,7 +500,8 @@ def keep_signed_in(prefix):
     """Battle.net keeps you signed in between starts (its "AutoLogin"); set it when it is off.
     Only while Battle.net is closed: it writes its config back when it quits."""
     import json
-    path = os.path.join(prefix, "drive_c/users/steamuser/AppData/Roaming/Battle.net/Battle.net.config")
+    path = (os.path.join(os.environ.get("APPDATA", ""), "Battle.net", "Battle.net.config") if WINDOWS
+            else os.path.join(prefix, "drive_c/users/steamuser/AppData/Roaming/Battle.net/Battle.net.config"))
     try:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
@@ -482,7 +510,8 @@ def keep_signed_in(prefix):
     client = data.setdefault("Client", {})
     if not isinstance(client, dict) or str(client.get("AutoLogin", "")).lower() == "true":
         return
-    if pids_under([os.path.join(prefix, "drive_c/Program Files (x86)/Battle.net"), "C:/Program Files (x86)/Battle.net"]):
+    if pids_under([os.path.join(prefix, "drive_c/Program Files (x86)/Battle.net"), "C:/Program Files (x86)/Battle.net",
+                   *([os.path.join(os.environ.get("ProgramFiles(x86)", ""), "Battle.net")] if WINDOWS else [])]):
         return
     client["AutoLogin"] = "true"
     tmp = path + ".cornerplay"

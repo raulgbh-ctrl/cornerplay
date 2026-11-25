@@ -15,11 +15,11 @@ the Windows one through Proton. Downloading and unpacking run in cornerplay.humb
 import json
 import os
 import shutil
-import sys
 from urllib.parse import quote
 
 from ..config import CONFIG_DIR, read_json, settings, write_private
 from ..net import redact, requests
+from ..osinfo import python_argv
 from ..runner import StoreError, extras, perf_env, user_env, wine_env, wrapper_argv
 from .base import Command, Game, Store
 
@@ -230,7 +230,7 @@ class Humble(Store):
         want = platform or ("linux" if game.extra.get("linux") and settings.get("gog_native") else "windows"
                             if game.extra.get("windows") else "linux")
         os.makedirs(install_root(), exist_ok=True)
-        return Command([sys.executable, "-m", "cornerplay.humbledl", game.id, game.extra.get("gamekey", ""),
+        return Command([*python_argv("cornerplay.humbledl"), game.id, game.extra.get("gamekey", ""),
                         str(game_dir(game.id)), want])
 
     update = install  # a newer download simply replaces the old files

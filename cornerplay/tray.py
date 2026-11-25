@@ -79,14 +79,40 @@ class Instance(QObject):
 
 # --- start with the PC -----------------------------------------------------------------
 def _launcher():
+    from .osinfo import FROZEN, python_argv
+    if FROZEN:  # the Windows build: Cornerplay.exe itself
+        return [sys.executable]
     exe = shutil.which("cornerplay") or str(Path.home() / ".local/bin/cornerplay")
     if os.path.exists(exe):
         return [exe]
-    return [sys.executable, "-m", "cornerplay"]
+    return python_argv("cornerplay")
+
+
+RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"  # Windows: programs that start with the user
+
+
+def _windows_autostart(on: bool) -> str:
+    import subprocess
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
+            if on:
+                winreg.SetValueEx(k, "Cornerplay", 0, winreg.REG_SZ,
+                                  subprocess.list2cmdline(_launcher() + ["--background"]))
+            else:
+                try:
+                    winreg.DeleteValue(k, "Cornerplay")
+                except FileNotFoundError:
+                    pass
+        return ""
+    except OSError as e:
+        return str(e)
 
 
 def set_autostart(on: bool) -> str:
     """Make or remove the autostart entry. Returns "" or what went wrong."""
+    if os.name == "nt":
+        return _windows_autostart(on)
     if host.IN_FLATPAK:
         err = _portal_autostart(on)
         # Not every desktop's portal has Background (Hyprland's and wlroots' do not): then the
@@ -123,6 +149,9 @@ def _host_autostart(on: bool) -> str:
 
 
 def autostart_on() -> bool:
+    if os.name == "nt":
+        from .osinfo import reg_value
+        return bool(reg_value("HKCU\\" + RUN_KEY, "Cornerplay"))
     if host.IN_FLATPAK:
         return bool(settings.get("start_with_pc"))
     return AUTOSTART.is_file()

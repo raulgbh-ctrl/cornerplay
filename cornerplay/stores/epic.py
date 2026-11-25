@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 from ..config import CACHE_DIR, XDG_CONFIG, find_tool, read_json, settings, write_json
-from ..runner import StoreError, wine_env, wrapper_string
+from ..runner import StoreError, wine_env, wrapper_flags
 from .base import Command, Game, PartialResult, Store, run
 
 LOGIN_URL = "https://legendary.gl/epiclogin"
@@ -200,7 +200,7 @@ class Epic(Store):
     def launch(self, game):
         """Blocking: asks legendary for the launch details so Cornerplay can run (and wait for) the game itself."""
         env = wine_env(self.id, game.id)
-        base = [self.tool(), "launch", game.id, "--no-wine", "--wrapper", wrapper_string(), "--json"]
+        base = [self.tool(), "launch", game.id, *wrapper_flags(), "--json"]
         r = run(base, timeout=90, env=env)
         if r.returncode != 0:  # offline, or Epic unreachable: legendary can still start most games
             r = run(base + ["--offline"], timeout=60, env=env)

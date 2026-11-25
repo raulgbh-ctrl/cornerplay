@@ -19,6 +19,7 @@ from pathlib import Path
 
 from .config import CACHE_DIR, DATA_DIR, HOME, read_json, settings, write_json
 from .net import requests
+from .osinfo import python_argv
 from .search import compact
 
 MANIFEST_URL = "https://raw.githubusercontent.com/mtkennerly/ludusavi-manifest/master/data/manifest.yaml"
@@ -78,11 +79,10 @@ def build_index_apart():
     manifest) holds Python's lock all along, so in a thread it froze the window that long, and
     the Legion Go S's session killed Cornerplay as not responding. Returns an error or ""."""
     import subprocess
-    import sys
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     env = dict(os.environ, PYTHONPATH=root + os.pathsep + os.environ.get("PYTHONPATH", ""))
     try:
-        p = subprocess.run([sys.executable, "-c", "from cornerplay import savebackup; print(savebackup.build_index())"],
+        p = subprocess.run(python_argv(code="from cornerplay import savebackup; print(savebackup.build_index())"),
                            env=env, cwd=root, capture_output=True, text=True, timeout=600)
     except (OSError, subprocess.TimeoutExpired) as e:
         return f"Could not read the save locations: {e}"
