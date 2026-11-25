@@ -179,8 +179,20 @@ jobs:
           $diag = Join-Path $env:LOCALAPPDATA "Packages\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe\LocalState\DiagOutputDir"
           Get-ChildItem $diag -Filter *.log -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1 |
             ForEach-Object { Write-Host "== winget log $($_.Name)"; Get-Content $_.FullName -Tail 60 }
-          Get-ChildItem $env:TEMP -Filter "Setup Log*.txt" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "== $($_.Name)"; Get-Content $_.FullName -Tail 40 }
-          if (-not $finished) { Stop-Process -Id $w.Id -Force; throw "winget install did not finish" }
+          Get-ChildItem $diag -Filter "WinGet-raulgbh-ctrl*" -ErrorAction SilentlyContinue |
+            ForEach-Object { Write-Host "== installer log $($_.Name)"; Get-Content $_.FullName -Tail 25 }
+          $installed = Test-Path (Join-Path $env:LOCALAPPDATA "Programs\Cornerplay\Cornerplay.exe")
+          Write-Host "== Cornerplay.exe installed: $installed"
+          if (-not $finished) {
+            Stop-Process -Id $w.Id -Force
+            # Control: an unrelated Inno Setup package from the winget source, the same way. When it
+            # hangs too, this is winget on the runner, not Cornerplay's package.
+            $c = Start-Process -FilePath winget -PassThru -NoNewWindow -ArgumentList @("install", "--id", "Notepad++.Notepad++",
+                   "--exact", "--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity", "--silent")
+            if ($c.WaitForExit(300000)) { Write-Host "== control (Notepad++) finished: exit $($c.ExitCode)" }
+            else { Write-Host "== control (Notepad++) hangs too: winget on this runner"; Stop-Process -Id $c.Id -Force }
+            throw "winget install did not finish (Cornerplay installed: $installed)"
+          }
           if ($w.ExitCode -ne 0) { throw "winget install failed ($($w.ExitCode))" }
           Stop-Process -Name Cornerplay -ErrorAction SilentlyContinue
           $exe = Join-Path $env:LOCALAPPDATA "Programs\Cornerplay\Cornerplay.exe"
