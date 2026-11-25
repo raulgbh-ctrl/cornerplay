@@ -12,6 +12,12 @@ AppVersion={#AppVersion}
 AppVerName=Cornerplay {#AppVersion}
 AppPublisher=Cornerplay
 AppPublisherURL=https://github.com/raulgbh-ctrl/cornerplay
+; The file's own properties (SignPath checks them: the product name, the same version every build)
+VersionInfoProductName=Cornerplay
+VersionInfoProductVersion={#AppVersion}
+VersionInfoVersion={#AppVersion}
+VersionInfoDescription=Cornerplay installer
+VersionInfoCompany=Cornerplay
 DefaultDirName={localappdata}\Programs\Cornerplay
 DefaultGroupName=Cornerplay
 DisableProgramGroupPage=yes
