@@ -167,8 +167,21 @@ jobs:
           $out = winget validate --manifest $dir.FullName | Out-String
           Write-Host $out
           if ($out -notmatch "Manifest validation succeeded") { throw "winget validate failed" }
-          winget install --manifest $dir.FullName --accept-package-agreements --accept-source-agreements --disable-interactivity --silent
-          if ($LASTEXITCODE -ne 0) { throw "winget install failed ($LASTEXITCODE)" }
+          # winget may never come back: run it with a time limit, and show what it and the installer did.
+          $w = Start-Process -FilePath winget -PassThru -NoNewWindow -ArgumentList @("install", "--manifest", $dir.FullName,
+                 "--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity", "--silent", "--verbose-logs")
+          $finished = $w.WaitForExit(480000)
+          if (-not $finished) {
+            Write-Host "== winget still running after 8 minutes. Processes:"
+            Get-CimInstance Win32_Process | Where-Object { $_.Name -match "winget|setup|Cornerplay|\.tmp|AppInstaller" } |
+              ForEach-Object { Write-Host "$($_.ProcessId) parent $($_.ParentProcessId) $($_.Name) $($_.CommandLine)" }
+          }
+          $diag = Join-Path $env:LOCALAPPDATA "Packages\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe\LocalState\DiagOutputDir"
+          Get-ChildItem $diag -Filter *.log -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1 |
+            ForEach-Object { Write-Host "== winget log $($_.Name)"; Get-Content $_.FullName -Tail 60 }
+          Get-ChildItem $env:TEMP -Filter "Setup Log*.txt" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "== $($_.Name)"; Get-Content $_.FullName -Tail 40 }
+          if (-not $finished) { Stop-Process -Id $w.Id -Force; throw "winget install did not finish" }
+          if ($w.ExitCode -ne 0) { throw "winget install failed ($($w.ExitCode))" }
           Stop-Process -Name Cornerplay -ErrorAction SilentlyContinue
           $exe = Join-Path $env:LOCALAPPDATA "Programs\Cornerplay\Cornerplay.exe"
           if (-not (Test-Path $exe)) { throw "Cornerplay.exe was not installed at $exe" }
