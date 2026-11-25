@@ -134,6 +134,19 @@ def prefix_for(game, appid=None):
     return prefix_path(game.store, game.id)
 
 
+def _documents():
+    """Windows: the Documents folder, wherever it is (OneDrive often moves it)."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+        buf = ctypes.create_unicode_buffer(wintypes.MAX_PATH)
+        if ctypes.windll.shell32.SHGetFolderPathW(None, 5, None, 0, buf) == 0:  # CSIDL_PERSONAL
+            return buf.value
+    except (AttributeError, OSError):
+        pass
+    return os.path.join(str(HOME), "Documents")
+
+
 def paths_for(game, appid=None):
     """Existing save files and folders for a game: [path]."""
     e = entry_for(game, appid)
@@ -149,6 +162,18 @@ def paths_for(game, appid=None):
                 "<base>": game.install_path or "", "<root>": os.path.dirname(game.install_path or ""),
                 "<game>": os.path.basename(game.install_path or ""), "<osUserName>": os.environ.get("USER", "")}
         wanted = ("linux",)
+    elif os.name == "nt":  # Windows: the real folders
+        user = str(HOME)
+        env = os.environ.get
+        subs = {"<home>": user, "<winAppData>": env("APPDATA") or os.path.join(user, "AppData", "Roaming"),
+                "<winLocalAppData>": env("LOCALAPPDATA") or os.path.join(user, "AppData", "Local"),
+                "<winLocalAppDataLow>": os.path.join(user, "AppData", "LocalLow"),
+                "<winDocuments>": _documents(),
+                "<winPublic>": env("PUBLIC") or "", "<winProgramData>": env("ProgramData") or "",
+                "<winDir>": env("WINDIR") or "",
+                "<base>": game.install_path or "", "<root>": os.path.dirname(game.install_path or ""),
+                "<game>": os.path.basename(game.install_path or ""), "<osUserName>": env("USERNAME") or ""}
+        wanted = ("windows",)
     else:
         pfx = prefix_for(game, appid)
         if not pfx or not os.path.isdir(pfx):

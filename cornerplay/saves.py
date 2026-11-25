@@ -11,6 +11,7 @@ sync() returns a dict:
 """
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 import zlib
@@ -51,7 +52,10 @@ def _result(status, message, **extra):
 
 # ---------------------------------------------------------------- prefix
 def ensure_prefix(store, game_id):
-    """Save paths live inside the Proton prefix, so it must exist before a first sync."""
+    """Save paths live inside the Proton prefix, so it must exist before a first sync. On
+    Windows there is none: saves are where the game puts them ("")."""
+    if os.name == "nt":
+        return ""
     pfx = prefix_path(store, game_id, create=True)
     if os.path.isfile(os.path.join(pfx, "user.reg")):
         return pfx
@@ -65,6 +69,8 @@ def ensure_prefix(store, game_id):
 
 
 def user_dir(pfx):
+    if os.name == "nt" and not pfx:  # Windows: the real user folder
+        return str(Path.home())
     users = os.path.join(pfx, "drive_c", "users")
     for name in ("steamuser", os.environ.get("USER", "")):
         if name and os.path.isdir(os.path.join(users, name)):
@@ -84,7 +90,7 @@ def _epic(game, mode):
     argv = [tool, "-y", "sync-saves", game.id, "--accept-path"]
     argv += {"download": ["--skip-upload"], "upload": ["--skip-download"],
              "force-download": ["--force-download"], "force-upload": ["--force-upload"]}.get(mode, [])
-    r = _run(argv, env={"WINEPREFIX": pfx})
+    r = _run(argv, env={"WINEPREFIX": pfx} if pfx else {})
     if r is None:
         return _result("error", "Epic save sync timed out")
     text = (r.stderr or "") + (r.stdout or "")

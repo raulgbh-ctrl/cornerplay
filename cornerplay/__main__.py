@@ -280,9 +280,12 @@ def main():
     ap.add_argument("--session", action="store_true",
                     help="run as a login session (loginsession.py): TV mode, and leaving it ends the session")
     ap.add_argument("--check", action="store_true", help="compile every QML file and report errors, then exit")
+    ap.add_argument("--smoke-test", action="store_true", help=argparse.SUPPRESS)  # CI: open the window with sample games, close after a few seconds
     ap.add_argument("--fetch-umu", action="store_true", help=argparse.SUPPRESS)  # install.sh: a portable umu-launcher
     ap.add_argument("--userns-profile", action="store_true", help=argparse.SUPPRESS)  # install.sh: Ubuntu's AppArmor profile
     args = ap.parse_args()
+    if args.smoke_test:
+        args.demo = True
     if args.session:
         args.tv = True
     if args.userns_profile:
@@ -478,6 +481,11 @@ def main():
         from PySide6.QtCore import QTimer
         QTimer.singleShot(1500, lambda: cornerplay.openNxm(args.nxm))
     app.aboutToQuit.connect(cornerplay.shutdown)
+    if args.smoke_test:  # the window opened without QML errors: wait a moment for late errors, then leave
+        from PySide6.QtCore import QTimer
+        failed = []
+        engine.warnings.connect(lambda ws: failed.extend(w for w in ws if "Error transferring" not in w.toString()))  # a missing cover online is not a broken app
+        QTimer.singleShot(6000, lambda: (print("smoke test:", "QML warnings" if failed else "ok"), app.exit(3 if failed else 0)))
     code = app.exec()
     del engine
     return code

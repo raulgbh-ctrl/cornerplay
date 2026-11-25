@@ -129,7 +129,8 @@ def latest(force=False):
     bundle = host.IN_FLATPAK and flatpak_bundle()
     if managed() and not bundle:
         return {}  # pacman / Flathub (Discover, GNOME Software, `flatpak update`) keep it current
-    suffix = ".flatpak" if bundle else ".run"
+    windows = os.name == "nt"  # the Windows build: its installer, which updates in place
+    suffix = ".flatpak" if bundle else "-windows-setup.exe" if windows else ".run"
     cached = read_json(FILE) or {}
     if cached.get("suffix", ".run") != suffix:
         cached = {}  # an earlier check looked for the other kind of file
@@ -156,7 +157,7 @@ def latest(force=False):
     if not cached["asset"].startswith(ASSET_PREFIX):
         return {}
     return {"version": tag.lstrip("v"), "url": cached["url"], "notes": cached["notes"], "asset": cached["asset"],
-            "sha256": cached.get("sha256", ""), "kind": "flatpak" if bundle else "run"}
+            "sha256": cached.get("sha256", ""), "kind": "flatpak" if bundle else "windows" if windows else "run"}
 
 
 # Releases from 0.19.1 on are signed with the project's own key (ssh-keygen -Y sign), kept off

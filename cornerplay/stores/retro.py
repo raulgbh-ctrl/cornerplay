@@ -122,6 +122,12 @@ def scan():
 def retroarch():
     """(argv prefix, cores folders) for the RetroArch on this PC, or (None, []). From inside
     Cornerplay's Flatpak, RetroArch is a program on the host and is started there."""
+    if os.name == "nt":  # Windows: RetroArch's installer puts it in C:\RetroArch-Win64 (cores\ beside it)
+        for exe in (host.which("retroarch"), os.path.join(os.environ.get("SystemDrive", "C:") + "\\", "RetroArch-Win64", "retroarch.exe"),
+                    os.path.join(os.environ.get("APPDATA", ""), "RetroArch", "retroarch.exe")):
+            if exe and os.path.isfile(exe):
+                return [exe], [Path(exe).parent / "cores"]
+        return None, []
     exe = host.which("retroarch")
     if exe:
         config = HOME / ".config" if host.IN_FLATPAK else XDG_CONFIG
@@ -147,7 +153,7 @@ def _exists(path):
 def find_core(sid, folders):
     for core in SYSTEMS[sid][1]:
         for d in folders:
-            p = Path(d) / f"{core}_libretro.so"
+            p = Path(d) / f"{core}_libretro{'.dll' if os.name == 'nt' else '.so'}"
             if _exists(p):
                 return str(p)
     return ""

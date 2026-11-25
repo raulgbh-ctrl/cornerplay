@@ -2198,6 +2198,15 @@ class AioLaunch(QObject):
             def run():
                 p = QProcess(self)
                 p.finished.connect(lambda code, _s: self._update_done(code, info["version"]))
+                if info.get("kind") == "windows":
+                    # The installer replaces Cornerplay's files, so Cornerplay steps out of its way;
+                    # the installer starts the new version when it is done.
+                    self._updating = False
+                    QProcess.startDetached(str(path), ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"])
+                    self.toast.emit(f"Installing Cornerplay {info['version']}: it opens again in a moment")
+                    from PySide6.QtCore import QTimer
+                    QTimer.singleShot(1500, QGuiApplication.quit)
+                    return
                 if info.get("kind") == "flatpak":
                     cmd = updates.install_flatpak_argv(path)  # the host's flatpak installs it over this one
                     p.start(cmd[0], cmd[1:])
@@ -2224,6 +2233,11 @@ class AioLaunch(QObject):
             # (after an update), where a start from inside this sandbox would run this one again.
             cmd = host.argv(["flatpak", "run", host.APP_ID, *args])
             QProcess.startDetached(cmd[0], cmd[1:])
+            QGuiApplication.quit()
+            return
+        from .osinfo import FROZEN
+        if FROZEN:  # the Windows build: Cornerplay.exe again
+            QProcess.startDetached(sys.executable, args)
             QGuiApplication.quit()
             return
         # The launcher the installer wrote knows where the new copy and its Python live.

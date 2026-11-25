@@ -90,8 +90,9 @@ def test_frozen_helper_runs_only_cornerplay_modules(monkeypatch):
 
 
 def test_exe_names():
-    assert osinfo.exe("legendary") == "legendary"  # on Linux
-    assert osinfo.machine() in ("x86_64", "aarch64") or osinfo.machine()
+    assert osinfo.exe("legendary") == "legendary" + osinfo.EXE
+    assert osinfo.exe("nile.exe").lower().count(".exe") == 1
+    assert osinfo.machine()
 
 
 def test_pid_alive():

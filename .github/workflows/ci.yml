@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, windows]
   pull_request:
 
 jobs:
@@ -26,3 +26,53 @@ jobs:
           QT_QPA_PLATFORM: offscreen
       - name: Installer builds
         run: ./make-installer.sh
+
+  windows:
+    # The Windows version: the tests, the window itself (sample games), then Cornerplay.exe and
+    # its installer, started once each. The installer is kept as a build artifact.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install "PySide6-Essentials>=6.6" "PySide6-Addons>=6.6" requests pyyaml pytest
+      - name: QML compiles
+        run: python -m cornerplay --check
+        env:
+          QT_QPA_PLATFORM: offscreen
+      - name: Windows tests
+        run: pytest -q tests/test_windows.py
+        env:
+          QT_QPA_PLATFORM: offscreen
+      - name: Every test (Linux-specific ones may fail here; shown, not blocking)
+        continue-on-error: true
+        run: pytest -q
+        env:
+          QT_QPA_PLATFORM: offscreen
+      - name: The window opens (from source)
+        run: python -m cornerplay --smoke-test
+        env:
+          QT_QPA_PLATFORM: offscreen
+      - name: Build Cornerplay.exe and the installer
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          ./packaging/windows/build.ps1
+      - name: Cornerplay.exe opens, and starts its helpers
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          $p = Start-Process -FilePath dist\Cornerplay\Cornerplay.exe -ArgumentList "--smoke-test" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Cornerplay.exe --smoke-test exited $($p.ExitCode)" }
+          $marker = Join-Path $env:RUNNER_TEMP "helper-ran.txt"
+          $code = "from cornerplay import osinfo; open(r'$marker', 'w').write(str(osinfo.WINDOWS))"
+          $h = Start-Process -FilePath dist\Cornerplay\Cornerplay.exe -ArgumentList "--run-code", "`"$code`"" -Wait -PassThru
+          if ($h.ExitCode -ne 0 -or (Get-Content $marker) -ne "True") { throw "the frozen helper did not run" }
+          if (-not (Test-Path dist\Cornerplay\backends\legendary.exe)) { throw "legendary.exe missing" }
+          if (-not (Test-Path dist\Cornerplay\_internal\SDL2.dll) -and -not (Test-Path dist\Cornerplay\SDL2.dll)) { throw "SDL2.dll missing" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cornerplay-windows
+          path: dist/cornerplay-*-windows-setup.exe

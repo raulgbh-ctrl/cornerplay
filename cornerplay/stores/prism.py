@@ -27,6 +27,9 @@ LOADERS = {"net.fabricmc.fabric-loader": "Fabric", "net.minecraftforge": "Forge"
 
 def data_dirs():
     """Prism's data folders on this PC: [(folder, "native" | "flatpak")]."""
+    if os.name == "nt":  # Windows: %APPDATA%\PrismLauncher (the portable build keeps it beside the program)
+        d = Path(os.environ.get("APPDATA") or HOME / "AppData/Roaming") / "PrismLauncher"
+        return [(d, "native")] if d.is_dir() else []
     xdg = Path(os.environ.get("XDG_DATA_HOME") or HOME / ".local/share")
     out = []
     for d, kind in ((xdg / "PrismLauncher", "native"), (HOME / ".var/app" / FLATPAK_ID / "data/PrismLauncher", "flatpak")):
@@ -110,6 +113,9 @@ def prism_argv(kind):
     if kind == "flatpak":
         return host.argv(["flatpak", "run", FLATPAK_ID]) if host.which("flatpak") else None
     exe = host.which("prismlauncher") or host.which("PrismLauncher")
+    if not exe and os.name == "nt":  # its installer's place (per user), not on PATH
+        p = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "PrismLauncher", "prismlauncher.exe")
+        exe = p if os.path.isfile(p) else None
     return host.argv([exe]) if exe else None
 
 

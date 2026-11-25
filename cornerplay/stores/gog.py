@@ -119,6 +119,13 @@ class Gog(Store):
             if len(lines) >= 5 and lines[4].strip().isdigit():
                 out[lines[4].strip()] = (os.path.dirname(gi), {"name": lines[0].strip(), "platform": "linux"})
         infos = [i for r in roots for i in glob.glob(os.path.join(str(r), "*", "goggame-*.info"))]
+        if WINDOWS:  # games GOG Galaxy (or GOG's offline installers) put elsewhere: the registry lists them
+            from ..osinfo import reg_subkeys, reg_value
+            for gid in reg_subkeys(r"HKLM\SOFTWARE\GOG.com\Games"):
+                path = reg_value(rf"HKLM\SOFTWARE\GOG.com\Games\{gid}", "path", "")
+                info_path = os.path.join(path, f"goggame-{gid}.info") if path else ""
+                if info_path and os.path.isfile(info_path) and info_path not in infos:
+                    infos.append(info_path)
         for info_path in infos:
             info = read_json(info_path) or {}
             gid = str(info.get("gameId", ""))

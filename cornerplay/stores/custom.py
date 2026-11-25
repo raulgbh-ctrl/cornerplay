@@ -107,7 +107,7 @@ class Custom(Store):
         e = next((x for x in entries() if x["id"] == game.id), None)
         if not e or not os.path.exists(e["exe"]):
             raise StoreError("The program is not there any more; remove the game and add it again")
-        args = shlex.split(e.get("args") or "")
+        args = shlex.split(e.get("args") or "", posix=os.name != "nt")  # Windows: backslashes in paths stay
         cwd = os.path.dirname(e["exe"])
         if e.get("kind") == "linux":
             env = {k: v for k, v in perf_env(self.id, game.id).items() if k == "MANGOHUD_CONFIG"}

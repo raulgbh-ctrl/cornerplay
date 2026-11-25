@@ -61,6 +61,20 @@ themselves, and the old `aiolaunch` command keeps working.*
    an Install button; Proton is chosen and set up for you. Press **F11** (or the Guide button on
    a controller) for TV mode.
 
+## Windows
+
+Cornerplay also runs on Windows 10 and 11 (64-bit). Download `cornerplay-<version>-windows-setup.exe`
+from the releases page and run it: it installs for your account only, no administrator needed,
+and brings legendary, gogdl, nile and SDL2 with it.
+
+On Windows games run as they are, so there is no Proton, no prefixes and none of the Linux tools
+(gamescope, MangoHud, GameMode, the Hyprland extras, btrfs snapshots); Settings hides them. Steam,
+Battle.net, GOG Galaxy, RetroArch and Prism Launcher are found where their Windows installers put
+them. Settings and data live in `%APPDATA%\Cornerplay` and `%LOCALAPPDATA%\Cornerplay`.
+
+To build it yourself on Windows: `powershell -ExecutionPolicy Bypass -File packaging\windows\build.ps1`
+(Python 3.10+ and Inno Setup 6).
+
 ## Setting up each store
 
 | Store | How to connect | Needed? |
