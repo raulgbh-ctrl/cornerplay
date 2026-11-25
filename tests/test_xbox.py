@@ -40,6 +40,7 @@ def nexus_home(tmp_path, monkeypatch):
     monkeypatch.setattr(nexus.shutil, "which", lambda n: None)
     monkeypatch.setattr(gamepass, "catalog", lambda force=False: CATALOG)
     monkeypatch.setattr(X, "WINDOWS", False)
+    monkeypatch.setattr(nexus, "unsupported", lambda: "")  # pretend to be a Linux PC Nexus runs on (also in Windows CI)
     return tmp_path
 
 
