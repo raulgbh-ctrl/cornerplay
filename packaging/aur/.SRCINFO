@@ -1,6 +1,6 @@
 pkgbase = cornerplay
 	pkgdesc = Your cosy corner for every game you own: Steam, Epic, GOG, Amazon, Battle.net and Humble Bundle in one library, with a TV mode
-	pkgver = 0.23.0
+	pkgver = 0.24.0
 	pkgrel = 1
 	url = https://github.com/raulgbh-ctrl/cornerplay
 	arch = any
@@ -21,7 +21,7 @@ pkgbase = cornerplay
 	optdepends = gamescope: games in gamescope, and the Cornerplay (TV) login session
 	optdepends = espeak-ng: read aloud in TV mode (otherwise Cornerplay downloads a voice)
 	optdepends = legendary: Epic Games (otherwise Cornerplay downloads its own copy)
-	source = cornerplay-0.23.0.tar.gz::https://github.com/raulgbh-ctrl/cornerplay/archive/refs/tags/v0.23.0.tar.gz
-	sha256sums = 2f84087f83abe334fa7445992db3d72c89cda7a1f812a9a7d31eee784a6a4bcb
+	source = cornerplay-0.24.0.tar.gz::https://github.com/raulgbh-ctrl/cornerplay/archive/refs/tags/v0.24.0.tar.gz
+	sha256sums = 83d4ffef0203eec0781b7d408c639c0e43f12f66693f8b9c3acf9b6f439d4a1b
 
 pkgname = cornerplay
