@@ -134,3 +134,30 @@ jobs:
         with:
           name: cornerplay-windows
           path: ${{ steps.sign.outcome == 'success' && 'dist/signed/*.exe' || 'dist/cornerplay-*-windows-setup.exe' }}
+
+  winget:
+    # The winget manifests of the newest version in packaging/winget: `winget validate`, then a real
+    # `winget install --manifest` and uninstall (what microsoft/winget-pkgs asks before a PR).
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate, install and uninstall with winget
+        shell: pwsh
+        run: |
+          $dir = Get-ChildItem packaging\winget\manifests\r\raulgbh-ctrl\Cornerplay -Directory |
+                 Sort-Object { [version]$_.Name } | Select-Object -Last 1
+          Write-Host "Manifests: $($dir.FullName)"
+          winget --version
+          winget settings --enable LocalManifestFiles
+          winget validate --manifest $dir.FullName
+          if ($LASTEXITCODE -ne 0) { throw "winget validate failed" }
+          winget install --manifest $dir.FullName --accept-package-agreements --accept-source-agreements --disable-interactivity --silent
+          if ($LASTEXITCODE -ne 0) { throw "winget install failed ($LASTEXITCODE)" }
+          Stop-Process -Name Cornerplay -ErrorAction SilentlyContinue
+          $exe = Join-Path $env:LOCALAPPDATA "Programs\Cornerplay\Cornerplay.exe"
+          if (-not (Test-Path $exe)) { throw "Cornerplay.exe was not installed at $exe" }
+          winget list --id raulgbh-ctrl.Cornerplay --disable-interactivity
+          winget uninstall --product-code "{6C1E0E7A-3B5B-4C55-9F0E-C0A7E7B1A0D1}_is1" --silent --disable-interactivity
+          if ($LASTEXITCODE -ne 0) { throw "winget uninstall failed ($LASTEXITCODE)" }

@@ -15,7 +15,7 @@ REPO = "raulgbh-ctrl/cornerplay"
 ID = "raulgbh-ctrl.Cornerplay"
 # Inno Setup registers the app under its AppId (packaging/windows/cornerplay.iss) plus "_is1".
 PRODUCT_CODE = "{6C1E0E7A-3B5B-4C55-9F0E-C0A7E7B1A0D1}_is1"
-SCHEMA = "1.9.0"
+SCHEMA = "1.28.0"
 ROOT = Path(__file__).resolve().parent.parent
 
 

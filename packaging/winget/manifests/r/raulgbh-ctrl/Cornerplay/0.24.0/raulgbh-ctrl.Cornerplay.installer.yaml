@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.9.0.schema.json
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.28.0.schema.json
 
 PackageIdentifier: raulgbh-ctrl.Cornerplay
 PackageVersion: 0.24.0
@@ -18,4 +18,4 @@ Installers:
   InstallerUrl: https://github.com/raulgbh-ctrl/cornerplay/releases/download/v0.24.0/cornerplay-0.24.0-windows-setup.exe
   InstallerSha256: 38EBF6497DF44CB4A7DF247451DE357F37362750482DF15E5DAA33A7B0F84EA8
 ManifestType: installer
-ManifestVersion: 1.9.0
+ManifestVersion: 1.28.0

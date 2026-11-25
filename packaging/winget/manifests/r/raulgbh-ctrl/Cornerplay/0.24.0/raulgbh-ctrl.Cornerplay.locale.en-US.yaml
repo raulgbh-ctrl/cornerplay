@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.9.0.schema.json
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.28.0.schema.json
 
 PackageIdentifier: raulgbh-ctrl.Cornerplay
 PackageVersion: 0.24.0
@@ -27,4 +27,4 @@ Tags:
 - game-pass
 ReleaseNotesUrl: https://github.com/raulgbh-ctrl/cornerplay/releases/tag/v0.24.0
 ManifestType: defaultLocale
-ManifestVersion: 1.9.0
+ManifestVersion: 1.28.0
