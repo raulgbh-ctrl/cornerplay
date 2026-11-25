@@ -2229,7 +2229,7 @@ class AioLaunch(QObject):
                     # The installer replaces Cornerplay's files, so Cornerplay steps out of its way;
                     # the installer starts the new version when it is done.
                     self._updating = False
-                    QProcess.startDetached(str(path), ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"])
+                    QProcess.startDetached(str(path), ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/relaunch=yes"])
                     self.toast.emit(f"Installing Cornerplay {info['version']}: it opens again in a moment")
                     from PySide6.QtCore import QTimer
                     QTimer.singleShot(1500, QGuiApplication.quit)

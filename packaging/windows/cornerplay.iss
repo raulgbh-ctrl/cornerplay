@@ -48,8 +48,15 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\Cornerplay.exe"; Description: "{cm:LaunchProgram,Cornerplay}"; Flags: nowait postinstall skipifsilent
-; An update from inside Cornerplay runs this installer silently: open the new version after.
-Filename: "{app}\Cornerplay.exe"; Flags: nowait; Check: WizardSilent
+; An update from inside Cornerplay runs this installer silently with /relaunch=yes: open the new
+; version after. Other silent installs (winget, scripts) leave it closed, so nothing waits on it.
+Filename: "{app}\Cornerplay.exe"; Flags: nowait; Check: WizardSilent and Relaunch
+
+[Code]
+function Relaunch: Boolean;
+begin
+  Result := ExpandConstant('{param:relaunch|no}') = 'yes';
+end;
 
 [UninstallRun]
 Filename: "taskkill"; Parameters: "/IM Cornerplay.exe /F"; Flags: runhidden; RunOnceId: "StopCornerplay"

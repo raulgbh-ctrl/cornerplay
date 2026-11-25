@@ -90,8 +90,10 @@ jobs:
           $i = Start-Process -FilePath $setup.FullName -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$dir`"" -PassThru
           if (-not $i.WaitForExit(300000)) { throw "the installer did not finish in 5 minutes" }
           if ($i.ExitCode -ne 0) { throw "the installer exited $($i.ExitCode)" }
-          Stop-Process -Name Cornerplay -ErrorAction SilentlyContinue  # a silent install opens it (as an update would)
-          Start-Sleep -Seconds 2
+          Start-Sleep -Seconds 3
+          # A plain silent install (winget, scripts) must leave Cornerplay closed: only Cornerplay's own
+          # updater asks the installer to open it again (/relaunch=yes).
+          if (Get-Process -Name Cornerplay -ErrorAction SilentlyContinue) { throw "a silent install opened Cornerplay" }
           if (-not (Test-Path "$dir\Cornerplay.exe")) { throw "Cornerplay.exe was not installed" }
           if (-not (Test-Path "$dir\backends\gogdl.exe")) { throw "the backends were not installed" }
           $web = Get-ChildItem -Recurse -Path $dir -Filter QtWebEngineProcess.exe | Select-Object -First 1
@@ -102,6 +104,15 @@ jobs:
           if (-not $u.WaitForExit(300000)) { throw "the uninstaller did not finish" }
           Start-Sleep -Seconds 8  # it hands the removal to a copy of itself in %TEMP%
           if (Test-Path "$dir\Cornerplay.exe") { throw "the uninstaller left Cornerplay.exe behind" }
+          # Cornerplay's own updater: /relaunch=yes opens the new version when the install is done.
+          $dir2 = Join-Path $env:RUNNER_TEMP "Cornerplay-update"
+          $i = Start-Process -FilePath $setup.FullName -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/relaunch=yes", "/DIR=`"$dir2`"" -PassThru
+          if (-not $i.WaitForExit(300000)) { throw "the update install did not finish" }
+          Start-Sleep -Seconds 5
+          if (-not (Get-Process -Name Cornerplay -ErrorAction SilentlyContinue)) { throw "/relaunch=yes did not open Cornerplay" }
+          Stop-Process -Name Cornerplay -Force
+          $u = Start-Process -FilePath "$dir2\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -PassThru
+          if (-not $u.WaitForExit(300000)) { throw "the second uninstall did not finish" }
       # Code signing (SignPath Foundation, free for open source): only for a release tag, and only
       # once the project's SignPath token is set (Settings > Secrets: SIGNPATH_API_TOKEN; Variables:
       # SIGNPATH_ORGANIZATION_ID, SIGNPATH_PROJECT_SLUG, SIGNPATH_POLICY_SLUG). Until then the
