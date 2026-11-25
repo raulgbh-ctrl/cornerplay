@@ -173,7 +173,9 @@ jobs:
             Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name SmartScreenEnabled -Value "Off"
             Write-Host "SmartScreen switched off for this run"
           }
-          # Experiment 2: no "Open File - Security Warning" (publisher could not be verified) for .exe files.
+          # The installer is not code-signed yet (SignPath, CODE_SIGNING_POLICY.md): Windows asks "the
+          # publisher could not be verified, run it?" before it runs, and on a runner no one can say yes,
+          # so winget waits forever. WINGET_ZONECHECK_OFF=1 says yes for the test; drop it once signed.
           if ($env:ZONECHECK_OFF -eq "1") {
             $k = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Associations"
             New-Item -Path $k -Force | Out-Null
@@ -215,6 +217,6 @@ jobs:
           Stop-Process -Name Cornerplay -ErrorAction SilentlyContinue
           $exe = Join-Path $env:LOCALAPPDATA "Programs\Cornerplay\Cornerplay.exe"
           if (-not (Test-Path $exe)) { throw "Cornerplay.exe was not installed at $exe" }
-          winget list --id raulgbh-ctrl.Cornerplay --disable-interactivity
-          winget uninstall --product-code "{6C1E0E7A-3B5B-4C55-9F0E-C0A7E7B1A0D1}_is1" --silent --disable-interactivity
+          winget list --id raulgbh-ctrl.Cornerplay --disable-interactivity --accept-source-agreements
+          winget uninstall --product-code "{6C1E0E7A-3B5B-4C55-9F0E-C0A7E7B1A0D1}_is1" --silent --disable-interactivity --accept-source-agreements
           if ($LASTEXITCODE -ne 0) { throw "winget uninstall failed ($LASTEXITCODE)" }
