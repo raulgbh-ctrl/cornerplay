@@ -14,7 +14,7 @@ ApplicationWindow {
         mangohud: true, show_fps: true, perf_log: true, gog_native: true, shader_cache: true, shader_warmup: true,
         peer_reports: true, show_protondb: true, steam_games: true, stream_fit: true, stream_screen_off: true,
         clips: true, ntsync: true, fast_cores: true, update_safety: true, gamescope_hdr: true, game_workspace: true,
-        focus_lowlat: true, battlenet_hide: true, battlenet_warm: true })
+        focus_lowlat: true, battlenet_hide: true, battlenet_warm: true, jobs_low_priority: true })
     width: 1320
     height: 840
     minimumWidth: 760
@@ -186,6 +186,13 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+Q"; onActivated: Qt.quit() }
     // Quick ways to the tools in the sidebar; F1 (or ?) lists every key.
     Shortcut { sequence: "Ctrl+,"; enabled: !win.tv; onActivated: prefs.open() }
+    // --smoke-test (CI): open what start-up alone never builds, so its QML errors show too.
+    function smokeStep(step, key) {
+        if (step < 5) { prefs.tab = step; if (!prefs.visible) prefs.open() }
+        else if (step === 5) { prefs.close(); if (key) gameOpts.show(key) }
+        else gameOpts.close()
+        return "settings " + (prefs.opened || prefs.visible) + " tab " + prefs.tab + ", options " + (gameOpts.opened || gameOpts.visible) + " " + gameOpts.key
+    }
     Shortcut { sequence: "Ctrl+P"; enabled: !win.tv; onActivated: picker.show() }
     Shortcut { sequence: "Ctrl+I"; enabled: !win.tv; onActivated: statsBox.show() }
     Shortcut { sequence: "Ctrl+N"; enabled: !win.tv; onActivated: addBox.show() }
@@ -6841,7 +6848,8 @@ ApplicationWindow {
         property bool linuxOnly: false  // hidden on Windows (Proton, gamescope, GameMode...)
         default property alias body: slot.data
         readonly property bool hit: prefs.query !== "" && (label + " " + hint).toLowerCase().indexOf(prefs.query) !== -1
-        visible: !(linuxOnly && app.onWindows)
+        // Set once it is built, so a row's own `visible:` (shown when a tool is there) cannot undo it.
+        Component.onCompleted: if (linuxOnly && app.onWindows) visible = false
         Layout.fillWidth: true
         implicitHeight: r2col.implicitHeight + 28
         radius: 12
@@ -6875,7 +6883,8 @@ ApplicationWindow {
         property var act: null  // set: called with the new state instead of saving settingKey
         property var state: undefined  // set: shown instead of the setting (with act)
         readonly property bool hit: prefs.query !== "" && label.toLowerCase().indexOf(prefs.query) !== -1
-        visible: !(app.onWindows && win.linuxOnlySettings[settingKey] === true)
+        property bool linuxOnly: win.linuxOnlySettings[settingKey] === true  // hidden on Windows
+        Component.onCompleted: if (linuxOnly && app.onWindows) visible = false  // wins over the row's own visible:
         Layout.fillWidth: true
         implicitHeight: Math.max(48, tgText.implicitHeight + 24)  // a long label wraps instead of losing its end
         radius: 12
@@ -7163,14 +7172,14 @@ ApplicationWindow {
                 theme: win.theme
                 Layout.fillWidth: true
                 iconName: "search"
-                placeholderText: qsTr("Find a setting (e.g. proton, cover, sync)")
+                placeholderText: app.onWindows ? qsTr("Find a setting (e.g. cover, sync)") : qsTr("Find a setting (e.g. proton, cover, sync)")
                 onTextChanged: prefs.query = text.trim().toLowerCase()
             }
             Flow {  // wraps when the tab names are long (translations)
                 Layout.fillWidth: true
                 spacing: 8
                 Repeater {
-                    model: [{ name: qsTr("Appearance"), icon: "eye" }, { name: qsTr("Games & Proton"), icon: "gamepad-2" },
+                    model: [{ name: qsTr("Appearance"), icon: "eye" }, { name: app.onWindows ? qsTr("Games") : qsTr("Games & Proton"), icon: "gamepad-2" },
                             { name: qsTr("People & sync"), icon: "user-round" }, { name: qsTr("Library"), icon: "library" },
                             { name: qsTr("Advanced"), icon: "sliders-horizontal" }]
                     Chip {
@@ -7812,7 +7821,7 @@ ApplicationWindow {
                             Toggle { label: qsTr("Keep the screen on and the PC awake"); settingKey: "focus_awake" }
                             Toggle { label: qsTr("Performance power mode, back to yours after"); settingKey: "focus_power" }
                             // sched-ext LAVD (scx.py): turning it on asks for the administrator's password once.
-                            Toggle { visible: app.schedulerAvailable
+                            Toggle { visible: app.schedulerAvailable; linuxOnly: true
                                      label: qsTr("Gaming CPU scheduler (LAVD), back to yours after — asks for your password once")
                                      state: !!app.settingsMap.focus_scheduler
                                      act: on => app.setGamingScheduler(on) }
@@ -8315,7 +8324,7 @@ ApplicationWindow {
                                      settingKey: "peer_reports" }
                             Row2 {
                                 label: qsTr("Environment variables for every game")
-                                hint: qsTr("Space separated, for example: DXVK_HUD=fps PROTON_ENABLE_WAYLAND=1. Each game can override all of this from its Options button.")
+                                hint: app.onWindows ? qsTr("Space separated, for example: SDL_HINT_JOYSTICK_RAWINPUT=0. Each game can override all of this from its Options button.") : qsTr("Space separated, for example: DXVK_HUD=fps PROTON_ENABLE_WAYLAND=1. Each game can override all of this from its Options button.")
                                 KField {
                                     theme: win.theme; Layout.fillWidth: true
                                     placeholderText: qsTr("KEY=value KEY2=value")

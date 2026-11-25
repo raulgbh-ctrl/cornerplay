@@ -75,6 +75,27 @@ jobs:
           if ($h.ExitCode -ne 0 -or (Get-Content $marker) -ne "True1") { throw "the frozen helper did not run in UTF-8 mode: $(Get-Content $marker)" }
           if (-not (Test-Path dist\Cornerplay\backends\legendary.exe)) { throw "legendary.exe missing" }
           if (-not (Test-Path dist\Cornerplay\_internal\SDL2.dll) -and -not (Test-Path dist\Cornerplay\SDL2.dll)) { throw "SDL2.dll missing" }
+      - name: The installer installs, the installed copy opens, and it uninstalls
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          $setup = Get-ChildItem dist\cornerplay-*-windows-setup.exe | Select-Object -First 1
+          $dir = Join-Path $env:RUNNER_TEMP "Cornerplay-installed"
+          $i = Start-Process -FilePath $setup.FullName -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$dir`"" -Wait -PassThru
+          if ($i.ExitCode -ne 0) { throw "the installer exited $($i.ExitCode)" }
+          Stop-Process -Name Cornerplay -ErrorAction SilentlyContinue  # a silent install opens it (as an update would)
+          Start-Sleep -Seconds 2
+          if (-not (Test-Path "$dir\Cornerplay.exe")) { throw "Cornerplay.exe was not installed" }
+          if (-not (Test-Path "$dir\backends\gogdl.exe")) { throw "the backends were not installed" }
+          $web = Get-ChildItem -Recurse -Path $dir -Filter QtWebEngineProcess.exe | Select-Object -First 1
+          if (-not $web) { throw "QtWebEngineProcess.exe missing: the sign-in window would not open" }
+          $p = Start-Process -FilePath "$dir\Cornerplay.exe" -ArgumentList "--smoke-test" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "the installed Cornerplay.exe --smoke-test exited $($p.ExitCode)" }
+          $u = Start-Process -FilePath "$dir\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
+          if ($u.ExitCode -ne 0) { throw "the uninstaller exited $($u.ExitCode)" }
+          Start-Sleep -Seconds 3
+          if (Test-Path "$dir\Cornerplay.exe") { throw "the uninstaller left Cornerplay.exe behind" }
       - uses: actions/upload-artifact@v4
         with:
           name: cornerplay-windows

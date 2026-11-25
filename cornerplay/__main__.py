@@ -458,6 +458,11 @@ def main():
         return 1
     window = engine.rootObjects()[0]
     the_tray = tray.Tray(app, window, cornerplay, start_hidden=args.background)
+    if os.name == "nt" and the_tray.available:  # Windows: notifications are the tray icon's
+        from PySide6.QtWidgets import QSystemTrayIcon
+        from . import app as app_module
+        app_module.TRAY_NOTIFY = lambda title, body, urgent: the_tray.icon.showMessage(
+            title, body, QSystemTrayIcon.MessageIcon.Warning if urgent else QSystemTrayIcon.MessageIcon.Information, 8000)
     if not args.demo:
         def on_message(msg):
             if msg == "overlay":
@@ -485,7 +490,20 @@ def main():
         from PySide6.QtCore import QTimer
         failed = []
         engine.warnings.connect(lambda ws: failed.extend(w for w in ws if "Error transferring" not in w.toString()))  # a missing cover online is not a broken app
-        QTimer.singleShot(6000, lambda: (print("smoke test:", "QML warnings" if failed else "ok"), app.exit(3 if failed else 0)))
+        from PySide6.QtCore import QMetaObject, Q_ARG, Q_RETURN_ARG
+        # A tour of what start-up alone never builds: every Settings tab, then a game's Options
+        # (an Epic game's, where the Proton rows live; hidden on Windows).
+        key = next((g.key for g in cornerplay.model.games if g.store == "epic"), "")
+        for step in range(7):
+            QTimer.singleShot(1500 + 600 * step, lambda step=step: print("smoke step", step, QMetaObject.invokeMethod(
+                window, "smokeStep", Q_RETURN_ARG("QVariant"), Q_ARG("QVariant", step), Q_ARG("QVariant", key))))
+
+        def finish():
+            for w in failed:
+                print("smoke test warning:", w.toString(), file=sys.stderr)
+            print("smoke test:", "QML warnings" if failed else "ok")
+            app.exit(3 if failed else 0)
+        QTimer.singleShot(7000, finish)
     code = app.exec()
     del engine
     return code

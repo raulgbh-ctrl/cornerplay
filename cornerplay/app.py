@@ -343,6 +343,32 @@ _FIELDS = {
 assert set(_FIELDS) == set(ROLES)
 
 
+
+# Desktop notifications: notify-send on Linux; on Windows the tray icon's notification (a
+# toast in the corner), which __main__ hands over as TRAY_NOTIFY once the tray exists.
+TRAY_NOTIFY = None
+
+
+def _can_notify() -> bool:
+    return TRAY_NOTIFY is not None if os.name == "nt" else bool(shutil.which("notify-send"))
+
+
+def _desktop_notify(args: list):
+    """args as notify-send takes them ([--options..., "-u", "critical", title, body])."""
+    if os.name != "nt":
+        QProcess.startDetached("notify-send", args)
+        return
+    plain, skip = [], False
+    for a in args:
+        if skip:
+            skip = False
+        elif a == "-u":
+            skip = True
+        elif not a.startswith("--"):
+            plain.append(a)
+    if TRAY_NOTIFY and plain:
+        TRAY_NOTIFY(plain[0], plain[1] if len(plain) > 1 else "", "critical" in args)
+
 class LibraryModel(QAbstractListModel):
     """One row per game; copies of the same game on several stores share a row."""
 
@@ -2066,8 +2092,8 @@ class AioLaunch(QObject):
         word = {"suspend": "sleep", "shutdown": "shut down"}.get(what, what)
         msg = f"Overnight installs are done. The PC will {word} in a minute."
         self.toast.emit(msg)
-        if shutil.which("notify-send"):
-            QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", "Cornerplay", msg])
+        if _can_notify():
+            _desktop_notify(["--app-name=Cornerplay", "--icon=cornerplay", "Cornerplay", msg])
         QTimer.singleShot(60000, lambda: (not self._playing and not self._queue) and self.power(what))
 
     def _night_tick(self):
@@ -3018,8 +3044,8 @@ class AioLaunch(QObject):
         title = "Wishlist deal" if len(deals) == 1 else f"{len(deals)} wishlist deals"
         body = "\n".join(line(d) for d in deals[:5]) + (f"\nand {len(deals) - 5} more" if len(deals) > 5 else "")
         self.toast.emit(f"{title}: {line(deals[0])}" + (f" and {len(deals) - 1} more" if len(deals) > 1 else ""))
-        if shutil.which("notify-send"):
-            QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", title, body])
+        if _can_notify():
+            _desktop_notify(["--app-name=Cornerplay", "--icon=cornerplay", title, body])
 
     def _release_calendar(self):
         """Wishlist games not out yet (or out in the last two weeks), soonest first: the Store
@@ -3065,8 +3091,8 @@ class AioLaunch(QObject):
         settings.set("releases_announced", sorted(seen | {f"{w['store']}:{w['id']}" for w in fresh})[-500:])
         names = ", ".join(w["title"] for w in fresh[:3]) + (f" and {len(fresh) - 3} more" if len(fresh) > 3 else "")
         self.toast.emit(f"Out now from your wishlist: {names}")
-        if shutil.which("notify-send"):
-            QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", "Out now from your wishlist", names])
+        if _can_notify():
+            _desktop_notify(["--app-name=Cornerplay", "--icon=cornerplay", "Out now from your wishlist", names])
 
     def _wishlist_sales(self, home=True):
         owned = {covers.norm(g.title) for g in self.model.games}
@@ -3847,8 +3873,8 @@ class AioLaunch(QObject):
             self._family_warned = True
             msg = _t("%1 minutes of play left: time to save").replace("%1", str(max(1, round(left))))
             self.toast.emit(msg)
-            if shutil.which("notify-send"):
-                QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", "-u", "critical", _t("Family limits"), msg])
+            if _can_notify():
+                _desktop_notify(["--app-name=Cornerplay", "--icon=cornerplay", "-u", "critical", _t("Family limits"), msg])
 
     # --- play on another screen (stream.py) ----------------------------------------------
     def _sun_login(self):
@@ -5011,8 +5037,8 @@ class AioLaunch(QObject):
                 info["ab_told"] = True
                 msg = "Proton test: that's enough for this version. Quit the game when you can."
                 self.toast.emit(msg)
-                if shutil.which("notify-send"):
-                    QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", "Cornerplay", msg])
+                if _can_notify():
+                    _desktop_notify(["--app-name=Cornerplay", "--icon=cornerplay", "Cornerplay", msg])
 
     @Slot(str, result="QVariantMap")
     def perfHistory(self, key):
@@ -7637,8 +7663,8 @@ class AioLaunch(QObject):
             msg = _t("%1 is %2% off (%3): the price you were waiting for").replace("%1", w["title"]) \
                 .replace("%2", str(w["cut"])).replace("%3", price or "")
             self.toast.emit(msg)
-            if shutil.which("notify-send"):
-                QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", _t("Price watch"), msg])
+            if _can_notify():
+                _desktop_notify(["--app-name=Cornerplay", "--icon=cornerplay", _t("Price watch"), msg])
 
     @Slot(str, float, result="QVariantList")
     def spaceToFree(self, folder, need):
@@ -7729,8 +7755,8 @@ class AioLaunch(QObject):
             self._pad_low.add(pid)
             msg = _t("%1 battery is low (%2%)").replace("%1", p.get("name") or _t("Controller")).replace("%2", str(level))
             self.toast.emit(msg)
-            if self._playing and shutil.which("notify-send"):  # over a full-screen game the toast is not seen
-                QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", "-u", "critical", _t("Controller battery"), msg])
+            if self._playing and _can_notify():  # over a full-screen game the toast is not seen
+                _desktop_notify(["--app-name=Cornerplay", "--icon=cornerplay", "-u", "critical", _t("Controller battery"), msg])
 
     # Sleep timer (TV mode's quick access): at the end, games close and the PC sleeps.
     sleepTimerChanged = Signal()
@@ -7767,8 +7793,8 @@ class AioLaunch(QObject):
             self._sleep_warned = True
             msg = _t("Sleep timer: the PC sleeps in a minute. Save your game.")
             self.toast.emit(msg)
-            if shutil.which("notify-send"):
-                QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", "-u", "critical", _t("Sleep timer"), msg])
+            if _can_notify():
+                _desktop_notify(["--app-name=Cornerplay", "--icon=cornerplay", "-u", "critical", _t("Sleep timer"), msg])
 
     # --- phone remote and game night (remote.py) ---------------------------------------------
     remoteChanged = Signal()
@@ -8094,9 +8120,8 @@ class AioLaunch(QObject):
         """A desktop notification, only while Cornerplay is not in front (a game, another app)."""
         if QGuiApplication.applicationState() == Qt.ApplicationActive:
             return
-        import shutil
-        if shutil.which("notify-send"):
-            QProcess.startDetached("notify-send", ["--app-name=Cornerplay", "--icon=cornerplay", title, body])
+        if _can_notify():
+            _desktop_notify(["--app-name=Cornerplay", "--icon=cornerplay", title, body])
 
     # --- settings and helpers --------------------------------------------
     settingsMap = Property("QVariantMap", lambda s: s._per_settings.setdefault("map", {k: settings.get(k) for k in DEFAULTS})
