@@ -31,6 +31,8 @@ jobs:
     # The Windows version: the tests, the window itself (sample games), then Cornerplay.exe and
     # its installer, started once each. The installer is kept as a build artifact.
     runs-on: windows-latest
+    env:
+      PYTHONUTF8: "1"  # as Cornerplay.exe runs (its spec turns UTF-8 mode on)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -67,9 +69,10 @@ jobs:
           $p = Start-Process -FilePath dist\Cornerplay\Cornerplay.exe -ArgumentList "--smoke-test" -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "Cornerplay.exe --smoke-test exited $($p.ExitCode)" }
           $marker = Join-Path $env:RUNNER_TEMP "helper-ran.txt"
-          $code = "from cornerplay import osinfo; open(r'$marker', 'w').write(str(osinfo.WINDOWS))"
+          $env:PYTHONUTF8 = $null  # the exe must be in UTF-8 mode by itself
+          $code = "import sys; from cornerplay import osinfo; open(r'$marker', 'w').write(str(osinfo.WINDOWS) + str(sys.flags.utf8_mode))"
           $h = Start-Process -FilePath dist\Cornerplay\Cornerplay.exe -ArgumentList "--run-code", "`"$code`"" -Wait -PassThru
-          if ($h.ExitCode -ne 0 -or (Get-Content $marker) -ne "True") { throw "the frozen helper did not run" }
+          if ($h.ExitCode -ne 0 -or (Get-Content $marker) -ne "True1") { throw "the frozen helper did not run in UTF-8 mode: $(Get-Content $marker)" }
           if (-not (Test-Path dist\Cornerplay\backends\legendary.exe)) { throw "legendary.exe missing" }
           if (-not (Test-Path dist\Cornerplay\_internal\SDL2.dll) -and -not (Test-Path dist\Cornerplay\SDL2.dll)) { throw "SDL2.dll missing" }
       - uses: actions/upload-artifact@v4

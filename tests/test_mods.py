@@ -25,7 +25,8 @@ def make_zip(path, files):
 
 
 def tree(root):
-    return sorted(os.path.relpath(os.path.join(b, f), root) for b, _d, fs in os.walk(root) for f in fs)
+    """Every file under root, with / between folders on every system."""
+    return sorted(os.path.relpath(os.path.join(b, f), root).replace(os.sep, "/") for b, _d, fs in os.walk(root) for f in fs)
 
 
 def test_game_for():

@@ -296,7 +296,7 @@ class BattleNet(Store):
         rel = DIRECT.get(game.extra.get("uid") or game.id)
         if not rel or not game.install_path:
             return ""
-        p = os.path.join(game.install_path, rel)
+        p = os.path.normpath(os.path.join(game.install_path, rel))
         return p if os.path.isfile(p) else ""
 
 
@@ -468,7 +468,7 @@ def game_folders(store, game):
 
 
 def _launcher_dirs(store):
-    exe = store.launcher_exe() if WINDOWS else ""
+    exe = (getattr(store, "launcher_exe", lambda: "")() or "") if WINDOWS else ""
     return [os.path.join(store.drive_c(), "Program Files (x86)", "Battle.net"), "C:/Program Files (x86)/Battle.net",
             *([os.path.dirname(exe)] if exe else [])]
 

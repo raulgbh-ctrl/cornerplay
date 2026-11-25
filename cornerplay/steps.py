@@ -22,6 +22,12 @@ PRESETS = {
     "power": {"before": "powerprofilesctl set performance", "after": "powerprofilesctl set balanced"},
     "close_discord": {"before": "", "after": "pkill -x Discord; pkill -x discord"},
 }
+if os.name == "nt":  # the same presets in Windows' words (Discord's own updater starts it)
+    PRESETS = {
+        "discord": {"before": '"%LOCALAPPDATA%\\Discord\\Update.exe" --processStart Discord.exe &', "after": ""},
+        "power": {"before": "powercfg /setactive SCHEME_MIN", "after": "powercfg /setactive SCHEME_BALANCED"},
+        "close_discord": {"before": "", "after": "taskkill /IM Discord.exe"},
+    }
 
 
 def lines(text):
@@ -31,6 +37,14 @@ def lines(text):
 def _log(key):
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     return open(LOG_DIR / (re.sub(r"[^A-Za-z0-9_.-]", "_", key) + ".steps.log"), "a")
+
+
+def _shell(script):
+    """The command line that runs a line (or several) of the user's own commands: sh on Linux,
+    cmd on Windows (several lines one after another, like sh's)."""
+    if os.name == "nt":
+        return ["cmd", "/d", "/c", " & ".join(ln for ln in script.splitlines() if ln.strip())]
+    return host.argv(["sh", "-c", script])
 
 
 def before(key, text):
@@ -46,10 +60,10 @@ def before(key, text):
             log.flush()
             try:
                 if detached:
-                    subprocess.Popen(host.argv(["sh", "-c", cmd]), stdout=log, stderr=log, stdin=subprocess.DEVNULL,
+                    subprocess.Popen(_shell(cmd), stdout=log, stderr=log, stdin=subprocess.DEVNULL,
                                      start_new_session=True, cwd=os.path.expanduser("~"))
                     continue
-                r = subprocess.run(host.argv(["sh", "-c", cmd]), stdout=log, stderr=log, stdin=subprocess.DEVNULL,
+                r = subprocess.run(_shell(cmd), stdout=log, stderr=log, stdin=subprocess.DEVNULL,
                                    timeout=WAIT, cwd=os.path.expanduser("~"))
                 if r.returncode != 0:
                     failed.append(cmd)
@@ -68,7 +82,7 @@ def after(key, text):
         log.write("# after the game\n" + script + "\n")
         log.flush()
         try:
-            subprocess.Popen(host.argv(["sh", "-c", script]), stdout=log, stderr=log, stdin=subprocess.DEVNULL,
+            subprocess.Popen(_shell(script), stdout=log, stderr=log, stdin=subprocess.DEVNULL,
                              start_new_session=True, cwd=os.path.expanduser("~"))
         except OSError:
             pass

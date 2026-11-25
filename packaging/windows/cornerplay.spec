@@ -33,8 +33,11 @@ a = Analysis(
     excludes=["tkinter", "PySide6.Qt3DCore", "PySide6.QtDesigner"],
 )
 pyz = PYZ(a.pure)
+# Python's UTF-8 mode: Windows would otherwise read and write text (settings, game titles,
+# Romanian, the store tools' output) in the old code page, and fail on letters it lacks.
+options = [("X utf8", None, "OPTION")]
 exe = EXE(
-    pyz, a.scripts, [],
+    pyz, a.scripts, options,
     exclude_binaries=True,
     name="Cornerplay",
     icon=os.path.join(SPECPATH, "cornerplay.ico"),

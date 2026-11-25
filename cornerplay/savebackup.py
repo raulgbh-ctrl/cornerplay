@@ -267,25 +267,43 @@ def backups(game):
 
 
 # --- paths that work on another PC ------------------------------------------------------------
+def _inside(path, root):
+    """path's part under root with / between folders ("" when it is not under root). Windows
+    paths use \\ and ignore case; a portable path always uses /."""
+    if not root:
+        return ""
+    p, r = os.path.normpath(path), os.path.normpath(root)
+    if not os.path.normcase(p).startswith(os.path.normcase(r) + os.sep):
+        return ""
+    return p[len(r) + 1:].replace(os.sep, "/")
+
+
 def portable(path, game, appid=None):
     """A save path as it would read on any PC: the game's Proton prefix as <prefix>, the home
-    folder as ~ (another PC has another user name and another games folder)."""
+    folder as ~ (another PC has another user name and another games folder), always with /."""
     pfx = prefix_for(game, appid) if game.store != "battlenet" else ""
-    if pfx and path.startswith(pfx.rstrip("/") + "/"):
-        return "<prefix>" + path[len(pfx.rstrip("/")):]
-    home = str(HOME)
-    if path.startswith(home + "/"):
-        return "~" + path[len(home):]
+    rel = _inside(path, pfx)
+    if rel:
+        return "<prefix>/" + rel
+    rel = _inside(path, str(HOME))
+    if rel:
+        return "~/" + rel
     return path
+
+
+def _here(base, rest):
+    """base plus a portable path's rest ("/a/b"), with this system's separators."""
+    parts = [x for x in rest.split("/") if x]
+    return os.path.join(base, *parts) if parts else base
 
 
 def local_path(port, game, appid=None):
     """Where a portable save path lives on this PC."""
     if port.startswith("<prefix>"):
         pfx = prefix_for(game, appid)
-        return (pfx.rstrip("/") + port[len("<prefix>"):]) if pfx else ""
+        return _here(pfx.rstrip("/"), port[len("<prefix>"):]) if pfx else ""
     if port.startswith("~"):
-        return str(HOME) + port[1:]
+        return _here(str(HOME), port[1:])
     return port
 
 
