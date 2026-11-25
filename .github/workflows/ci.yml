@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main, windows]
+    tags: ["v*"]  # a release: the Windows installer is also signed (SignPath), see CODE_SIGNING_POLICY.md
   pull_request:
 
 jobs:
@@ -34,6 +35,7 @@ jobs:
     timeout-minutes: 45
     env:
       PYTHONUTF8: "1"  # as Cornerplay.exe runs (its spec turns UTF-8 mode on)
+      HAS_SIGNPATH: ${{ secrets.SIGNPATH_API_TOKEN != '' }}  # only whether it is set, never the token
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -45,7 +47,7 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
       - name: Windows tests
-        run: pytest -q tests/test_windows.py
+        run: pytest -q tests/test_windows.py tests/test_xbox.py
         env:
           QT_QPA_PLATFORM: offscreen
       - name: Every test (Linux-specific ones may fail here; shown, not blocking)
@@ -99,7 +101,35 @@ jobs:
           if (-not $u.WaitForExit(300000)) { throw "the uninstaller did not finish" }
           Start-Sleep -Seconds 8  # it hands the removal to a copy of itself in %TEMP%
           if (Test-Path "$dir\Cornerplay.exe") { throw "the uninstaller left Cornerplay.exe behind" }
+      # Code signing (SignPath Foundation, free for open source): only for a release tag, and only
+      # once the project's SignPath token is set (Settings > Secrets: SIGNPATH_API_TOKEN; Variables:
+      # SIGNPATH_ORGANIZATION_ID, SIGNPATH_PROJECT_SLUG, SIGNPATH_POLICY_SLUG). Until then the
+      # installer is built unsigned, as before.
+      - id: unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: cornerplay-windows-unsigned
+          path: dist/cornerplay-*-windows-setup.exe
+      - id: sign
+        if: startsWith(github.ref, 'refs/tags/v') && env.HAS_SIGNPATH == 'true'
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: dist/signed
+      - name: The signed installer carries a valid signature
+        if: steps.sign.outcome == 'success'
+        shell: pwsh
+        run: |
+          $f = Get-ChildItem dist\signed\*.exe | Select-Object -First 1
+          $sig = Get-AuthenticodeSignature $f.FullName
+          if ($sig.Status -ne "Valid") { throw "signature: $($sig.Status) $($sig.StatusMessage)" }
+          Write-Host "Signed by $($sig.SignerCertificate.Subject)"
       - uses: actions/upload-artifact@v4
         with:
           name: cornerplay-windows
-          path: dist/cornerplay-*-windows-setup.exe
+          path: ${{ steps.sign.outcome == 'success' && 'dist/signed/*.exe' || 'dist/cornerplay-*-windows-setup.exe' }}
