@@ -167,18 +167,22 @@ footer a{color:var(--muted)}
     <div class="wrap">
       <img class="icon" src="img/icon-256.png" alt="Cornerplay icon" width="112" height="112">
       <h1>Your games. In one <span class="cozy">cozy</span> place.</h1>
-      <p class="lead">Steam, Epic Games, GOG, Amazon Games, Battle.net and Humble Bundle in one warm library on Linux, with a couch-friendly TV mode for your controller and Proton sorted out behind the scenes.</p>
+      <p class="lead">Steam, Epic Games, GOG, Amazon Games, Battle.net and Humble Bundle in one warm library on Linux and Windows, with a couch-friendly TV mode for your controller and Proton sorted out behind the scenes.</p>
       <div class="cta">
         <a class="btn btn-primary" href="https://github.com/raulgbh-ctrl/cornerplay/releases/latest/download/cornerplay.run">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
           Download for Linux
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/raulgbh-ctrl/cornerplay/releases/latest/download/cornerplay-windows-setup.exe">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+          Windows
         </a>
         <a class="btn btn-ghost" href="https://github.com/raulgbh-ctrl/cornerplay">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
           View on GitHub
         </a>
       </div>
-      <p class="meta"><span id="ver">Version 0.23.0</span><span>Free and open source (MIT)</span><span>1.8 MB installer</span></p>
+      <p class="meta"><span id="ver">Version 0.24.0</span><span>Free and open source (MIT)</span><span>1.8 MB installer</span></p>
       <img class="shot" src="img/screenshot-library.jpg" width="1502" height="899" alt="The Cornerplay library: the game you played last up front, Continue playing, and your whole collection">
     </div>
   </header>
@@ -287,6 +291,7 @@ footer a{color:var(--muted)}
       <div class="tabs" role="tablist" aria-label="Ways to install">
         <button class="tab" role="tab" id="t-run" aria-controls="p-run" aria-selected="true">Any Linux</button>
         <button class="tab" role="tab" id="t-arch" aria-controls="p-arch" aria-selected="false" tabindex="-1">Arch / CachyOS</button>
+        <button class="tab" role="tab" id="t-win" aria-controls="p-win" aria-selected="false" tabindex="-1">Windows</button>
       </div>
 
       <div class="panel" role="tabpanel" id="p-run" aria-labelledby="t-run">
@@ -297,9 +302,13 @@ footer a{color:var(--muted)}
         <div class="code"><pre><code>git clone https://github.com/raulgbh-ctrl/cornerplay && cd cornerplay/packaging/aur && makepkg -si</code></pre><button class="copy" type="button">Copy</button></div>
         <p>Builds a proper pacman package, so updates come through your system like everything else. An AUR package is on the way.</p>
       </div>
+      <div class="panel" role="tabpanel" id="p-win" aria-labelledby="t-win" hidden>
+        <p><a href="https://github.com/raulgbh-ctrl/cornerplay/releases/latest/download/cornerplay-windows-setup.exe">Download the Windows installer</a> and run it. It installs for your account only (no administrator needed) and brings everything it uses. Windows may warn that the installer is from an unknown publisher: choose More info, then Run anyway. Games run as they are, so the Proton and Linux extras are left out.</p>
+      </div>
 
       <div class="reqs">
         <div><b>Linux, 64-bit</b><span>Made on CachyOS; tested on Ubuntu, Mint, Debian, Fedora and openSUSE; Steam Deck works too</span></div>
+        <div><b>or Windows 10 / 11, 64-bit</b><span>One installer with everything in it</span></div>
         <div><b>Vulkan GPU driver</b><span>For games running through Proton</span></div>
         <div><b>Python 3.10+ and Qt 6</b><span>The installer brings a private copy if needed</span></div>
         <div><b>Steam (optional)</b><span>Only for Steam games; the installer offers it</span></div>
