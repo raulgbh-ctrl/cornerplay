@@ -154,6 +154,7 @@ jobs:
     timeout-minutes: 30
     env:
       SMARTSCREEN_OFF: ${{ vars.WINGET_SMARTSCREEN_OFF }}
+      ZONECHECK_OFF: ${{ vars.WINGET_ZONECHECK_OFF }}
     steps:
       - uses: actions/checkout@v4
       - name: Validate, install and uninstall with winget
@@ -171,6 +172,13 @@ jobs:
             Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name EnableSmartScreen -Value 0 -Type DWord
             Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name SmartScreenEnabled -Value "Off"
             Write-Host "SmartScreen switched off for this run"
+          }
+          # Experiment 2: no "Open File - Security Warning" (publisher could not be verified) for .exe files.
+          if ($env:ZONECHECK_OFF -eq "1") {
+            $k = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Associations"
+            New-Item -Path $k -Force | Out-Null
+            Set-ItemProperty -Path $k -Name LowRiskFileTypes -Value ".exe;"
+            Write-Host "Open File security warning switched off for .exe"
           }
           # "succeeded with warnings" exits non-zero: the runner's winget can be older than the
           # schema winget-pkgs uses (1.28) and warns about the header link. Only a failure counts.
