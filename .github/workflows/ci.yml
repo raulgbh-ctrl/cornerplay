@@ -151,8 +151,11 @@ jobs:
           Write-Host "Manifests: $($dir.FullName)"
           winget --version
           winget settings --enable LocalManifestFiles
-          winget validate --manifest $dir.FullName
-          if ($LASTEXITCODE -ne 0) { throw "winget validate failed" }
+          # "succeeded with warnings" exits non-zero: the runner's winget can be older than the
+          # schema winget-pkgs uses (1.28) and warns about the header link. Only a failure counts.
+          $out = winget validate --manifest $dir.FullName | Out-String
+          Write-Host $out
+          if ($out -notmatch "Manifest validation succeeded") { throw "winget validate failed" }
           winget install --manifest $dir.FullName --accept-package-agreements --accept-source-agreements --disable-interactivity --silent
           if ($LASTEXITCODE -ne 0) { throw "winget install failed ($LASTEXITCODE)" }
           Stop-Process -Name Cornerplay -ErrorAction SilentlyContinue
