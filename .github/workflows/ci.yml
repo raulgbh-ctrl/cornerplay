@@ -152,6 +152,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
     timeout-minutes: 30
+    env:
+      SMARTSCREEN_OFF: ${{ vars.WINGET_SMARTSCREEN_OFF }}
     steps:
       - uses: actions/checkout@v4
       - name: Validate, install and uninstall with winget
@@ -162,6 +164,14 @@ jobs:
           Write-Host "Manifests: $($dir.FullName)"
           winget --version
           winget settings --enable LocalManifestFiles
+          # Experiment: SmartScreen off (an unsigned installer downloaded from the internet waits for
+          # a "Windows protected your PC" click that no one can give on a runner).
+          if ($env:SMARTSCREEN_OFF -eq "1") {
+            New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Force | Out-Null
+            Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name EnableSmartScreen -Value 0 -Type DWord
+            Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name SmartScreenEnabled -Value "Off"
+            Write-Host "SmartScreen switched off for this run"
+          }
           # "succeeded with warnings" exits non-zero: the runner's winget can be older than the
           # schema winget-pkgs uses (1.28) and warns about the header link. Only a failure counts.
           $out = winget validate --manifest $dir.FullName | Out-String
