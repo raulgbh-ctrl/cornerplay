@@ -27,8 +27,8 @@ jobs:
         run: |
           cp -r site _site
           cp docs/screenshot-library.jpg docs/screenshot-game.jpg docs/tv-mode.gif _site/img/
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
