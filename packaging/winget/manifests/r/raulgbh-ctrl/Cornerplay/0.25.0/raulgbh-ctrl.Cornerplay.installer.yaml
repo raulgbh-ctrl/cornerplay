@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.9.0.schema.json
+
+PackageIdentifier: raulgbh-ctrl.Cornerplay
+PackageVersion: 0.25.0
+MinimumOSVersion: 10.0.17763.0
+InstallerType: inno
+Scope: user
+InstallModes:
+- interactive
+- silent
+UpgradeBehavior: install
+Protocols:
+- nxm
+ProductCode: '{6C1E0E7A-3B5B-4C55-9F0E-C0A7E7B1A0D1}_is1'
+ReleaseDate: 2026-11-25
+Installers:
+- Architecture: x64
+  InstallerUrl: https://github.com/raulgbh-ctrl/cornerplay/releases/download/v0.25.0/cornerplay-0.25.0-windows-setup.exe
+  InstallerSha256: 8F8D33FEE29D9C7E013FE175D0B6B64B3D7ACA7AF12AEB8A41A48C07A2E61D4D
+ManifestType: installer
+ManifestVersion: 1.9.0
