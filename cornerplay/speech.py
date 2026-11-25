@@ -65,7 +65,7 @@ def available() -> bool:
 
 
 def can_fetch() -> bool:
-    return os.uname().machine == "x86_64" and bool(_player())
+    return __import__("cornerplay.osinfo").osinfo.machine() == "x86_64" and bool(_player())
 
 
 def fetch() -> str:

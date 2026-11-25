@@ -140,7 +140,7 @@ class Freezer:
 
     def _listen(self):
         sig = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
-        path = os.path.join(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"), "hypr", sig, ".socket2.sock")
+        path = os.path.join(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid() if hasattr(os, 'getuid') else 0}"), "hypr", sig, ".socket2.sock")
         while not self._stop:
             try:
                 s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)

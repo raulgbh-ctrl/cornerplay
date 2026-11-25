@@ -567,7 +567,7 @@ def _hypr_env() -> dict:
     env = dict(os.environ)
     if env.get("HYPRLAND_INSTANCE_SIGNATURE"):
         return env
-    run = Path(env.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}") / "hypr"
+    run = Path(env.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid() if hasattr(os, 'getuid') else 0}") / "hypr"
     try:
         found = sorted((d for d in run.iterdir() if (d / ".socket.sock").exists()), key=lambda d: d.stat().st_mtime)
     except OSError:
@@ -839,9 +839,10 @@ def _start_watch(state_dir: Path = None):
     import sys
     from .config import CACHE_DIR
     pidf = (state_dir or CACHE_DIR) / WATCH_PID
+    from .osinfo import pid_alive
     try:
-        os.kill(int(pidf.read_text()), 0)
-        return               # already watching
+        if pid_alive(int(pidf.read_text())):
+            return           # already watching
     except (OSError, ValueError):
         pass
     env = dict(os.environ)

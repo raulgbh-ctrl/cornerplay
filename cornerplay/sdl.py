@@ -13,16 +13,35 @@ import os
 import zipfile
 
 from .config import DATA_DIR
+from .osinfo import WINDOWS, machine
 
-PRIVATE = DATA_DIR / "lib" / "libSDL2-2.0.so.0"
-WHEEL_URL = ("https://files.pythonhosted.org/packages/5d/6e/07ec92ba241b2aa941abf478e96c1474f2c5975b61d84303fbcb2ba1dcc9/"
-             "pysdl2_dll-2.32.10-py2.py3-none-manylinux2014_x86_64.whl")
-WHEEL_SHA256 = "12b136c38114ae0f8a85453a879795ba5d61663d98673ba19c36c3008ff00353"
-MEMBER = "sdl2dll/dll/libSDL2-2.0.so"
+if WINDOWS:  # the same package's Windows build: SDL2.dll
+    PRIVATE = DATA_DIR / "lib" / "SDL2.dll"
+    WHEEL_URL = ("https://files.pythonhosted.org/packages/91/8e/3a90c664cca4c61c7538a8b1a7fd86c7dc3521465198a844bce21b4a97c1/"
+                 "pysdl2_dll-2.32.10-py2.py3-none-win_amd64.whl")
+    WHEEL_SHA256 = "65eba83d68c33b22aa5eca6c9a8521cff5044435ecd5b49521068df82674de6a"
+    MEMBER = "sdl2dll/dll/SDL2.dll"
+else:
+    PRIVATE = DATA_DIR / "lib" / "libSDL2-2.0.so.0"
+    WHEEL_URL = ("https://files.pythonhosted.org/packages/5d/6e/07ec92ba241b2aa941abf478e96c1474f2c5975b61d84303fbcb2ba1dcc9/"
+                 "pysdl2_dll-2.32.10-py2.py3-none-manylinux2014_x86_64.whl")
+    WHEEL_SHA256 = "12b136c38114ae0f8a85453a879795ba5d61663d98673ba19c36c3008ff00353"
+    MEMBER = "sdl2dll/dll/libSDL2-2.0.so"
+
+
+def _bundled():
+    """The Windows build ships SDL2.dll next to Cornerplay.exe."""
+    import sys
+    if WINDOWS and getattr(sys, "frozen", False):
+        return [os.path.join(os.path.dirname(sys.executable), "SDL2.dll"),
+                os.path.join(getattr(sys, "_MEIPASS", ""), "SDL2.dll")]
+    return []
 
 
 def candidates():
     """Where to load SDL2 from, in order: the system's, then the private copy."""
+    if WINDOWS:
+        return [*_bundled(), str(PRIVATE), "SDL2.dll"]
     out = ["libSDL2-2.0.so.0"]  # direct; find_library runs ldconfig (~25 ms), so only after
     found = ctypes.util.find_library("SDL2")
     if found:
@@ -32,6 +51,8 @@ def candidates():
 
 
 def system_has_it() -> bool:
+    if WINDOWS:
+        return any(os.path.isfile(p) for p in _bundled())
     if ctypes.util.find_library("SDL2"):
         return True
     return any(os.path.exists(p) for p in ("/usr/lib/libSDL2-2.0.so.0", "/usr/lib64/libSDL2-2.0.so.0",
@@ -43,7 +64,7 @@ def available() -> bool:
 
 
 def can_fetch() -> bool:
-    return os.uname().machine == "x86_64"
+    return machine() == "x86_64"
 
 
 def fetch() -> str:

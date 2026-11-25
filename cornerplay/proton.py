@@ -21,7 +21,7 @@ def latest_ge():
     """(tag, tarball url, checksum url) of the newest GE-Proton for this CPU."""
     from .net import latest_release
     data = latest_release(GE_REPO)
-    arch = "aarch64" if os.uname().machine in ("aarch64", "arm64") else "x86_64"
+    arch = "aarch64" if __import__("cornerplay.osinfo").osinfo.machine() == "aarch64" else "x86_64"
     assets = {a["name"]: a["browser_download_url"] for a in data.get("assets", [])}
     tar = next((u for n, u in assets.items() if n.endswith(f"{arch}.tar.gz")), None) \
         or next((u for n, u in assets.items() if n.endswith(".tar.gz")), None)
@@ -63,7 +63,7 @@ def latest_cachyos():
     from .net import latest_release
     data = latest_release(CACHY_REPO)
     assets = {a["name"]: a["browser_download_url"] for a in data.get("assets", [])}
-    if os.uname().machine in ("aarch64", "arm64"):
+    if __import__("cornerplay.osinfo").osinfo.machine() == "aarch64":
         arches = ["arm64"]
     else:
         arches = (["x86_64_v3"] if _cpu_v3() else []) + ["x86_64"]

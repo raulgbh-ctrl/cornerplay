@@ -5,6 +5,8 @@ import shutil
 import time
 from pathlib import Path
 
+from .osinfo import WINDOWS, exe, home_dirs
+
 # Debian and Ubuntu put Steam and GameMode's gamemoderun in /usr/games, which a session started
 # some ways (a launcher, systemd) leaves off PATH: add it, so every shutil.which() finds them.
 _path = os.environ.get("PATH", "").split(os.pathsep)
@@ -15,12 +17,17 @@ os.environ["PATH"] = os.pathsep.join(p for p in _path if p)
 
 APP = "cornerplay"
 HOME = Path.home()
-CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config")) / APP
-DATA_DIR = Path(os.environ.get("XDG_DATA_HOME", HOME / ".local/share")) / APP
-CACHE_DIR = Path(os.environ.get("XDG_CACHE_HOME", HOME / ".cache")) / APP
+_CONFIG_BASE, _DATA_BASE, _CACHE_BASE = home_dirs()
+# Windows: %APPDATA%\Cornerplay for settings (roams with the account), %LOCALAPPDATA%\Cornerplay
+# for data, and its cache\ subfolder for the cache.
+CONFIG_DIR = _CONFIG_BASE / ("Cornerplay" if WINDOWS else APP)
+DATA_DIR = _DATA_BASE / ("Cornerplay" if WINDOWS else APP)
+CACHE_DIR = DATA_DIR / "cache" if WINDOWS else _CACHE_BASE / APP
 BIN_DIR = DATA_DIR / "bin"
 LOG_DIR = CACHE_DIR / "logs"
-XDG_CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config"))
+# Where legendary and nile keep their sign-ins: ~/.config on every system, Windows included
+# (both follow XDG_CONFIG_HOME when it is set).
+XDG_CONFIG = Path(os.environ.get("XDG_CONFIG_HOME") or HOME / ".config")
 
 LANGUAGES = {"en": "English", "ro": "Română"}  # interface languages: cornerplay/i18n (English is the source)
 OLD_NAMES = ("aiolaunch", "kura")  # earlier names of the app, newest first
@@ -231,6 +238,9 @@ _HEROIC_BIN_DIRS = [
     "/opt/Heroic/resources/app.asar.unpacked/build/bin/x64/linux",
     "/opt/heroic/resources/app.asar.unpacked/build/bin/x64/linux",
     "/usr/lib/heroic/resources/app.asar.unpacked/build/bin/x64/linux",
+] if not WINDOWS else [
+    os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "heroic", "resources",
+                 "app.asar.unpacked", "build", "bin", "x64", "win32"),
 ]
 
 BACKEND_REPOS = {"legendary": "Heroic-Games-Launcher/legendary", "gogdl": "Heroic-Games-Launcher/heroic-gogdl",
@@ -267,12 +277,14 @@ class Settings:
 
 def find_tool(name: str) -> str | None:
     """Locate a backend binary: PATH, Cornerplay's own bin dir, then Heroic's bundle."""
-    found = shutil.which(name)
+    found = shutil.which(name)  # PATHEXT makes this find legendary.exe on Windows
     if found:
         return found
     from .host import BUNDLED_BIN
     for d in [str(BIN_DIR), BUNDLED_BIN, *_HEROIC_BIN_DIRS]:
-        p = os.path.join(d, name)
+        if not d:
+            continue
+        p = os.path.join(d, exe(name))
         if os.path.isfile(p) and os.access(p, os.X_OK):
             return p
     return None
@@ -315,6 +327,8 @@ def write_private(path, text: str, private=True):
 
 
 def _lock_down():
+    if WINDOWS:  # a user's AppData is already theirs alone; chmod only sets read-only there
+        return
     """Cornerplay's settings folder holds API keys and store sign-in tokens: only this user
     may open it (folders made by earlier versions were readable by everyone on the PC). The
     same for the sign-ins Cornerplay makes through legendary (Epic) and nile (Amazon): both

@@ -9,6 +9,9 @@ APP_ID = "io.github.raulgbh_ctrl.Cornerplay"
 FLATPAK_ID = os.environ.get("FLATPAK_ID", "") if os.path.exists("/.flatpak-info") else ""
 IN_FLATPAK = bool(FLATPAK_ID)
 BUNDLED_BIN = "/app/lib/cornerplay/backends"
+if os.name == "nt":  # the Windows build ships legendary, gogdl and nile next to Cornerplay.exe
+    import sys
+    BUNDLED_BIN = os.path.join(os.path.dirname(sys.executable), "backends") if getattr(sys, "frozen", False) else ""
 FLATPAK_BASE = "25.08"  # the freedesktop runtime under the Flatpak's KDE runtime (its extensions' branch)  # legendary, gogdl, nile and umu-run shipped in the Flatpak
 
 _which: dict = {}

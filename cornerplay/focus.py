@@ -155,7 +155,7 @@ def end(undo: dict):
     proc = undo.get("awake")
     if proc is not None:
         try:
-            os.killpg(proc.pid, 15)
+            proc.terminate() if os.name == "nt" else os.killpg(proc.pid, 15)
         except (OSError, ProcessLookupError):
             pass
     if undo.get("power"):

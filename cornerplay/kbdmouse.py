@@ -6,7 +6,10 @@ itself) already allow it on most gaming PCs; otherwise a rule such as
   KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"
 in /etc/udev/rules.d/60-uinput.rules does.
 """
-import fcntl
+try:
+    import fcntl
+except ImportError:  # Windows: no evdev / uinput there; the caller checks available()
+    fcntl = None
 import os
 import struct
 import time
@@ -37,6 +40,8 @@ class Device:
     """One virtual keyboard + mouse. Raises OSError when /dev/uinput cannot be used."""
 
     def __init__(self, name="Cornerplay controller as keyboard and mouse"):
+        if fcntl is None:
+            raise OSError(0, "a virtual keyboard needs Linux (/dev/uinput)")
         self.fd = os.open("/dev/uinput", os.O_WRONLY | os.O_NONBLOCK)
         try:
             for ev in (EV_KEY, EV_REL):
@@ -95,4 +100,4 @@ class Device:
 
 
 def available() -> bool:
-    return os.access("/dev/uinput", os.W_OK)
+    return fcntl is not None and os.access("/dev/uinput", os.W_OK)

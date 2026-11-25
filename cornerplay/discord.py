@@ -20,10 +20,34 @@ HANDSHAKE, FRAME, CLOSE = 0, 1, 2
 
 
 def _sockets():
+    if os.name == "nt":  # Discord on Windows listens on named pipes
+        return [rf"\\?\pipe\discord-ipc-{i}" for i in range(10)]
     base = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
     dirs = [base, os.path.join(base, "app/com.discordapp.Discord"), os.path.join(base, "app/dev.vencord.Vesktop"),
             os.path.join(base, "snap.discord"), os.environ.get("TMPDIR", "/tmp")]
     return [os.path.join(d, f"discord-ipc-{i}") for d in dirs for i in range(10)]
+
+
+class _Pipe:
+    """Discord's named pipe on Windows, with the few socket methods the client uses."""
+
+    def __init__(self, path):
+        self.f = open(path, "r+b", buffering=0)
+
+    def settimeout(self, _seconds):
+        pass
+
+    def connect(self, _path):
+        pass
+
+    def sendall(self, data):
+        self.f.write(data)
+
+    def recv(self, n):
+        return self.f.read(n)
+
+    def close(self):
+        self.f.close()
 
 
 def enabled() -> bool:
@@ -71,7 +95,10 @@ class Presence:
         for path in _sockets():
             if not os.path.exists(path):
                 continue
-            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            try:
+                s = _Pipe(path) if os.name == "nt" else socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            except OSError:
+                continue
             s.settimeout(5)
             try:
                 s.connect(path)

@@ -8,7 +8,10 @@ Pads SDL reads through hidraw (PlayStation, Switch, Steam: HIDAPI) keep coming t
 that way; their evdev device is grabbed too (games reading evdev stop seeing it) and only
 drained. A game that reads the same hidraw device itself still sees those pads.
 """
-import fcntl
+try:
+    import fcntl
+except ImportError:  # Windows: no evdev / uinput there; the caller checks available()
+    fcntl = None
 import glob
 import os
 import re
@@ -51,6 +54,8 @@ class Grab:
     """One grabbed pad. read() returns SDL-style events: ("button", n, down) or ("axis", n, value)."""
 
     def __init__(self, path, mapping, translate=True):
+        if fcntl is None:
+            raise OSError(0, "grabbing a controller needs Linux (evdev)")
         self.fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
         try:
             fcntl.ioctl(self.fd, EVIOCGRAB, 1)

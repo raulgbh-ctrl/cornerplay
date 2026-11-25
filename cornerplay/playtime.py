@@ -6,8 +6,12 @@ games' sessions are also logged (steamrun.py) so the weekly stats include them.
 Battle.net games are timed by their own processes (stores/battlenet.watch): its app stays open
 after the game closes, so it cannot say when you stopped.
 """
-import fcntl
 import time
+
+try:
+    import fcntl
+except ImportError:  # Windows
+    fcntl = None
 
 from . import personal
 from .config import read_json, write_json
@@ -34,6 +38,20 @@ def load() -> dict:
     return total
 
 
+def _lock(f):
+    """Hold the whole file until it is closed: two sessions ending at once write one after another."""
+    if fcntl:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        return
+    import msvcrt
+    while True:
+        try:
+            msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)  # retries for 10 s itself, then raises
+            return
+        except OSError:
+            time.sleep(0.1)
+
+
 def record(key: str, started: float, ended: float | None = None, log_only: bool = False):
     """Add one play session. Safe when two sessions end at once (separate processes).
     log_only: only add it to the session log (Steam games: Steam keeps their totals itself,
@@ -46,7 +64,7 @@ def record(key: str, started: float, ended: float | None = None, log_only: bool 
     log_path, _ = personal.playtime_files("sessions")
     own.parent.mkdir(parents=True, exist_ok=True)
     with open(own.with_suffix(".lock"), "w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+        _lock(lock)
         if not log_only:
             data = read_json(own) or {}
             entry = data.get(key) or {}

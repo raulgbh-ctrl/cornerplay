@@ -6774,11 +6774,8 @@ class AioLaunch(QObject):
 
     @staticmethod
     def _alive(pid):
-        try:
-            os.kill(int(pid), 0)
-            return True
-        except (OSError, ValueError, TypeError):
-            return False
+        from .osinfo import pid_alive
+        return pid_alive(pid)
 
     @Slot(str, bool)
     def quitGame(self, key, force):
@@ -6801,6 +6798,14 @@ class AioLaunch(QObject):
             return
         if getattr(self, "_freezer", None):
             self._freezer.thaw(key)  # a stopped process would not see the request to close
+        if os.name == "nt":  # no signals on Windows: taskkill asks politely (or /F forces), /T takes the children too
+            import subprocess
+            pids = info.get("pids") or [info["pid"]]
+            for pid in pids:
+                subprocess.run(["taskkill", "/PID", str(int(pid)), "/T", *(["/F"] if force else [])],
+                               capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            self.toast.emit(f"{'Closed' if force else 'Asked to close'} {info.get('title', 'the game')}")
+            return
         try:
             sig = signal.SIGKILL if force else signal.SIGTERM
             if info.get("pids"):  # Battle.net games: the game's own processes (session.py)

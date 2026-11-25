@@ -28,7 +28,10 @@ AUTOSTART = XDG_CONFIG / "autostart" / "cornerplay.desktop"
 
 # --- one Cornerplay at a time ----------------------------------------------------------
 def _socket_path():
-    run = os.environ.get("XDG_RUNTIME_DIR") or f"/tmp/cornerplay-{os.getuid()}"
+    if os.name == "nt":  # a named pipe: Qt makes \\.\pipe\<name> from a plain name
+        return "cornerplay-" + os.environ.get("USERNAME", "user")
+    from .osinfo import run_dir
+    run = run_dir()
     base = Path(run) / "app" / host.FLATPAK_ID if host.IN_FLATPAK else Path(run)
     base.mkdir(parents=True, exist_ok=True)
     return str(base / "cornerplay.sock")
