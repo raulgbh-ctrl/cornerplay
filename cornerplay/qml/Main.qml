@@ -7249,7 +7249,7 @@ ApplicationWindow {
                 Loader {
                     id: prefsStack
                     active: prefs.wasOpened
-                    width: prefsScroll.width - 12
+                    width: prefsScroll.width - 20  // leaves the scrollbar its lane
                     sourceComponent: StackLayout {
                         currentIndex: prefs.tab
 
