@@ -6,8 +6,10 @@ art. Kept for a day (the catalog changes a few times a month). The store page (s
 shows the games not installed yet as tiles; installing one goes through Nexus Launcher on Linux
 and the Xbox app on Windows.
 """
+import json
 import locale
 import os
+import re
 import time
 
 from .config import CACHE_DIR, read_json, settings, write_json
@@ -17,6 +19,46 @@ ALL_PC_GAMES = "fdd9e2a7-0fee-49f6-ad69-4354098401ff"  # "All PC Games" in PC Ga
 CACHE = CACHE_DIR / "gamepass.json"
 TTL = 24 * 3600
 BATCH = 100  # products asked for at once (the details service answers 100 in about a second)
+CACHE_VERSION = 2  # 2: each game keeps "passes", the Game Pass tiers that include it
+
+# Microsoft's Game Pass products (the ids xbox.com itself uses). Each game's Store listing names the
+# passes that include it, so a tier's games are the catalog's games that name its pass.
+PASSES = {
+    "CFQ7TTC0KHS0": "full",       # Game Pass Ultimate: every PC game
+    "CFQ7TTC0HXBN": "full",       # Game Pass Ultimate (older offer)
+    "CFQ7TTC0KGQ8": "full",       # PC Game Pass: every PC game
+    "CFQ7TTC0P85B": "premium",    # Game Pass Premium: a smaller PC selection
+    "CFQ7TTC0K5DJ": "essential",  # Game Pass Essential: a small PC selection
+    "CFQ7TTC10QFD": "starter",    # Game Pass Starter Edition
+    "CFQ7TTC0K6L8": "console",    # Game Pass for Console: no PC games
+}
+TIER_RANK = {"": 0, "console": 1, "starter": 2, "essential": 3, "premium": 4, "full": 5}
+# Which passes' games a tier gets: Premium also has everything in Essential.
+TIER_PASSES = {"premium": {"CFQ7TTC0P85B", "CFQ7TTC0K5DJ"}, "essential": {"CFQ7TTC0K5DJ"},
+               "starter": {"CFQ7TTC10QFD"}}
+_PASS_RE = re.compile(r"CFQ7TTC[0-9A-Z]{5}")
+
+
+def tier_of(pass_ids) -> str:
+    """The best tier among some pass product ids: "full", "premium", "essential", "starter",
+    "console", or "" when none is a Game Pass."""
+    best = ""
+    for pid in pass_ids or ():
+        t = PASSES.get(str(pid).strip().upper(), "")
+        if TIER_RANK[t] > TIER_RANK[best]:
+            best = t
+    return best
+
+
+def for_tier(games, tier: str) -> list:
+    """The catalog's games a tier can play: all of them for Ultimate / PC Game Pass (and for a pass
+    Cornerplay does not know yet), the ones naming the tier's passes for the smaller ones."""
+    if tier in ("", "console"):
+        return []
+    wanted = TIER_PASSES.get(tier)
+    if not wanted:
+        return list(games)
+    return [g for g in games if wanted & set(g.get("passes") or ())]
 
 
 def market() -> str:
@@ -63,7 +105,9 @@ def _details(ids, mkt):
             out.append({"id": p.get("ProductId", ""), "title": title,
                         "cover": _image(images, "Poster", "BoxArt"),
                         "hero": _image(images, "SuperHeroArt", "TitledHeroArt", "Screenshot"),
-                        "publisher": (props.get("PublisherName") or "").strip()})
+                        "publisher": (props.get("PublisherName") or "").strip(),
+                        "passes": sorted(set(_PASS_RE.findall(json.dumps(p.get("DisplaySkuAvailabilities") or [])))
+                                         & set(PASSES))})
     return out
 
 
@@ -93,7 +137,8 @@ def catalog(force=False) -> list:
     when the network is down, [] when there never was one."""
     cached = read_json(CACHE) or {}
     mkt = market()
-    if not force and cached.get("market") == mkt and time.time() - cached.get("t", 0) < TTL:
+    if (not force and cached.get("market") == mkt and cached.get("v") == CACHE_VERSION
+            and time.time() - cached.get("t", 0) < TTL):
         return cached.get("games") or []
     try:
         try:
@@ -108,5 +153,5 @@ def catalog(force=False) -> list:
         return cached.get("games") or []
     if not games:  # offline, or Microsoft answered with nothing: keep what was there
         return cached.get("games") or []
-    write_json(CACHE, {"t": time.time(), "market": market(), "games": games})
+    write_json(CACHE, {"t": time.time(), "market": market(), "v": CACHE_VERSION, "games": games})
     return games

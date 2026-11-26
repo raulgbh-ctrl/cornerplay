@@ -53,7 +53,7 @@ def test_nexus_games_and_account(nexus_home):
 
 
 def test_store_lists_installed_games_and_the_catalog(nexus_home, monkeypatch):
-    monkeypatch.setattr(X.Xbox, "has_gamepass", lambda self: True)
+    monkeypatch.setattr(X.Xbox, "gamepass_tier", lambda self: "full")
     s = X.Xbox()
     assert s.logged_in() and "Raul GBH" in s.account()
     games = {g.id: g for g in s.fetch()}
@@ -94,7 +94,7 @@ def test_connect_installs_nexus_through_a_helper(nexus_home, monkeypatch):
 
 def test_store_on_windows(monkeypatch):
     monkeypatch.setattr(X, "WINDOWS", True)
-    monkeypatch.setattr(X.Xbox, "has_gamepass", lambda self: True)
+    monkeypatch.setattr(X.Xbox, "gamepass_tier", lambda self: "full")
     monkeypatch.setattr(gamepass, "catalog", lambda force=False: CATALOG)
     monkeypatch.setattr(winxbox, "xbox_app_installed", lambda: True)
     monkeypatch.setattr(winxbox, "games", lambda: [
@@ -205,7 +205,7 @@ def test_owned_games_come_from_nexus_backend(nexus_home, monkeypatch, tmp_path):
     cli.chmod(0o755)
     (backends / "current.json").write_text(json.dumps({"binaryPath": str(cli)}))
     monkeypatch.setattr(gamepass, "catalog", lambda force=False: CATALOG)
-    monkeypatch.setattr(X.Xbox, "has_gamepass", lambda self: True)
+    monkeypatch.setattr(X.Xbox, "gamepass_tier", lambda self: "full")
     asked = []
     monkeypatch.setattr(gamepass, "_details", lambda ids, mkt: asked.extend(ids) or [
         {"id": i, "title": {"9NFALLOUT": "Fallout 76 (PC)", "9NFORZA": "Forza Horizon 6"}[i], "cover": "c", "hero": "",
@@ -299,3 +299,45 @@ def test_progress_lines_cornerplay_reads(monkeypatch, tmp_path, capsys):
     out = capsys.readouterr().out
     assert "Progress: 25.0% 0.0 MiB/s ETA: 00:00:15" in out
     assert xodus.state()["9NX"]["installed"] > 0
+
+
+def test_game_pass_tier_shows_only_its_games(nexus_home, monkeypatch):
+    """Premium and Essential have fewer PC games than Ultimate / PC Game Pass: each game's Store
+    listing names the passes that include it, and only the tier's games show."""
+    from cornerplay.config import CACHE_DIR, settings
+    (CACHE_DIR / "xbox-owned.json").unlink(missing_ok=True)
+    cat = [{**CATALOG[0], "id": "9NPREM", "passes": ["CFQ7TTC0KGQ8", "CFQ7TTC0P85B"]},
+           {**CATALOG[1], "passes": ["CFQ7TTC0KGQ8", "CFQ7TTC0P85B", "CFQ7TTC0K5DJ"]},
+           {"id": "9NPCONLY", "title": "PC only", "cover": "", "hero": "", "publisher": "", "passes": ["CFQ7TTC0KGQ8"]}]
+    monkeypatch.setattr(gamepass, "catalog", lambda force=False: cat)
+    monkeypatch.setattr(settings, "get", lambda k, d=None: {"gamepass_member": "auto"}.get(k, d))
+    prof = nexus.PROFILE / "xbox-profile.json"
+
+    def shown(pass_ids):
+        prof.write_text(json.dumps({"gamertag": "Raul GBH", "subscription": {"status": "active", "productIds": pass_ids}}))
+        return {g.id for g in X.Xbox().fetch() if g.id.startswith("gp-")}
+
+    assert shown(["CFQ7TTC0KHS0"]) == {"gp-9NPREM", "gp-9NPAL", "gp-9NPCONLY"}  # Ultimate
+    assert shown(["CFQ7TTC0KGQ8"]) == {"gp-9NPREM", "gp-9NPAL", "gp-9NPCONLY"}  # PC Game Pass
+    assert shown(["CFQ7TTC0P85B"]) == {"gp-9NPREM", "gp-9NPAL"}                 # Premium
+    assert shown(["CFQ7TTC0K5DJ"]) == {"gp-9NPAL"}                               # Essential
+    assert shown(["CFQ7TTC0K6L8"]) == set()                                      # Console: no PC games
+    assert shown(["CFQ7TTC0P85B", "CFQ7TTC0KHS0"]) == {"gp-9NPREM", "gp-9NPAL", "gp-9NPCONLY"}  # best one wins
+    assert nexus.gamepass_tier() == "full"
+    for chosen, want in (("premium", {"gp-9NPREM", "gp-9NPAL"}), ("essential", {"gp-9NPAL"}), ("no", set())):
+        monkeypatch.setattr(settings, "get", lambda k, d=None, c=chosen: {"gamepass_member": c}.get(k, d))
+        assert {g.id for g in X.Xbox().fetch() if g.id.startswith("gp-")} == want
+
+
+def test_catalog_games_keep_their_passes(monkeypatch):
+    from cornerplay import gamepass as G
+
+    class R:
+        def raise_for_status(self): pass
+        def json(self):
+            return {"Products": [{"ProductId": "9NX", "LocalizedProperties": [{"ProductTitle": "X", "Images": []}],
+                                  "DisplaySkuAvailabilities": [{"Availabilities": [{"Properties": {"SatisfyingEntitlementKeys": [
+                                      {"EntitlementKeys": ["big:CFQ7TTC0P85B:0010", "big:CFQ7TTC0K5DJ:0010", "big:CFQ7TTC0ZZZZ:1"]}]}}]}]}]}
+    monkeypatch.setattr(G.requests, "get", lambda *a, **k: R())
+    assert G._details(["9NX"], "US")[0]["passes"] == ["CFQ7TTC0K5DJ", "CFQ7TTC0P85B"]
+    assert G.tier_of(["CFQ7TTC0K5DJ", "CFQ7TTC0P85B"]) == "premium" and G.tier_of(["x"]) == ""

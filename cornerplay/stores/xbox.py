@@ -68,17 +68,25 @@ class Xbox(Store):
             raise StoreError(why)
         return {"command": python_argv("cornerplay.nexus", "open"), "env": nexus.env()}
 
-    def has_gamepass(self):
-        """Game Pass bought: Settings > Game Pass says so, else (Linux) Nexus's answer from
-        Microsoft. Windows has no way to tell Cornerplay, so there it is a no until you say yes."""
+    def gamepass_tier(self):
+        """Which Game Pass is bought ("full", "premium", "essential", "starter", "console" or ""):
+        Settings > Game Pass says so, else (Linux) Nexus's answer from Microsoft. Windows has no
+        way to tell Cornerplay, so there it is none until you pick one."""
         chosen = str(settings.get("gamepass_member") or "auto").lower()
-        if chosen in ("yes", "no"):
-            return chosen == "yes"
+        if chosen == "yes":
+            return "full"
+        if chosen == "no":
+            return ""
+        if chosen in ("premium", "essential", "starter", "full"):
+            return chosen
         if WINDOWS:
-            return False
+            return ""
         from .. import nexus
-        nexus.owned()  # refreshes the "a game came with a pass" hint now and then
-        return nexus.gamepass_member()
+        nexus.owned()  # refreshes the passes in the library now and then
+        return nexus.gamepass_tier()
+
+    def has_gamepass(self):
+        return self.gamepass_tier() not in ("", "console")
 
     # --- library -----------------------------------------------------------------------------
     def _installed(self):
@@ -91,8 +99,9 @@ class Xbox(Store):
     def fetch(self):
         # The catalog only once Xbox is connected (Nexus Launcher there, or the Xbox app on Windows).
         # ...and only with Game Pass bought: without it those games cannot be played.
-        catalog = (gamepass.catalog() if settings.get("gamepass_catalog", True) and self.logged_in()
-                   and self.has_gamepass() else [])
+        # ...and only the games in the tier bought (Premium and Essential have fewer PC games).
+        tier = self.gamepass_tier() if settings.get("gamepass_catalog", True) and self.logged_in() else ""
+        catalog = gamepass.for_tier(gamepass.catalog(), tier) if tier not in ("", "console") else []
         by_store_id = {c["id"]: c for c in catalog}
         games, have = [], set()
         if not WINDOWS:

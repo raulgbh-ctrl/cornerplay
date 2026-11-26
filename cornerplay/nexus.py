@@ -134,28 +134,34 @@ def owned(force: bool = False) -> list:
         data = None
     if not isinstance(data, dict):
         return list(cached.get("ids") or [])
-    ids, via_pass = [], False
+    from .gamepass import PASSES
+    ids, via_pass, passes = [], False, set()
     for e in data.get("entitlements") or []:
         if not isinstance(e, dict) or e.get("isTrial") or str(e.get("status") or "Active") != "Active":
             continue
         if any(str(e.get(k) or "").startswith(PASS_PREFIX) for k in ("productId", "satisfiedByProductId")):
             via_pass = True  # the pass itself, or a game that comes with it
+        passes.update(str(e.get(k) or "") for k in ("productId", "satisfiedByProductId")
+                      if str(e.get(k) or "") in PASSES)
         pid = str(e.get("productId") or "").strip()
         if pid and pid not in ids and not pid.startswith(PASS_PREFIX):
             ids.append(pid)
-    write_json(cache, {"t": time.time(), "ids": ids, "pass": via_pass})
+    write_json(cache, {"t": time.time(), "ids": ids, "pass": via_pass, "passes": sorted(passes)})
     return ids
 
 
 PASS_PREFIX = "CFQ7TTC0"  # Microsoft's subscription products: Game Pass Ultimate, PC Game Pass...
 
 
-def gamepass_member() -> bool:
-    """Does the signed-in account have Game Pass? Nexus checks the membership with Microsoft and
-    keeps the answer with the profile ("active" plus the pass's product ids); a game in the library
-    that comes with a pass counts too. No answer, or "unknown", is a no: nothing proves a pass."""
+def gamepass_tier() -> str:
+    """Which Game Pass the signed-in account has: "full" (Ultimate or PC Game Pass), "premium",
+    "essential", "starter", "console", or "" for none. Nexus checks the membership with Microsoft
+    and keeps the answer with the profile ("active" plus the pass's product ids); the passes in the
+    library count too. A pass that is active but names no product we know counts as "full"."""
     from datetime import datetime, timezone
     from .config import CACHE_DIR, read_json
+    from .gamepass import TIER_RANK, tier_of
+    best = ""
     for name in ("xbox-profile-license.json", "xbox-profile.json"):
         try:
             with open(PROFILE / name, encoding="utf-8") as f:
@@ -171,8 +177,17 @@ def gamepass_member() -> bool:
                     continue  # ran out
             except ValueError:
                 pass
-            return True
-    return bool((read_json(CACHE_DIR / "xbox-owned.json") or {}).get("pass"))
+            tier = tier_of(sub.get("productIds") or []) or "full"
+            if TIER_RANK[tier] > TIER_RANK[best]:
+                best = tier
+    owned = read_json(CACHE_DIR / "xbox-owned.json") or {}
+    tier = tier_of(owned.get("passes") or []) or ("full" if owned.get("pass") and not owned.get("passes") else "")
+    return tier if TIER_RANK[tier] > TIER_RANK[best] else best
+
+
+def gamepass_member() -> bool:
+    """Does the signed-in account have a Game Pass with PC games? (see gamepass_tier)"""
+    return gamepass_tier() not in ("", "console")
 
 
 def gamertag() -> str:

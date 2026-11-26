@@ -8207,13 +8207,16 @@ ApplicationWindow {
                             Toggle { label: qsTr("Show a game owned on several stores only once"); settingKey: "merge_duplicates" }
                             Toggle { label: qsTr("Xbox / Game Pass: the PC Game Pass games you have not installed, ready to install"); settingKey: "gamepass_catalog" }
                             Row2 {
-                                label: qsTr("Do you have PC Game Pass?")
-                                hint: app.onWindows ? qsTr("Windows cannot tell Cornerplay, so its games only show once you say you have it.")
-                                                    : qsTr("Find out: Nexus Launcher asks Microsoft for your account. Game Pass games only show when you have it.")
+                                label: qsTr("Which Game Pass do you have?")
+                                hint: app.onWindows ? qsTr("Windows cannot tell Cornerplay, so its games only show once you pick yours.")
+                                                    : qsTr("Find out: Cornerplay asks Microsoft for your account and shows only the games in your tier.")
                                 KCombo {
                                     theme: win.theme; Layout.fillWidth: true
                                     model: [{ label: app.onWindows ? qsTr("I'm not sure (hide them)") : qsTr("Find out for me"), value: "auto" },
-                                            { label: qsTr("Yes, I have it"), value: "yes" }, { label: qsTr("No"), value: "no" }]
+                                            { label: qsTr("Ultimate or PC Game Pass (every PC game)"), value: "yes" },
+                                            { label: qsTr("Premium"), value: "premium" },
+                                            { label: qsTr("Essential"), value: "essential" },
+                                            { label: qsTr("None"), value: "no" }]
                                     Component.onCompleted: select(app.settingsMap.gamepass_member || "auto")
                                     onActivated: app.setSetting("gamepass_member", currentValue)
                                 }
