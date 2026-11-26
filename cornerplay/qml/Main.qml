@@ -179,6 +179,10 @@ ApplicationWindow {
             loginWindow.active = true
             loginWindow.item.begin(store, name, url)
         }
+        function onXboxSignin() {
+            if (xboxLogin.item) xboxLogin.item.begin()
+            else xboxLogin.active = true  // onLoaded begins
+        }
         function onBlizzardSync() {
             blizzardSync.active = true
             blizzardSync.item.start()
@@ -196,6 +200,7 @@ ApplicationWindow {
         }
         function onLoginDone(store, ok, message) {
             if (store === "blizzard" || store === "steamweb") { if (ok) toasts.append({ message: message }); return }
+            if (store === "xbox") { toasts.append({ message: message }); return }  // XboxLogin.qml closes itself
             login.busy = false
             if (ok) { login.close(); toasts.append({ message: message }) }
             else login.error = message
@@ -9530,6 +9535,14 @@ ApplicationWindow {
             target: loginWindow.item
             function onFallback() { app.loginBegin(loginWindow.item.store, true) }
         }
+    }
+
+    // Xbox on Linux: Microsoft's sign-in pages, for the Xbox backend (xboxauth.py).
+    Loader {
+        id: xboxLogin
+        active: false
+        source: typeof webLogin !== "undefined" && webLogin ? "XboxLogin.qml" : ""
+        onLoaded: item.begin()
     }
 
     // Blizzard account: its own sign-in window and the hidden page that reads the owned games.

@@ -162,9 +162,9 @@ def gamepass_tier() -> str:
     from .config import CACHE_DIR, read_json
     from .gamepass import TIER_RANK, tier_of
     best = ""
-    for name in ("xbox-profile-license.json", "xbox-profile.json"):
+    for path in _profile_files("xbox-profile-license.json", "xbox-profile.json"):
         try:
-            with open(PROFILE / name, encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 sub = (json.load(f) or {}).get("subscription") or {}
         except (OSError, ValueError, AttributeError):
             continue
@@ -190,10 +190,17 @@ def gamepass_member() -> bool:
     return gamepass_tier() not in ("", "console")
 
 
+def _profile_files(*names) -> list:
+    """The account files: Cornerplay's own copy (xodus.read_profile, from its sign-in) first, then
+    Nexus Launcher's."""
+    from .xodus import account_dir
+    return [d / n for d in (account_dir(), PROFILE) for n in names]
+
+
 def gamertag() -> str:
-    for name in ("xbox-profile.json", "xbox-profile-license.json"):
+    for path in _profile_files("xbox-profile.json", "xbox-profile-license.json"):
         try:
-            with open(PROFILE / name, encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 tag = (json.load(f) or {}).get("gamertag") or ""
             if tag:
                 return str(tag)

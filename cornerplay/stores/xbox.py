@@ -1,9 +1,9 @@
 """Xbox and PC Game Pass.
 
-On Linux Cornerplay does it itself (cornerplay/xodus.py): the games your Microsoft account owns,
-downloads with progress, pause and resume, and playing them, through the Xodus backend and the
-Nexus Runtime (both downloaded and checked on first use). Nexus Launcher (cornerplay/nexus.py) is
-only needed for the first sign-in, and games it installed still show and start. On Windows
+On Linux Cornerplay does it itself (cornerplay/xodus.py): signing in (xboxauth.py), the games your
+Microsoft account owns, downloads with progress, pause and resume, and playing them, through the
+Xodus backend and the Nexus Runtime (both downloaded and checked on first use). Games Nexus
+Launcher (cornerplay/nexus.py) installed still show and start. On Windows
 through the Xbox app (cornerplay/winxbox.py). On both, the PC Game Pass catalog (gamepass.py) is
 shown too, so a game can be picked here and installed: Nexus Launcher installs it on Linux, the
 Microsoft Store / Xbox app on Windows. Nothing is streamed: games are installed and run locally.
@@ -54,11 +54,12 @@ class Xbox(Store):
             return "through the Xbox app"
         from .. import nexus
         tag = nexus.gamertag()
-        return tag if tag else ("Sign in inside Nexus Launcher once" if nexus.appimage() else "")
+        return tag if tag else ("Not signed in: press Connect" if nexus.appimage() else "")
 
     def login_begin(self):
-        """Connect: on Linux install Nexus Launcher (when it is not there yet) and open it to sign
-        in; on Windows open the Xbox app."""
+        """Connect: on Linux Cornerplay signs in itself (xboxauth.py: Microsoft's page in its own
+        window, "xbox_signin"); where Qt's web engine is missing it falls back to Nexus Launcher
+        ("command"). On Windows open the Xbox app."""
         if WINDOWS:
             from .. import winxbox
             return {"command": winxbox.xbox_app_argv()}
@@ -66,7 +67,13 @@ class Xbox(Store):
         why = nexus.unsupported()
         if why:
             raise StoreError(why)
-        return {"command": python_argv("cornerplay.nexus", "open"), "env": nexus.env()}
+        return {"xbox_signin": True, "command": python_argv("cornerplay.nexus", "open"), "env": nexus.env()}
+
+    def logout(self):
+        if WINDOWS:
+            return
+        from .. import xodus
+        xodus.logout()
 
     def gamepass_tier(self):
         """Which Game Pass is bought ("full", "premium", "essential", "starter", "console" or ""):
@@ -97,6 +104,9 @@ class Xbox(Store):
         return xodus.games() + nexus.games()  # Cornerplay's own installs, then Nexus Launcher's
 
     def fetch(self):
+        if not WINDOWS:
+            from .. import xodus
+            xodus.read_profile()  # gamertag and Game Pass, from the backend now and then
         # The catalog only once Xbox is connected (Nexus Launcher there, or the Xbox app on Windows).
         # ...and only with Game Pass bought: without it those games cannot be played.
         # ...and only the games in the tier bought (Premium and Essential have fewer PC games).

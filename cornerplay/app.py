@@ -741,6 +741,10 @@ class AioLaunch(QObject):
     gameChanged = Signal(str)
     loginReady = Signal(str, str, str)   # store, url, prompt
     loginWeb = Signal(str, str, str)     # store, store name, url (built-in sign-in window)
+    xboxSignin = Signal()                # Xbox on Linux: open XboxLogin.qml (it calls xboxLoginStart)
+    xboxAuthOpen = Signal(int, str)      # session, Microsoft sign-in page to show
+    xboxAuthContext = Signal(int, str)   # session, JavaScript to run in that page
+    xboxAuthClose = Signal(int)          # session: that page is done with
     loginDone = Signal(str, bool, str)   # store, ok, message
     dlcsReady = Signal(str, "QVariantList", str)  # key, rows, note
     dlcsSearching = Signal(str, bool)  # key, still looking on the other stores
@@ -3542,6 +3546,11 @@ class AioLaunch(QObject):
 
         def work():
             info = store.login_begin()
+            if info.get("xbox_signin") and self.web_login and not browser:
+                from . import xodus  # Xbox on Linux: Microsoft's page in Cornerplay's own window
+                if not xodus.backend():
+                    xodus.install_backend(log=lambda *_: None)
+                return lambda: (web_types(), self.xboxSignin.emit())
             if "command" in info:
                 first_nexus = store_id == "xbox" and os.name != "nt" and not store.logged_in()
 
@@ -3556,6 +3565,88 @@ class AioLaunch(QObject):
                 return lambda: (web_types(), self.loginWeb.emit(store_id, store.name, info["url"]))
             return lambda: (self.loginReady.emit(store_id, info["url"], info["prompt"]))
         self._bg(work)
+
+    # --- Xbox sign-in inside Cornerplay (xboxauth.py) -------------------------------------------
+    @Slot(QObject)
+    def xboxLoginStart(self, profile):
+        """XboxLogin.qml is ready: start the backend's sign-in, showing its pages in that window.
+        The profile gets the sign-in host's browser name and, for each page the backend opens, the
+        headers it asked for (on that page's first request only)."""
+        from . import xboxauth, xodus
+        old = getattr(self, "_xbox_login", None)
+        if old:
+            old.cancel()
+        try:
+            from PySide6.QtWebEngineCore import QWebEngineUrlRequestInterceptor, QWebEngineUrlRequestInfo
+
+            class Headers(QWebEngineUrlRequestInterceptor):
+                pending = None
+
+                def interceptRequest(self, info):
+                    h = self.pending
+                    if (h is not None and info.resourceType() == QWebEngineUrlRequestInfo.ResourceType.ResourceTypeMainFrame
+                            and xboxauth.trusted(info.requestUrl().toString())):
+                        self.pending = None
+                        for k, v in h.items():
+                            info.setHttpHeader(QByteArray(k.encode()), QByteArray(v.encode()))
+            self._xbox_headers = Headers(profile)
+            profile.setUrlRequestInterceptor(self._xbox_headers)
+            profile.setHttpUserAgent(xboxauth.USER_AGENT)
+        except (ImportError, AttributeError, RuntimeError, TypeError):
+            self._xbox_headers = None
+        exe = xodus.backend()
+        if not exe:
+            self.loginDone.emit("xbox", False, _t("The Xbox backend could not be downloaded: check the connection"))
+            return
+
+        def on_open(session, url, headers):
+            def show():
+                if self._xbox_headers is not None:
+                    self._xbox_headers.pending = headers
+                self.xboxAuthOpen.emit(session, url)
+            self._after.emit(show)
+
+        def on_done(ok, message):
+            def work():
+                if ok:
+                    xodus.read_profile(force=True)
+                    from . import nexus
+                    nexus.owned(force=True)
+                    tag = nexus.gamertag()
+
+                    def done():
+                        self.loginDone.emit("xbox", True, f"Signed in to Xbox as {tag}" if tag else "Signed in to Xbox")
+                        self.refresh("xbox")
+                    return done
+                return lambda: self.loginDone.emit("xbox", False, message)
+            self._bg(work)
+
+        self._xbox_login = xboxauth.Login(
+            exe, on_open,
+            lambda session, ctx: self._after.emit(lambda: self.xboxAuthContext.emit(session, xboxauth.context_script(ctx))),
+            lambda session: self._after.emit(lambda: self.xboxAuthClose.emit(session)),
+            on_done)
+        try:
+            self._xbox_login.start()
+        except OSError as e:
+            self.loginDone.emit("xbox", False, f"The Xbox backend could not start: {e}")
+
+    @Slot(int, str)
+    def xboxAuthNotify(self, session, payload):
+        login = getattr(self, "_xbox_login", None)
+        if login:
+            login.notify(session, payload)
+
+    @Slot(int)
+    def xboxAuthCancel(self, session):
+        login = getattr(self, "_xbox_login", None)
+        if login:
+            login.cancel(session)
+
+    @Slot(str, result=bool)
+    def xboxAuthTrusted(self, url):
+        from .xboxauth import trusted
+        return trusted(url)
 
     @Slot(str, str)
     def loginFinish(self, store_id, text):

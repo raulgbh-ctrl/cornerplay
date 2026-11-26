@@ -506,6 +506,76 @@ def stop(product_id: str) -> None:
         subprocess.run([str(script), "--nexus-stop-prefix"], capture_output=True, timeout=30)
 
 
+# --- the account ---------------------------------------------------------------------------------
+PROFILE_TTL = 6 * 3600
+
+
+def account_dir() -> Path:
+    from .config import CACHE_DIR
+    return CACHE_DIR / "xbox-account"
+
+
+def read_profile(force: bool = False) -> dict:
+    """The signed-in Xbox account as the backend reads it (gamertag, account, Game Pass membership),
+    kept in account_dir() as xbox-profile.json / xbox-profile-license.json, shaped like Nexus
+    Launcher's own files so nexus.gamertag() and nexus.gamepass_tier() read either. The picture
+    goes to gamerpic.jpg. {} when there is no backend or no account."""
+    import base64
+    d = account_dir()
+    path = d / "xbox-profile.json"
+    try:
+        if not force and time.time() - path.stat().st_mtime < PROFILE_TTL:
+            return json.loads(path.read_text(encoding="utf-8")) or {}
+    except (OSError, ValueError):
+        pass
+    exe = backend()
+    if not exe:
+        return {}
+    out = {}
+    for name, extra in (("xbox-profile.json", []), ("xbox-profile-license.json", ["--license"])):
+        try:
+            r = subprocess.run([exe, "profile", "--json", *extra], capture_output=True, text=True, timeout=60,
+                               stdin=subprocess.DEVNULL)
+            data = json.loads(r.stdout) if r.returncode == 0 and r.stdout.strip() else None
+        except (OSError, subprocess.SubprocessError, ValueError):
+            data = None
+        if not isinstance(data, dict):
+            continue
+        pic = str(data.pop("gamerpicDataUrl", "") or "")
+        d.mkdir(parents=True, exist_ok=True)
+        if pic.startswith("data:image/") and "," in pic and not extra:
+            try:
+                (d / "gamerpic.jpg").write_bytes(base64.b64decode(pic.split(",", 1)[1]))
+            except (ValueError, OSError):
+                pass
+        (d / name).write_text(json.dumps(data), encoding="utf-8")
+        if not extra:
+            out = data
+    if not out:  # not signed in: remembered too, so the backend is not asked again at once
+        d.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}", encoding="utf-8")
+    return out
+
+
+def gamerpic() -> str:
+    p = account_dir() / "gamerpic.jpg"
+    return str(p) if p.exists() else ""
+
+
+def logout() -> None:
+    """Sign the Microsoft account out of the backend (and so out of Nexus Launcher too: they share
+    the keyring entry) and forget Cornerplay's copy of the profile."""
+    exe = backend()
+    if exe:
+        try:
+            subprocess.run([exe, "logout"], capture_output=True, timeout=60, stdin=subprocess.DEVNULL)
+        except (OSError, subprocess.SubprocessError):
+            pass
+    shutil.rmtree(account_dir(), ignore_errors=True)
+    from .config import CACHE_DIR
+    (CACHE_DIR / "xbox-owned.json").unlink(missing_ok=True)
+
+
 def signed_in() -> bool:
     exe = backend()
     if not exe:
