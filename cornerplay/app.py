@@ -3523,6 +3523,7 @@ class AioLaunch(QObject):
             self._epic_free_remind()
         if store_id == "steam":
             self._load_couch()
+            self._steam_progress()
         if games is not None and self.model.replace_store(store_id, games):
             write_json(LIBRARY_CACHE, [g.to_dict() for g in self.model.games])
         if store_id == "battlenet" and games is not None:
@@ -3564,6 +3565,7 @@ class AioLaunch(QObject):
             elif cur and cur.get("external"):
                 self.model.jobs.pop(g.key, None)
                 self.model.touch(g.key)
+        self.downloadsChanged.emit()
         if getattr(self, "_bnet_poll", False) or self.demo:
             return
         store = self.stores.get("battlenet")
@@ -3575,8 +3577,52 @@ class AioLaunch(QObject):
                 self.refresh("battlenet")
             QTimer.singleShot(4000 if busy else 30000, again)
 
+    def _steam_progress(self):
+        """The Steam client downloads its games itself (from Cornerplay's Install, Steam's own
+        window or its automatic updates): show its progress, read from the app manifests, on
+        their tiles and in Downloads. Every few seconds while it downloads, every 15 otherwise."""
+        store = self.stores.get("steam")
+        if self.demo or getattr(self, "_steam_poll", False) or not store or not store.root():
+            return
+        self._steam_poll = True
+
+        def work():
+            try:
+                busy = store.busy()
+            except Exception:
+                busy = {}
+            return lambda: self._steam_busy(busy)
+        self._bg(work)
+
+    def _steam_busy(self, busy):
+        changed, finished = False, False
+        for appid, b in busy.items():
+            key = f"steam:{appid}"
+            if key in self.procs:
+                continue
+            new = {"kind": b["kind"], "progress": float(b["progress"]), "external": True, "title": b["title"]}
+            if self.model.jobs.get(key) != new:
+                self.model.jobs[key] = new
+                self.model.touch(key)
+                changed = True
+        for key, job in list(self.model.jobs.items()):
+            if key.startswith("steam:") and job.get("external") and key[6:] not in busy:
+                self.model.jobs.pop(key, None)
+                self.model.touch(key)
+                changed = finished = True
+        if changed:
+            self.downloadsChanged.emit()
+            self.gameChanged.emit("")
+        if finished:
+            self.refresh("steam")  # installed now / updated: the library shows it
+
+        def again():
+            self._steam_poll = False
+            self._steam_progress()
+        QTimer.singleShot(3000 if busy else 15000, again)
+
     def _external_job(self, key):
-        """A download another app runs (Battle.net): it is paused or cancelled there."""
+        """A download another app runs (Steam, Battle.net): it is paused or cancelled there."""
         if (self.model.jobs.get(key) or {}).get("external"):
             g = self.model.find(key)
             self.toast.emit(f"Pause or cancel {g.title if g else 'it'} in the {g and self.stores[g.store].name or 'store'} app")
@@ -7053,8 +7099,10 @@ class AioLaunch(QObject):
                 told = self._bnet_told = {}
             if key and need != told.get(key, ""):
                 told[key] = need
-                if need:  # Battle.net was hidden and now wants you: its window is in front
-                    self.toast.emit(f"Battle.net needs you ({need}) before {data.get('title') or 'the game'} can start")
+                if need:  # a store app was hidden and now wants you: its window is in front
+                    who = data.get("needs_app") or "Battle.net"
+                    what = f" ({need})" if need != who else ""
+                    self.toast.emit(f"{who} needs you{what} before {data.get('title') or 'the game'} can start")
             stamp = (data.get("state"), data.get("since"))
             if self._sessions_seen.get(f.name) == stamp:
                 continue
@@ -7397,7 +7445,9 @@ class AioLaunch(QObject):
     def _downloads(self):
         rows = []
         # (--demo has a job with no process behind it: list it too, so the demo shows downloads.)
-        for key in list(self.procs) + ([k for k in self.model.jobs if k not in self.procs] if self.demo else []):
+        # Downloads the store apps run themselves (Steam, Battle.net) are listed too.
+        for key in list(self.procs) + [k for k in self.model.jobs if k not in self.procs
+                                       and (self.demo or (self.model.jobs.get(k) or {}).get("external"))]:
             job = self.model.jobs.get(key) or {}
             if job.get("kind") in self.DOWNLOADS:
                 rows.append(self._download_row(key, job, "running"))
@@ -7415,10 +7465,11 @@ class AioLaunch(QObject):
         eta = job.get("eta")
         if eta is not None and job.get("etaAt"):
             eta = max(0, eta - (time.monotonic() - job["etaAt"]))
-        return {"key": key, "title": g.title if g else key, "kind": job.get("kind", ""), "state": state,
+        return {"key": key, "title": g.title if g else (job.get("title") or key), "kind": job.get("kind", ""), "state": state,
                 "progress": float(job.get("progress", -1.0)), "speed": float(job.get("speed", 0.0)),
                 "eta": int(eta) if eta is not None else -1, "cover": _cover(g) if g else "",
-                "covers": _covers(g) if g else [], "pausable": job.get("kind") in self.PAUSABLE,
+                "covers": _covers(g) if g else [], "pausable": job.get("kind") in self.PAUSABLE and not job.get("external"),
+                "external": bool(job.get("external")),
                 "store": g.store if g else ""}
 
     downloads = Property("QVariantList", _downloads, notify=downloadsChanged)

@@ -14,7 +14,7 @@ ApplicationWindow {
         mangohud: true, show_fps: true, perf_log: true, gog_native: true, shader_cache: true, shader_warmup: true,
         peer_reports: true, show_protondb: true, steam_games: true, stream_fit: true, stream_screen_off: true,
         clips: true, ntsync: true, fast_cores: true, update_safety: true, gamescope_hdr: true, game_workspace: true,
-        focus_lowlat: true, battlenet_hide: true, battlenet_warm: true, jobs_low_priority: true })
+        focus_lowlat: true, battlenet_warm: true, jobs_low_priority: true })
     width: 1320
     height: 840
     minimumWidth: 760
@@ -7855,8 +7855,11 @@ ApplicationWindow {
                                          Component.onCompleted: select(app.settingsMap.gpu || "auto")
                                          onActivated: app.setSetting("gpu", currentValue) }
                             }
-                            // Battle.net out of sight (bnethide.py): only Hyprland can move its windows away.
-                            Toggle { visible: app.hyprland; label: qsTr("Battle.net: keep its window hidden while its games start (it shows when it needs you)"); settingKey: "battlenet_hide" }
+                            // Store apps out of sight (launcherhide.py): Hyprland moves their windows away, Windows hides them.
+                            Toggle { visible: app.hyprland || app.onWindows
+                                     label: app.onWindows ? qsTr("Keep store apps hidden while their games start: Steam, Battle.net, Prism (they show when they need you)")
+                                                          : qsTr("Keep store apps hidden while their games start: Steam, Battle.net, Nexus, Prism (they show when they need you)")
+                                     settingKey: "launchers_hide" }
                             Toggle { visible: app.hyprland; label: qsTr("Battle.net: ready in the background, so its games start in seconds (uses some memory)"); settingKey: "battlenet_warm" }
                             Text { text: qsTr("While you play"); color: theme.onSurface; font.pixelSize: 15; font.weight: Font.DemiBold; Layout.topMargin: 6 }
                             Toggle { label: qsTr("Do not disturb (on Ryoku: its Game Mode)"); settingKey: "focus_dnd" }

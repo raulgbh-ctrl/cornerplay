@@ -145,6 +145,19 @@ class Steam(Store):
             extra={"store_heroes": [hero]} if hero else {},
         )
 
+    def busy(self) -> dict:
+        """What the Steam client downloads now, from its app manifests (local files: cheap to
+        read every few seconds): {appid: {"kind": "install"|"update", "progress": 0-100,
+        "title": name}}. Paused or merely queued downloads are left out."""
+        out = {}
+        for lib in self.library_dirs():
+            for acf in glob.glob(os.path.join(lib, "steamapps", "appmanifest_*.acf")):
+                st = vdf.load(acf).get("AppState", {})
+                row = download_state(st)
+                if row and st.get("appid") not in TOOL_IDS:
+                    out[st["appid"]] = dict(row, title=st.get("name", ""))
+        return out
+
     def fetch(self):
         games = {}
         for lib in self.library_dirs():
@@ -285,11 +298,11 @@ class Steam(Store):
         except (requests.RequestException, ValueError) as e:
             raise StoreError(f"Could not reach the Steam store ({type(e).__name__})")
 
-    def _url(self, url):
+    def _url(self, url, *flags):
         client = self.client()
         if not client:
             raise StoreError(self.problem())
-        return Command([*client, url])
+        return Command([*client, *flags, url])
 
     def install(self, game):
         return self._url(f"steam://install/{game.id}")
@@ -298,7 +311,35 @@ class Steam(Store):
         return self._url(f"steam://uninstall/{game.id}")
 
     def launch(self, game):
-        return self._url(f"steam://rungameid/{game.id}")
+        # -silent: a Steam that was closed starts in the tray, its main window never opens
+        # (Linux and Windows); a sign-in or an error still shows. Settings > Games can turn it off.
+        return self._url(f"steam://rungameid/{game.id}", *(["-silent"] if settings.get("launchers_hide") else []))
+
+
+# Steam's EAppState flags (appmanifest StateFlags)
+_UPDATE_RUNNING, _UPDATE_PAUSED, _UPDATE_STARTED = 256, 512, 1024
+_WORKING = 256 | 1024 | 131072 | 262144 | 524288 | 1048576 | 2097152 | 4194304  # validating … committing
+
+
+def download_state(st) -> dict:
+    """One manifest's download now ({} when none): {"kind", "progress"}. A game Steam has
+    never finished installing (buildid 0) is an install; the rest are updates."""
+    try:
+        flags = int(st.get("StateFlags", "0") or 0)
+        todo, done = int(st.get("BytesToDownload", 0) or 0), int(st.get("BytesDownloaded", 0) or 0)
+        stage, staged = int(st.get("BytesToStage", 0) or 0), int(st.get("BytesStaged", 0) or 0)
+    except ValueError:
+        return {}
+    if not flags & _WORKING or flags & _UPDATE_PAUSED:
+        return {}
+    if todo:
+        progress = 100.0 * done / todo
+    elif stage:
+        progress = 100.0 * staged / stage
+    else:
+        progress = -1.0
+    kind = "install" if str(st.get("buildid", "0") or "0") == "0" else "update"
+    return {"kind": kind, "progress": round(min(100.0, progress), 1) if progress >= 0 else -1.0}
 
 
 CURRENCY = {"USD": "$", "EUR": "€", "GBP": "£", "JPY": "¥", "BRL": "R$", "AUD": "A$", "CAD": "C$", "RUB": "₽"}

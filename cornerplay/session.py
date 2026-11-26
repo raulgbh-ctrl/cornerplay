@@ -45,6 +45,9 @@ def run(game, argv, env_extra, cwd, log_path, sync):
         presence = discord.start(game, started)
     except Exception:
         presence = None  # Discord is a nicety; never in the way of playing
+    # Before the game starts: which of its store app's windows were already on screen (they stay).
+    pid = {"pid": 0}
+    hider = _hider(game, out, started, pid)
     with open(log_path, "w", encoding="utf-8") as log:
         try:
             # Its own process group, so Quit / Force close in Cornerplay reach Wine's helpers too.
@@ -52,6 +55,7 @@ def run(game, argv, env_extra, cwd, log_path, sync):
                                     start_new_session=True)
             write_json(out, {"key": game.key, "state": "playing", "since": started, "title": game.title,
                              "pid": proc.pid})
+            pid["pid"] = proc.pid
             if game.store == "battlenet":
                 code, started, ended = _battlenet(game, proc, out, started)
             elif game.store == "xbox" and game.install_path:
@@ -61,6 +65,8 @@ def run(game, argv, env_extra, cwd, log_path, sync):
         except OSError as e:
             log.write(f"Could not start: {e}\n")
             code = -1
+    if hider:
+        hider.finish()  # Steam: once its game is up; the others: now the game has closed
     if presence:
         presence.clear()
     if game.store in playtime.TIMED and started:
@@ -81,6 +87,31 @@ def run(game, argv, env_extra, cwd, log_path, sync):
     write_json(out, {"key": game.key, "state": "done", "exit": code, "sync": result,
                      "title": game.title, "since": time.time(), "started": started, "log": log_path})
     return code
+
+
+def _hider(game, out, started, pid):
+    """Keeps the game's store app (Steam, Nexus, Prism) out of sight while it starts
+    (launcherhide.py; Battle.net has its own watch in _battlenet). None when not wanted."""
+    from . import launcherhide
+    from .config import settings
+    spec = launcherhide.get(game.store)
+    if not spec or game.store == "battlenet" or not settings.get("launchers_hide") or not launcherhide.available():
+        return None
+    started_fn = None
+    if game.store == "steam":
+        if not game.id.isdigit():
+            return None
+        from . import steamrun
+        started_fn = lambda: game.id in steamrun.running()
+    elif game.store == "xbox":
+        from .stores.xbox import NEXUS_ID
+        if game.id == NEXUS_ID or game.id.startswith("xb-"):
+            return None  # Nexus's own window was asked for / Cornerplay starts the game itself
+
+    def need(title):
+        write_json(out, {"key": game.key, "state": "playing", "since": started, "title": game.title,
+                         "pid": pid["pid"], "needs": title, "needs_app": spec.name})
+    return launcherhide.Hider(spec, started=started_fn, on_need=need).start()
 
 
 def _norm(path):
@@ -129,11 +160,12 @@ def _battlenet(game, proc, out, started):
     from .stores.battlenet import BattleNet, close_launcher, launcher_running, watch
     store = BattleNet()
     state = {"pids": [], "needs": "", "was_open": launcher_running(store) or settings.get("battlenet_warm")}
-    hide = bool(settings.get("battlenet_hide")) and bnethide.available()
+    hide = bool(settings.get("launchers_hide")) and bnethide.available()
 
     def status():
         write_json(out, {"key": game.key, "state": "playing", "since": started, "title": game.title,
-                         "pid": os.getpid(), "pids": state["pids"], "needs": state["needs"]})
+                         "pid": os.getpid(), "pids": state["pids"], "needs": state["needs"],
+                         "needs_app": "Battle.net"})
 
     from .config import game_options
     own = game_options.get(game.key)

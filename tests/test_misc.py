@@ -467,7 +467,7 @@ def test_play_steam_waits_for_the_game(monkeypatch):
     monkeypatch.setattr(steam.Steam, "client", lambda self: ["steam"])
     started, polls = [], iter([set(), set(), {"620"}, {"620"}, set()])
     rc = m.play_steam("620", run=started.append, running=lambda: next(polls), sleep=lambda s: None)
-    assert rc == 0 and started == [["steam", "steam://rungameid/620"]]
+    assert rc == 0 and started == [["steam", "-silent", "steam://rungameid/620"]]
     assert next(polls, "done") == "done"            # it waited for the game to start and to close
     from cornerplay import session
     monkeypatch.setattr(session, "notify", lambda *a: None)

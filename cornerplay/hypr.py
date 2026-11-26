@@ -138,6 +138,13 @@ def focus_window(address: str) -> bool:
     return ctl("dispatch", "focuswindow", f"address:{address}") is not None
 
 
+def close_window(address: str) -> bool:
+    """Close one window as its close button would (Steam's then goes to the tray)."""
+    if lua():
+        return ctl("dispatch", f"hl.dsp.window.close({{ window = {json.dumps('address:' + address)} }})") is not None
+    return ctl("dispatch", "closewindow", f"address:{address}") is not None
+
+
 def reload() -> bool:
     return ctl("reload") is not None
 
