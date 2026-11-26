@@ -3,7 +3,6 @@ name: CI
 on:
   push:
     branches: [main, windows]
-    tags: ["v*"]  # a release: the Windows installer is also signed (SignPath), see CODE_SIGNING_POLICY.md
   pull_request:
   workflow_dispatch:  # run it by hand (gh workflow run CI --ref <branch>), e.g. when GitHub missed a push
 
@@ -36,7 +35,6 @@ jobs:
     timeout-minutes: 45
     env:
       PYTHONUTF8: "1"  # as Cornerplay.exe runs (its spec turns UTF-8 mode on)
-      HAS_SIGNPATH: ${{ secrets.SIGNPATH_API_TOKEN != '' }}  # only whether it is set, never the token
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -113,38 +111,10 @@ jobs:
           Stop-Process -Name Cornerplay -Force
           $u = Start-Process -FilePath "$dir2\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -PassThru
           if (-not $u.WaitForExit(300000)) { throw "the second uninstall did not finish" }
-      # Code signing (SignPath Foundation, free for open source): only for a release tag, and only
-      # once the project's SignPath token is set (Settings > Secrets: SIGNPATH_API_TOKEN; Variables:
-      # SIGNPATH_ORGANIZATION_ID, SIGNPATH_PROJECT_SLUG, SIGNPATH_POLICY_SLUG). Until then the
-      # installer is built unsigned, as before.
-      - id: unsigned
-        uses: actions/upload-artifact@v4
-        with:
-          name: cornerplay-windows-unsigned
-          path: dist/cornerplay-*-windows-setup.exe
-      - id: sign
-        if: startsWith(github.ref, 'refs/tags/v') && env.HAS_SIGNPATH == 'true'
-        uses: signpath/github-action-submit-signing-request@v2
-        with:
-          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
-          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
-          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
-          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
-          wait-for-completion: true
-          output-artifact-directory: dist/signed
-      - name: The signed installer carries a valid signature
-        if: steps.sign.outcome == 'success'
-        shell: pwsh
-        run: |
-          $f = Get-ChildItem dist\signed\*.exe | Select-Object -First 1
-          $sig = Get-AuthenticodeSignature $f.FullName
-          if ($sig.Status -ne "Valid") { throw "signature: $($sig.Status) $($sig.StatusMessage)" }
-          Write-Host "Signed by $($sig.SignerCertificate.Subject)"
       - uses: actions/upload-artifact@v4
         with:
           name: cornerplay-windows
-          path: ${{ steps.sign.outcome == 'success' && 'dist/signed/*.exe' || 'dist/cornerplay-*-windows-setup.exe' }}
+          path: dist/cornerplay-*-windows-setup.exe
 
   winget:
     # The winget manifests of the newest version in packaging/winget: `winget validate`, then a real
@@ -173,7 +143,7 @@ jobs:
             Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name SmartScreenEnabled -Value "Off"
             Write-Host "SmartScreen switched off for this run"
           }
-          # The installer is not code-signed yet (SignPath, CODE_SIGNING_POLICY.md): Windows asks "the
+          # The installer is not code-signed: Windows asks "the
           # publisher could not be verified, run it?" before it runs, and on a runner no one can say yes,
           # so winget waits forever. WINGET_ZONECHECK_OFF=1 says yes for the test; drop it once signed.
           if ($env:ZONECHECK_OFF -eq "1") {

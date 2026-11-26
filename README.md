@@ -67,7 +67,7 @@ Cornerplay also runs on Windows 10 and 11 (64-bit). Download `cornerplay-<versio
 from the releases page and run it: it installs for your account only, no administrator needed,
 and brings legendary, gogdl, nile and SDL2 with it.
 Also through winget once it is listed: `winget install raulgbh-ctrl.Cornerplay`
-(packaging/winget). The installer's code signing: [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md).
+(packaging/winget).
 
 On Windows games run as they are, so there is no Proton, no prefixes and none of the Linux tools
 (gamescope, MangoHud, GameMode, the Hyprland extras, btrfs snapshots); Settings hides them. Steam,

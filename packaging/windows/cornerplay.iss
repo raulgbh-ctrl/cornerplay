@@ -12,7 +12,7 @@ AppVersion={#AppVersion}
 AppVerName=Cornerplay {#AppVersion}
 AppPublisher=Cornerplay
 AppPublisherURL=https://github.com/raulgbh-ctrl/cornerplay
-; The file's own properties (SignPath checks them: the product name, the same version every build)
+; The file's own properties (shown in Windows: the product name and version)
 VersionInfoProductName=Cornerplay
 VersionInfoProductVersion={#AppVersion}
 VersionInfoVersion={#AppVersion}
