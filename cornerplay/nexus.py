@@ -96,7 +96,12 @@ def games() -> list:
 
 
 def backend() -> str:
-    """Nexus's own command-line backend (xodus-cli), "" before Nexus has fetched it."""
+    """The Xbox backend (xodus-cli): Cornerplay's own copy first (xodus.py), else Nexus's."""
+    from .xodus import backend as own
+    return own()
+
+
+def _nexus_backend() -> str:
     try:
         with open(PROFILE / "xodus-backends" / "current.json", encoding="utf-8") as f:
             path = str((json.load(f) or {}).get("binaryPath") or "")

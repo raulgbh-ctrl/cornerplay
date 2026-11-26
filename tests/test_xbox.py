@@ -57,14 +57,14 @@ def test_store_lists_installed_games_and_the_catalog(nexus_home, monkeypatch):
     s = X.Xbox()
     assert s.logged_in() and "Raul GBH" in s.account()
     games = {g.id: g for g in s.fetch()}
-    assert games[X.NEXUS_ID].installed  # Nexus Launcher's own tile
+    assert X.NEXUS_ID not in games  # signed in: Nexus Launcher's tile is not needed any more
     fh = games["fh6"]
     assert fh.installed and fh.title == "Forza Horizon 6" and fh.cover == "https://img/forza.jpg"  # the catalog's
     assert fh.extra["gamepass"] and fh.extra["store_id"] == "9NFORZA"
     assert not games["half"].installed
     assert "gp-9NFORZA" not in games  # installed already: no catalog tile for it
     pal = games["gp-9NPAL"]
-    assert not pal.installed and pal.extra["owned_only"] and pal.extra["store_id"] == "9NPAL"
+    assert not pal.installed and not pal.extra["owned_only"] and pal.extra["store_id"] == "9NPAL"  # Linux: Cornerplay installs it
 
 
 def test_store_launch_and_install_commands(nexus_home):
@@ -73,9 +73,9 @@ def test_store_launch_and_install_commands(nexus_home):
     assert s.launch(g).argv[-2:] == ["--launch-game", "fh6"]
     assert s.launch(Game(store="xbox", id=X.NEXUS_ID, title="Nexus")).argv[-1].endswith(".AppImage")
     cmd = s.install(Game(store="xbox", id="gp-9NPAL", title="Palworld", extra={"store_id": "9NPAL"}))
-    assert cmd.argv[-2:] == ["cornerplay.nexus", "open"]  # installs Nexus Launcher if needed, then opens it
+    assert cmd.argv[-4:-2] == ["install", "9NPAL"]  # Cornerplay downloads it itself
     with pytest.raises(X.StoreError):
-        s.uninstall(g)
+        s.uninstall(g)  # Nexus Launcher installed that one: it uninstalls it
 
 
 def test_catalog_only_once_connected(nexus_home, monkeypatch):
@@ -213,7 +213,7 @@ def test_owned_games_come_from_nexus_backend(nexus_home, monkeypatch, tmp_path):
     assert nexus.owned(force=True) == ["9NFALLOUT", "9NFORZA"]
     games = {g.id: g for g in X.Xbox().fetch()}
     fo = games["own-9NFALLOUT"]
-    assert fo.title == "Fallout 76 (PC)" and not fo.installed and fo.extra["owned"] and fo.extra["owned_only"]
+    assert fo.title == "Fallout 76 (PC)" and not fo.installed and fo.extra["owned"] and not fo.extra["owned_only"]
     assert "own-9NFORZA" not in games and games["fh6"].installed  # installed: one tile, not two
     assert "gp-9NPAL" in games
 
@@ -255,3 +255,47 @@ def test_game_pass_choice_wins(monkeypatch):
     monkeypatch.setattr(X, "WINDOWS", True)
     monkeypatch.setattr(settings, "get", lambda k, d=None: {"gamepass_member": "auto"}.get(k, d))
     assert X.Xbox().has_gamepass() is False  # Windows cannot tell: hidden until you say yes
+
+
+def test_linux_installs_and_plays_through_cornerplay(nexus_home, monkeypatch, tmp_path):
+    """Linux: Install is a Cornerplay download (xodus.py, with progress), not Nexus Launcher;
+    a game Cornerplay installed starts through it, and uninstalls through it."""
+    from cornerplay import xodus
+    from cornerplay.config import settings
+    monkeypatch.setattr(xodus, "STATE", tmp_path / "games.json")
+    real_get = settings.get
+    monkeypatch.setattr(settings, "get", lambda k, d=None: "no" if k == "gamepass_member" else real_get(k, d))
+    monkeypatch.setattr(type(settings), "games_dir", property(lambda self: tmp_path / "Games"), raising=False)
+    s = X.Xbox()
+    assert not s.external_installs
+    g = Game(store="xbox", id="own-9NFALLOUT", title="Fallout 76: PC?", installed=False, extra={"store_id": "9NFALLOUT"})
+    argv = s.install(g).argv
+    assert argv[-4:] == ["install", "9NFALLOUT", str(tmp_path / "Games" / "Xbox" / "Fallout 76 PC"), "Fallout 76: PC?"]
+    game_dir = tmp_path / "Games" / "Xbox" / "Fallout 76 PC"
+    game_dir.mkdir(parents=True)
+    xodus._save_state({"9NFALLOUT": {"title": "Fallout 76", "path": str(game_dir), "installed": 1, "exe": "Fallout76.exe"}})
+    games = {g.id: g for g in s.fetch()}
+    fo = games["xb-9NFALLOUT"]
+    assert fo.installed and fo.install_path == str(game_dir) and "own-9NFALLOUT" not in games
+    assert s.launch(fo).argv[-2:] == ["play", "9NFALLOUT"]
+    assert s.uninstall(fo).argv[-2:] == ["uninstall", "9NFALLOUT"]
+    xodus.uninstall("9NFALLOUT")
+    assert not game_dir.exists() and xodus.state() == {}
+
+
+def test_progress_lines_cornerplay_reads(monkeypatch, tmp_path, capsys):
+    """The backend's NEXUS_PROGRESS events become the Progress:/ETA: lines the download bar reads."""
+    from cornerplay import xodus
+    monkeypatch.setattr(xodus, "STATE", tmp_path / "games.json")
+    cli = tmp_path / "xodus-cli"
+    cli.write_text("#!/bin/sh\necho 'NEXUS_PROGRESS {\"completedBytes\":50,\"totalBytes\":200,\"bytesPerSecond\":10,\"phase\":\"downloading\"}'\n"
+                   "echo 'NEXUS_PROGRESS {\"completedBytes\":200,\"totalBytes\":200,\"bytesPerSecond\":0,\"phase\":\"complete\"}'\n")
+    cli.chmod(0o755)
+    monkeypatch.setattr(xodus, "backend", lambda: str(cli))
+    monkeypatch.setattr(xodus, "runtime", lambda: tmp_path)
+    monkeypatch.setattr(xodus, "resolve", lambda pid: {"contentId": "c1", "title": "T"})
+    monkeypatch.setattr(xodus, "_market", lambda: "US")
+    assert xodus.install("9NX", str(tmp_path / "g"), "T") == 0
+    out = capsys.readouterr().out
+    assert "Progress: 25.0% 0.0 MiB/s ETA: 00:00:15" in out
+    assert xodus.state()["9NX"]["installed"] > 0
