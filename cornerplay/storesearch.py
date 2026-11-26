@@ -198,6 +198,8 @@ def search(query, stores=None) -> dict:
                 found += job.result()
             except Exception:  # noqa: BLE001 - one store down: the others still show
                 failed.append(jobs[job])
+    order = {"steam": 0, "epic": 1, "gog": 2, "xbox": 3}
+    found.sort(key=lambda r: order.get(r["store"], 9))  # the same title whichever store answered first
     groups = {}
     for r in found:
         if not r.get("title"):
@@ -206,7 +208,6 @@ def search(query, stores=None) -> dict:
         if all(o["store"] != r["store"] for o in g["offers"]):
             g["offers"].append(r)
         g["art"] += [u for u in r["art"] if u not in g["art"]]
-    order = {"steam": 0, "epic": 1, "gog": 2, "xbox": 3}
     for g in groups.values():
         g["offers"].sort(key=lambda o: order.get(o["store"], 9))
     _priced(found)

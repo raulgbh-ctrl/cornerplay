@@ -191,6 +191,7 @@ def test_windows_package_listing_runs():
     assert isinstance(winxbox.xbox_app_installed(), bool)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Linux only: the Xbox backend and Proton runner")
 def test_owned_games_come_from_nexus_backend(nexus_home, monkeypatch, tmp_path):
     """Games the account bought show in the library before they are installed: Nexus's backend
     (xodus-cli library --json) lists them, the Store's catalog names them."""
@@ -257,6 +258,7 @@ def test_game_pass_choice_wins(monkeypatch):
     assert X.Xbox().has_gamepass() is False  # Windows cannot tell: hidden until you say yes
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Linux only: the Xbox backend and Proton runner")
 def test_linux_installs_and_plays_through_cornerplay(nexus_home, monkeypatch, tmp_path):
     """Linux: Install is a Cornerplay download (xodus.py, with progress), not Nexus Launcher;
     a game Cornerplay installed starts through it, and uninstalls through it."""
@@ -283,6 +285,7 @@ def test_linux_installs_and_plays_through_cornerplay(nexus_home, monkeypatch, tm
     assert not game_dir.exists() and xodus.state() == {}
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Linux only: the Xbox backend and Proton runner")
 def test_progress_lines_cornerplay_reads(monkeypatch, tmp_path, capsys):
     """The backend's NEXUS_PROGRESS events become the Progress:/ETA: lines the download bar reads."""
     from cornerplay import xodus

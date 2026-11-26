@@ -3,6 +3,8 @@ import json
 import sys
 import threading
 
+import os
+
 import pytest
 
 from cornerplay import xboxauth as A
@@ -50,6 +52,7 @@ def run(tmp_path, mode, page):
     return seen, result
 
 
+@pytest.mark.skipif(os.name == "nt", reason="the fake backend is a script with a #! line")
 def test_signs_in(tmp_path):
     seen, result = run(tmp_path, "ok", lambda login, s: login.notify(s, "token-ish"))
     assert result == {"ok": True, "message": ""}
@@ -58,11 +61,13 @@ def test_signs_in(tmp_path):
     assert seen[1] == ("context", 1, "ctx") and seen[-1] == ("close", 1)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="the fake backend is a script with a #! line")
 def test_closing_the_window_cancels(tmp_path):
     seen, result = run(tmp_path, "ok", lambda login, s: login.cancel(s))
     assert result["ok"] is False and "cancelled" in result["message"]
 
 
+@pytest.mark.skipif(os.name == "nt", reason="the fake backend is a script with a #! line")
 def test_only_microsoft_pages_open(tmp_path):
     seen, result = run(tmp_path, "evil", lambda login, s: None)
     assert not result["ok"] and not [x for x in seen if x[0] == "open"]
@@ -83,6 +88,7 @@ def test_frames_are_checked():
     assert "CloudExperienceHost.Bridge.dispatchMessage" in A.context_script("c")
 
 
+@pytest.mark.skipif(os.name == "nt", reason="the fake backend is a script with a #! line")
 def test_xbox_achievements_and_play_time(tmp_path, monkeypatch):
     """Achievements and play time come from the backend, per Xbox title id."""
     from cornerplay import achievements, xodus

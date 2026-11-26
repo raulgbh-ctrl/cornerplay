@@ -28,7 +28,7 @@ import tarfile
 import time
 from pathlib import Path
 
-from .config import DATA_DIR, settings
+from .config import DATA_DIR
 
 ROOT = DATA_DIR / "xbox"
 BACKEND_REPO = "domsvoboda/nexus-backend"

@@ -204,7 +204,6 @@ class Xbox(Store):
             store_id = game.extra.get("store_id") or ""
             return Command(winxbox.store_page_argv(store_id) if store_id else winxbox.xbox_app_argv())
         # Linux: Cornerplay downloads it (xodus.py), with the backend and runtime on first use.
-        from .. import xodus
         store_id = game.extra.get("store_id") or ""
         if not store_id:
             raise StoreError("Cornerplay does not know this game's Store id")
@@ -216,7 +215,6 @@ class Xbox(Store):
             raise StoreError(f"Uninstall {game.title} from the Xbox app (or Windows Settings > Apps)")
         if not game.id.startswith("xb-"):
             raise StoreError(f"Uninstall {game.title} from Nexus Launcher, which installed it")
-        from .. import xodus
         return Command(python_argv("cornerplay.xodus", "uninstall", game.id[3:]))
 
     def update(self, game):
