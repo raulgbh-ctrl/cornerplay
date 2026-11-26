@@ -8546,6 +8546,7 @@ ApplicationWindow {
                             }
                             Toggle { visible: app.trayAvailable; label: qsTr("Step aside into the tray while a game runs"); settingKey: "tray_while_playing" }
                             Toggle { visible: app.trayAvailable; label: qsTr("Keep running in the tray when the window is closed"); settingKey: "close_to_tray" }
+                            Toggle { visible: app.trayAvailable; label: qsTr("Use less memory in the tray (the window takes a moment longer to open)"); settingKey: "light_background" }
                             Toggle { label: qsTr("Start with the PC (in the tray)"); settingKey: "start_with_pc"
                                      act: (on) => app.setStartWithPc(on) }
                         }

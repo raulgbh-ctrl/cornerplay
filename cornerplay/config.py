@@ -76,6 +76,7 @@ DEFAULTS = {
     "auto_update_to": 6,
     "gog_native": True,    # GOG: install the Linux version when the game has one (no Proton)
     "gamepass_catalog": True,  # Xbox / Game Pass: the PC Game Pass games not installed yet, as tiles to install (gamepass.py)
+    "light_background": True,  # let the interface go while Cornerplay is out of sight (ui.py): far less memory in the tray
     "store_currency": "auto",  # Store page prices in one currency (currency.py): "auto" (EUR in Europe, else USD), "EUR", "USD"
     "gamepass_member": "auto",  # Game Pass bought? "auto" (Linux: Nexus asks Microsoft; Windows cannot tell, so no), "yes" (Ultimate / PC Game Pass), "premium", "essential", "no"
     "gamepass_market": "",     # the Game Pass country ("RO", "US"...); "" = from the system's language settings

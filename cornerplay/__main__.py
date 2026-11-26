@@ -426,40 +426,61 @@ def main():
         _stream.screen_on()
     except Exception:
         pass
+    from .ui import limit_malloc_arenas
+    limit_malloc_arenas()
     cornerplay = AioLaunch(demo=args.demo)
     cornerplay.session_mode = bool(args.session)
     cornerplay.web_login = web_login
-    engine = QQmlApplicationEngine()
-    factory = CachingFactory()
-    engine.setNetworkAccessManagerFactory(factory)
-    ctx = engine.rootContext()
-    ctx.setContextProperty("app", cornerplay)
-    ctx.setContextProperty("library", cornerplay.proxy)
-    ctx.setContextProperty("tvLibrary", cornerplay.tvProxy)
-    ctx.setContextProperty("tvNextLibrary", cornerplay.tvNextProxy)
-    ctx.setContextProperty("tvAllLibrary", cornerplay.tvAllProxy)
     gamepad = Gamepad(app)
-    ctx.setContextProperty("pad", gamepad)
-    gamepad.overlay.connect(cornerplay.overlayRequested)
-    gamepad.quickAccess.connect(cornerplay.quickAccessRequested)
     gamepad.screenshot.connect(cornerplay.takeScreenshot)
     cornerplay.gamepad = gamepad  # asked at check time: SDL only loads a moment after start-up
-    ctx.setContextProperty("startTv", args.tv)
     cornerplay.setTvActive(bool(args.tv))
-    ctx.setContextProperty("startHidden", bool(args.background))
-    ctx.setContextProperty("webLogin", web_login)
-    # TV-mode trailers need Qt Multimedia's QML module; without it they are simply left out.
-    ctx.setContextProperty("canPlayVideo", (qml_dir / "QtMultimedia" / "qmldir").is_file())
-    # Say why when the window cannot be built (a QML error), instead of quitting silently.
-    engine.warnings.connect(lambda ws: [print("QML:", w.toString(), file=sys.stderr) for w in ws])
-    engine.load(QUrl.fromLocalFile(str(here / "qml" / "Main.qml")))
-    if not engine.rootObjects():
+    factory = CachingFactory()
+    has_video = (qml_dir / "QtMultimedia" / "qmldir").is_file()
+
+    def build(hidden):
+        """The interface (Main.qml) in a fresh QML engine. Built at start (unless started in the
+        tray) and again whenever it was let go while out of sight (ui.py)."""
+        engine = QQmlApplicationEngine()
+        engine.setNetworkAccessManagerFactory(factory)
+        ctx = engine.rootContext()
+        ctx.setContextProperty("app", cornerplay)
+        ctx.setContextProperty("library", cornerplay.proxy)
+        ctx.setContextProperty("tvLibrary", cornerplay.tvProxy)
+        ctx.setContextProperty("tvNextLibrary", cornerplay.tvNextProxy)
+        ctx.setContextProperty("tvAllLibrary", cornerplay.tvAllProxy)
+        ctx.setContextProperty("pad", gamepad)
+        ctx.setContextProperty("startTv", bool(getattr(cornerplay, "_tv_active", False)) if ui.built_once else bool(args.tv))
+        ctx.setContextProperty("startHidden", bool(hidden))
+        ctx.setContextProperty("webLogin", web_login)
+        # TV-mode trailers need Qt Multimedia's QML module; without it they are simply left out.
+        ctx.setContextProperty("canPlayVideo", has_video)
+        # Say why when the window cannot be built (a QML error), instead of quitting silently.
+        engine.warnings.connect(lambda ws: [print("QML:", w.toString(), file=sys.stderr) for w in ws])
+        engine.load(QUrl.fromLocalFile(str(here / "qml" / "Main.qml")))
+        return engine
+
+    from .ui import Ui
+
+    def settings_light():
+        from .config import settings as _s
+        return bool(_s.get("light_background", True))
+    ui = Ui(app, build)
+    # The game panel, quick access and the launcher live in the interface: build it first if it
+    # was let go, then ask (a moment later, once its Connections exist).
+    gamepad.overlay.connect(lambda: ui.run(cornerplay.overlayRequested.emit))
+    gamepad.quickAccess.connect(lambda: ui.run(cornerplay.quickAccessRequested.emit))
+    # Started with the PC, into the tray: no interface at all until it is opened.
+    from PySide6.QtWidgets import QSystemTrayIcon
+    in_tray_only = (bool(args.background) and not args.demo and not args.smoke_test
+                    and QSystemTrayIcon.isSystemTrayAvailable() and settings_light())
+    if not in_tray_only and not ui.load(hidden=bool(args.background)):
         print("Cornerplay could not open its window (see the QML errors above).", file=sys.stderr)
         return 1
-    window = engine.rootObjects()[0]
+    window = ui.window
     from . import wintitle
     wintitle.follow(app, cornerplay)  # Windows: the title bar takes the app's colours
-    the_tray = tray.Tray(app, window, cornerplay, start_hidden=args.background)
+    the_tray = tray.Tray(app, ui, cornerplay, start_hidden=args.background)
     if os.name == "nt" and the_tray.available:  # Windows: notifications are the tray icon's
         from PySide6.QtWidgets import QSystemTrayIcon
         from . import app as app_module
@@ -468,22 +489,22 @@ def main():
     if not args.demo:
         def on_message(msg):
             if msg == "overlay":
-                cornerplay.overlayRequested.emit()
+                ui.run(cornerplay.overlayRequested.emit)
             elif msg == "quick":
-                cornerplay.quickAccessRequested.emit()
+                ui.run(cornerplay.quickAccessRequested.emit)
             elif msg == "launcher":
-                cornerplay.launcherRequested.emit()
+                ui.run(cornerplay.launcherRequested.emit)
             elif msg.startswith("nxm:"):
                 the_tray.show_window(tv=False)
-                cornerplay.openNxm(msg[4:])
+                ui.run(lambda: cornerplay.openNxm(msg[4:]))
             else:
                 the_tray.show_window(tv=msg == "tv")
         instance = tray.Instance(on_message, app)  # noqa: F841 (kept alive)
-    elif args.background:
+    elif args.background and window is not None:
         window.setProperty("hiddenAtStart", False)
     if args.launcher:
         from PySide6.QtCore import QTimer
-        QTimer.singleShot(1200, cornerplay.launcherRequested.emit)
+        QTimer.singleShot(1200, lambda: ui.run(cornerplay.launcherRequested.emit))
     if args.nxm and not args.demo:  # started by the link itself: install once the library is there
         from PySide6.QtCore import QTimer
         QTimer.singleShot(1500, lambda: cornerplay.openNxm(args.nxm))
@@ -491,7 +512,7 @@ def main():
     if args.smoke_test:  # the window opened without QML errors: wait a moment for late errors, then leave
         from PySide6.QtCore import QTimer
         failed = []
-        engine.warnings.connect(lambda ws: failed.extend(w for w in ws if "Error transferring" not in w.toString()))  # a missing cover online is not a broken app
+        ui.engine.warnings.connect(lambda ws: failed.extend(w for w in ws if "Error transferring" not in w.toString()))  # a missing cover online is not a broken app
         from PySide6.QtCore import QMetaObject, Q_ARG, Q_RETURN_ARG
         # A tour of what start-up alone never builds: every Settings tab, then a game's Options
         # (an Epic game's, where the Proton rows live; hidden on Windows).
@@ -507,7 +528,7 @@ def main():
             app.exit(3 if failed else 0)
         QTimer.singleShot(7000, finish)
     code = app.exec()
-    del engine
+    ui.unload(now=True)
     return code
 
 

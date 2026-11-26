@@ -179,10 +179,13 @@ def _portal_autostart(on: bool) -> str:
 
 # --- the tray icon ---------------------------------------------------------------------
 class Tray(QObject):
-    def __init__(self, qapp, window, cornerplay, start_hidden=False):
+    """The tray icon. The window may be let go while out of sight (ui.py): self.win is then None,
+    and showing Cornerplay builds it again."""
+
+    def __init__(self, qapp, ui, cornerplay, start_hidden=False):
         super().__init__(qapp)
         from PySide6.QtWidgets import QMenu, QSystemTrayIcon
-        self.app, self.win, self.cp = qapp, window, cornerplay
+        self.app, self.ui, self.cp = qapp, ui, cornerplay
         self.available = QSystemTrayIcon.isSystemTrayAvailable()
         self._hidden_for_game = False
         self.icon = QSystemTrayIcon(qapp.windowIcon(), self)
@@ -191,25 +194,39 @@ class Tray(QObject):
         self.menu.aboutToShow.connect(self._fill_menu)
         self.icon.setContextMenu(self.menu)
         self.icon.activated.connect(self._activated)
-        window.visibleChanged.connect(lambda _v: self._update_icon())
+        ui.windowChanged.connect(self._attach)
         cornerplay.nowPlayingChanged.connect(self._playing_changed)
         cornerplay.settingsChanged.connect(self._update_icon)
         cornerplay.tray = self
         qapp.setQuitOnLastWindowClosed(False)  # the window may be in the tray; Main.qml quits on close
-        if start_hidden and not self.available:
-            window.setProperty("hiddenAtStart", False)  # no tray to sit in: a normal start
+        self._attach(ui.window)
+        if start_hidden and not self.available and self.win is not None:
+            self.win.setProperty("hiddenAtStart", False)  # no tray to sit in: a normal start
+
+    @property
+    def win(self):
+        return self.ui.window
+
+    def _attach(self, window):
+        if window is not None:
+            window.visibleChanged.connect(lambda _v: self._update_icon())
         self._update_icon()
+
+    def _visible(self) -> bool:
+        return self.win is not None and self.win.isVisible()
 
     def keep_on_close(self) -> bool:
         return self.available and bool(settings.get("close_to_tray"))
 
     def _update_icon(self):
-        want = self.available and (not self.win.isVisible() or bool(settings.get("close_to_tray"))
+        want = self.available and (not self._visible() or bool(settings.get("close_to_tray"))
                                    or self._hidden_for_game)
         self.icon.setVisible(want)
 
     def show_window(self, tv=False):
         self._hidden_for_game = False
+        if self.win is None and not self.ui.load(hidden=False):
+            return
         self.win.setProperty("hiddenAtStart", False)
         if tv:
             self.win.setProperty("tv", True)
@@ -224,14 +241,14 @@ class Tray(QObject):
     def _activated(self, reason):
         from PySide6.QtWidgets import QSystemTrayIcon
         if reason in (QSystemTrayIcon.Trigger, QSystemTrayIcon.DoubleClick):
-            if self.win.isVisible() and not self._hidden_for_game:
+            if self._visible() and not self._hidden_for_game:
                 self.win.hide()
             else:
                 self.show_window()
 
     def _playing_changed(self):
         playing = self.cp._now_playing()
-        if playing and self.available and settings.get("tray_while_playing") and self.win.isVisible() \
+        if playing and self.available and settings.get("tray_while_playing") and self._visible() \
                 and not self.win.property("tv"):
             self._hidden_for_game = True
             self.win.hide()
