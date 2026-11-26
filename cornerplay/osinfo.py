@@ -5,6 +5,7 @@ natively: no Proton, no Wine prefixes, no umu-launcher, and the Linux-only extra
 MangoHud, the compositor tricks, btrfs snapshots...) are simply not offered.
 """
 import os
+import re
 import sys
 
 WINDOWS = sys.platform == "win32"
@@ -303,6 +304,38 @@ def total_ram_gb() -> float:
     except (ValueError, OSError, AttributeError):
         pass
     return 8.0
+
+
+def cpu_name() -> str:
+    """The processor's model name as Windows reports it ("" elsewhere: Linux reads /proc/cpuinfo)."""
+    return str(reg_value(r"HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0", "ProcessorNameString", "") or "").strip()
+
+
+_DISPLAY_CLASS = r"HKLM\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}"
+
+
+def windows_gpus() -> list:
+    """[(name, video memory in GiB)] for every graphics card Windows has a driver for ([] elsewhere).
+    Read from the display adapters' driver keys, so it needs no wmic (gone from new Windows 11)."""
+    out = []
+    for sub in reg_subkeys(_DISPLAY_CLASS):
+        if not sub.isdigit():
+            continue
+        key = _DISPLAY_CLASS + "\\" + sub
+        name = str(reg_value(key, "DriverDesc", "") or "").strip()
+        if not name or re.search(r"(?i)basic (display|render)|remote display|virtual|indirect", name):
+            continue
+        mem = reg_value(key, "HardwareInformation.qwMemorySize", None)
+        if mem is None:
+            mem = reg_value(key, "HardwareInformation.MemorySize", 0)
+        if isinstance(mem, (bytes, bytearray)):
+            mem = int.from_bytes(bytes(mem)[:8], "little")
+        try:
+            gib = int(mem or 0) / 2**30
+        except (TypeError, ValueError):
+            gib = 0.0
+        out.append((name, gib))
+    return out
 
 
 def _windows_parents() -> dict:

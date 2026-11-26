@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import time
 
+from . import osinfo
 from .config import CACHE_DIR, read_json, settings, write_json
 from .net import requests
 
@@ -211,11 +212,22 @@ def system():
         out = _run(["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"]).split()
         vram = float(out[0]) / 1024 if out and out[0].isdigit() else 0.0
     ram, cpu, threads = 0.0, "", os.cpu_count() or 0
-    try:
-        ram = int(re.search(r"MemTotal:\s*(\d+)", open("/proc/meminfo").read()).group(1)) / 1024 ** 2
-        cpu = re.search(r"model name\s*:\s*(.+)", open("/proc/cpuinfo").read()).group(1).strip()
-    except (OSError, AttributeError):
-        pass
+    if osinfo.WINDOWS:
+        # No /proc, lspci or /sys on Windows: the registry names the cards and the processor.
+        cards = osinfo.windows_gpus()
+        if cards:
+            best = max(cards, key=lambda c: (gpu_score(c[0]), c[1]))
+            if gpu_score(best[0]) >= gpu_score(gpu):
+                gpu = best[0]
+            vram = vram or max(c[1] for c in cards)
+        ram = osinfo.total_ram_gb()
+        cpu = osinfo.cpu_name()
+    else:
+        try:
+            ram = int(re.search(r"MemTotal:\s*(\d+)", open("/proc/meminfo").read()).group(1)) / 1024 ** 2
+            cpu = re.search(r"model name\s*:\s*(.+)", open("/proc/cpuinfo").read()).group(1).strip()
+        except (OSError, AttributeError):
+            pass
     try:
         free = shutil.disk_usage(settings.games_dir if settings.games_dir.exists() else os.path.expanduser("~")).free / 1024 ** 3
     except OSError:

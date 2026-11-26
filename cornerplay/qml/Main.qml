@@ -1054,7 +1054,7 @@ ApplicationWindow {
                                 Switch { checked: library.installedOnly; onToggled: library.installedOnly = checked }
                             }
                             Text { visible: ["list", "shelves"].indexOf(app.settingsMap.view || "grid") === -1; text: qsTr("Cover size"); color: theme.outline; font.pixelSize: 11; font.weight: Font.DemiBold }
-                            KSlider { visible: ["list", "shelves"].indexOf(app.settingsMap.view || "grid") === -1; theme: win.theme; Layout.fillWidth: true
+                            KSlider { visible: ["list", "shelves"].indexOf(app.settingsMap.view || "grid") === -1; theme: win.theme; Layout.fillWidth: true; unit: " px"
                                       from: 130; to: 320; stepSize: 2; value: app.settingsMap.card_size
                                       onMoved: app.setSetting("card_size", value) }
                         }
@@ -6856,13 +6856,14 @@ ApplicationWindow {
         // Set once it is built, so a row's own `visible:` (shown when a tool is there) cannot undo it.
         Component.onCompleted: if (linuxOnly && app.onWindows) visible = false
         Layout.fillWidth: true
-        implicitHeight: r2col.implicitHeight + 28
-        radius: 12
+        implicitHeight: r2col.implicitHeight + 32
+        radius: 16
         color: theme.surfaceContainerHigh
-        border.width: hit ? 2 : 0; border.color: theme.primary
+        // A faint hairline so the cards read as soft, separate pieces; the search hit stays bold.
+        border.width: hit ? 2 : 1; border.color: hit ? theme.primary : Qt.alpha(theme.onSurface, 0.06)
         ColumnLayout {
             id: r2col
-            anchors { left: parent.left; right: parent.right; top: parent.top; margins: 14 }
+            anchors { left: parent.left; right: parent.right; top: parent.top; margins: 16 }
             spacing: 8
             Text { visible: r2.label !== ""; text: r2.label; color: r2.theme.onSurface; font.pixelSize: 13; font.weight: Font.DemiBold }
             ColumnLayout { id: slot; Layout.fillWidth: true }
@@ -7430,7 +7431,7 @@ ApplicationWindow {
                             Row2 {
                                 label: qsTr("Cover size")
                                 KSlider {
-                                    theme: win.theme; Layout.fillWidth: true
+                                    theme: win.theme; Layout.fillWidth: true; unit: " px"
                                     from: 130; to: 320; stepSize: 2
                                     value: app.settingsMap.card_size
                                     onMoved: app.setSetting("card_size", value)
@@ -7534,7 +7535,7 @@ ApplicationWindow {
                             Row2 {
                                 label: qsTr("Corner roundness")
                                 KSlider {
-                                    theme: win.theme; Layout.fillWidth: true
+                                    theme: win.theme; Layout.fillWidth: true; unit: " px"
                                     from: 0; to: 28; stepSize: 1
                                     value: app.settingsMap.card_radius
                                     onMoved: app.setSetting("card_radius", value)

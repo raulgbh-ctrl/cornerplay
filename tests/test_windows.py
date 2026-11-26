@@ -210,3 +210,47 @@ def test_process_tree_and_suspend():
         p.kill()
         p.wait()
     assert 0.5 < osinfo.total_ram_gb() < 100000
+
+
+# --- this PC's specs (the "Will it run?" check) --------------------------------------------
+def test_specs_read_from_the_registry_on_windows(windows, monkeypatch):
+    """Windows has no /proc/meminfo, /proc/cpuinfo or lspci: RAM, processor and graphics card
+    come from GlobalMemoryStatusEx and the registry, so none of them shows as 0 or blank."""
+    from cornerplay import compat
+    cls = osinfo._DISPLAY_CLASS
+    reg = {
+        (r"HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0", "ProcessorNameString"):
+            "AMD Ryzen 5 5600X 6-Core Processor  ",
+        (cls + r"\0000", "DriverDesc"): "Microsoft Basic Display Adapter",
+        (cls + r"\0001", "DriverDesc"): "NVIDIA GeForce RTX 3060",
+        (cls + r"\0001", "HardwareInformation.qwMemorySize"): 12 * 2**30,
+    }
+    monkeypatch.setattr(osinfo, "reg_value", lambda p, n="", d=None: reg.get((p, n), d))
+    monkeypatch.setattr(osinfo, "reg_subkeys", lambda p: ["0000", "0001", "Configuration"] if p == cls else [])
+    monkeypatch.setattr(osinfo, "total_ram_gb", lambda: 15.9)
+    monkeypatch.setattr(compat.shutil, "which", lambda name: None)
+    monkeypatch.setattr(compat, "_run", lambda argv: "")
+    monkeypatch.setattr(compat.glob, "glob", lambda pattern: [])
+    monkeypatch.setattr(compat, "_system", None)
+    me = compat.system()
+    assert me["ram"] == 15.9
+    assert me["cpu"] == "AMD Ryzen 5 5600X 6-Core Processor"
+    assert me["gpu"] == "NVIDIA GeForce RTX 3060" and me["vram"] == 12.0
+    monkeypatch.setattr(compat, "_system", None)
+
+
+def test_old_drivers_give_video_memory_as_bytes(windows, monkeypatch):
+    cls = osinfo._DISPLAY_CLASS
+    reg = {(cls + r"\0000", "DriverDesc"): "AMD Radeon RX 580",
+           (cls + r"\0000", "HardwareInformation.qwMemorySize"): (8 * 2**30).to_bytes(8, "little")}
+    monkeypatch.setattr(osinfo, "reg_value", lambda p, n="", d=None: reg.get((p, n), d))
+    monkeypatch.setattr(osinfo, "reg_subkeys", lambda p: ["0000"])
+    assert osinfo.windows_gpus() == [("AMD Radeon RX 580", 8.0)]
+
+
+def test_title_bar_colours():
+    from cornerplay import wintitle
+    assert wintitle._colorref("#102030") == 0x302010  # COLORREF is 0x00bbggrr
+    assert wintitle._colorref("#ff102030") == 0x302010
+    assert wintitle._colorref("") is None and wintitle._colorref("nope") is None
+    wintitle.paint(None, {"dark": True})  # nothing to paint: no error

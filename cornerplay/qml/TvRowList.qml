@@ -230,24 +230,42 @@ ListView {
                 Rectangle {
                     id: track
                     anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter }
-                    height: 6; radius: 3
-                    color: cell.lit ? Qt.alpha(rl.tint.onPrimary, 0.28) : Qt.alpha(rl.theme.onSurface, 0.16)
+                    height: cell.lit ? 10 : 8; radius: height / 2
+                    Behavior on height { enabled: !app.still; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+                    color: cell.lit ? Qt.alpha(rl.tint.onPrimary, 0.25) : Qt.alpha(rl.theme.onSurface, 0.10)
+                    border.width: 1
+                    border.color: cell.lit ? "transparent" : Qt.alpha(rl.theme.onSurface, 0.05)
                     Rectangle {
                         width: Math.max(height, parent.width * parent.parent.frac)
-                        height: parent.height; radius: 3
-                        color: cell.lit ? rl.tint.onPrimary : rl.tint.primary
+                        height: parent.height; radius: height / 2
                         opacity: cell.row.dim ? 0.4 : 1
-                        Behavior on width { enabled: !app.still; NumberAnimation { duration: 90 } }
+                        Behavior on width { enabled: !app.still; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+                        gradient: Gradient {  // a gentle glow from soft to full colour
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0.0; color: Qt.alpha(cell.lit ? rl.tint.onPrimary : rl.tint.primary, 0.55) }
+                            GradientStop { position: 1.0; color: cell.lit ? rl.tint.onPrimary : rl.tint.primary }
+                        }
                     }
                 }
-                Rectangle {  // the knob
-                    width: 18; height: 18; radius: 9
+                Item {  // the knob, with a soft shadow
+                    width: 24; height: 24
                     anchors.verticalCenter: parent.verticalCenter
                     x: Math.max(0, Math.min(track.width - width, track.width * parent.frac - width / 2))
-                    Behavior on x { enabled: !app.still; NumberAnimation { duration: 90 } }
-                    color: cell.lit ? rl.tint.onPrimary : rl.theme.onSurface
-                    border.width: cell.lit ? 0 : 3
-                    border.color: rl.tint.primary
+                    Behavior on x { enabled: !app.still; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+                    scale: cell.lit ? 1.1 : 1
+                    Behavior on scale { enabled: !app.still; NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
+                    Rectangle {
+                        anchors.centerIn: parent; anchors.verticalCenterOffset: 1.5
+                        width: 24; height: 24; radius: 12
+                        color: Qt.alpha("black", rl.theme.dark ? 0.35 : 0.14)
+                    }
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 22; height: 22; radius: 11
+                        color: cell.lit ? rl.tint.onPrimary : (rl.theme.dark ? rl.theme.onSurface : "white")
+                        border.width: 4
+                        border.color: cell.lit ? Qt.alpha(rl.tint.primary, 0.9) : rl.tint.primary
+                    }
                 }
                 MouseArea {
                     anchors.fill: parent

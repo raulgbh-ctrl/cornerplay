@@ -36,7 +36,7 @@ Button {
         }
     }
     background: Rectangle {
-        radius: 10
+        radius: 12
         color: b.primary ? (b.enabled ? b.theme.primary : b.theme.surfaceContainerHighest)
                          : b.quiet ? (b.hovered ? Qt.alpha(b.theme.onSurface, 0.10) : "transparent")
                          : (b.hovered ? b.theme.surfaceContainerHighest : b.theme.surfaceContainerHigh)

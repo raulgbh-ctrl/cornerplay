@@ -457,6 +457,8 @@ def main():
         print("Cornerplay could not open its window (see the QML errors above).", file=sys.stderr)
         return 1
     window = engine.rootObjects()[0]
+    from . import wintitle
+    wintitle.follow(app, cornerplay)  # Windows: the title bar takes the app's colours
     the_tray = tray.Tray(app, window, cornerplay, start_hidden=args.background)
     if os.name == "nt" and the_tray.available:  # Windows: notifications are the tray icon's
         from PySide6.QtWidgets import QSystemTrayIcon
