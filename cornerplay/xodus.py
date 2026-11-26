@@ -202,27 +202,11 @@ def _market() -> str:
     return market()
 
 
-def install(product_id: str, folder: str, title: str = "") -> int:
-    """Download (or carry on downloading) a game into folder, printing Cornerplay's progress
-    lines; it is ready to play once this returns 0."""
-    exe = backend() or install_backend()
-    if not exe:
-        print("The Xbox backend could not be installed", file=sys.stderr)
-        return 1
-    if not runtime():
-        def rt_progress(done, total):
-            print(f"Progress: {done * 100 / total:.1f}% ({done / 2**20:.1f} MiB/s) runtime", flush=True)
-        install_runtime(rt_progress)
-    choice = resolve(product_id)
-    os.makedirs(folder, exist_ok=True)
-    data = state()
-    data[product_id] = {**data.get(product_id, {}), "title": title or choice.get("title") or product_id,
-                        "path": folder, "contentId": choice.get("contentId", ""), "installed": 0}
-    _save_state(data)
-    p = subprocess.Popen([exe, "streaming", product_id, folder, "--selected-content-id", choice["contentId"],
+def _stream(exe, product_id: str, folder: str, content_id: str) -> int:
+    """Download one Store package into folder, printing Cornerplay's progress lines."""
+    p = subprocess.Popen([exe, "streaming", product_id, folder, "--selected-content-id", content_id,
                           "--progress-json", "--market", _market()],
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, text=True)
-    t0 = time.monotonic()
     for line in p.stdout:
         line = line.strip()
         if not line.startswith(PROGRESS_PREFIX):
@@ -241,7 +225,67 @@ def install(product_id: str, folder: str, title: str = "") -> int:
                   f" ({ev.get('phase', '')})", flush=True)
         if ev.get("phase") == "complete":
             break
-    code = p.wait()
+    return p.wait()
+
+
+def content_dir(product_id: str, dlc_id: str = "") -> Path:
+    """Where a game's add-ons go: never inside the game's own folder (as Nexus Launcher does)."""
+    safe = lambda v: re.sub(r"[^A-Za-z0-9_-]", "_", v)
+    return ROOT / "content" / safe(product_id) / (safe(dlc_id) if dlc_id else "")
+
+
+def install_dlc(product_id: str, dlc_id: str) -> int:
+    """Download an add-on the account owns for a game Cornerplay installed; the game gets it at
+    its next start (play_env: XODUS_CONTENT_ROOTS)."""
+    exe = backend() or install_backend()
+    if product_id not in state():
+        print("Install the game first", file=sys.stderr)
+        return 1
+    r = subprocess.run([exe, "resolve-package", product_id, "--json", "--market", _market(), "--include-dlc"],
+                       capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL)
+    data = json.loads(r.stdout or "{}")
+    choice = next((c for c in data.get("choices") or [] if c.get("productId") == dlc_id and c.get("supported")
+                   and c.get("kind") in ("Durable", "GameAddOn") and c.get("contentId")), None)
+    if not choice:
+        print("This add-on has nothing to download: it works as soon as you own it", flush=True)
+        return 0
+    folder = content_dir(product_id, dlc_id)
+    folder.mkdir(parents=True, exist_ok=True)
+    code = _stream(exe, dlc_id, str(folder), choice["contentId"])
+    if code == 0:
+        data = state()
+        data[product_id].setdefault("dlcs", {})[dlc_id] = {"title": choice.get("title") or dlc_id, "path": str(folder),
+                                                          "installed": time.time()}
+        _save_state(data)
+    return code
+
+
+def play_env(product_id: str) -> dict:
+    """The add-ons the game should load, as Windows paths (Z: is / inside Wine)."""
+    roots = [d["path"] for d in ((state().get(product_id) or {}).get("dlcs") or {}).values()
+             if d.get("path") and os.path.isdir(d["path"])]
+    return {"XODUS_CONTENT_ROOTS": ";".join("Z:" + r.replace("/", "\\") for r in roots)} if roots else {}
+
+
+def install(product_id: str, folder: str, title: str = "") -> int:
+    """Download (or carry on downloading) a game into folder, printing Cornerplay's progress
+    lines; it is ready to play once this returns 0."""
+    exe = backend() or install_backend()
+    if not exe:
+        print("The Xbox backend could not be installed", file=sys.stderr)
+        return 1
+    if not runtime():
+        def rt_progress(done, total):
+            print(f"Progress: {done * 100 / total:.1f}% ({done / 2**20:.1f} MiB/s) runtime", flush=True)
+        install_runtime(rt_progress)
+    choice = resolve(product_id)
+    os.makedirs(folder, exist_ok=True)
+    data = state()
+    data[product_id] = {**data.get(product_id, {}), "title": title or choice.get("title") or product_id,
+                        "path": folder, "contentId": choice.get("contentId", ""), "installed": 0}
+    _save_state(data)
+    t0 = time.monotonic()
+    code = _stream(exe, product_id, folder, choice["contentId"])
     if code == 0:
         data = state()
         data[product_id].update(installed=time.time(), exe=find_exe(folder))
@@ -256,6 +300,7 @@ def uninstall(product_id: str) -> None:
     if g.get("path") and os.path.isdir(g["path"]) and Path(g["path"]).resolve() != Path.home().resolve():
         shutil.rmtree(g["path"], ignore_errors=True)
     shutil.rmtree(_prefix_dir(product_id), ignore_errors=True)
+    shutil.rmtree(content_dir(product_id), ignore_errors=True)
     _save_state(data)
 
 
@@ -495,7 +540,7 @@ def play(product_id: str) -> int:
     os.makedirs(_prefix_dir(product_id) / "licenses", exist_ok=True)
     service = Service().start()
     try:
-        return subprocess.run(argv, env={**os.environ, **service.env()}).returncode
+        return subprocess.run(argv, env={**os.environ, **service.env(), **play_env(product_id)}).returncode
     finally:
         service.stop()
 
@@ -635,6 +680,8 @@ def main(args=None):
             return install(args[1], args[2], args[3] if len(args) > 3 else "")
         if what == "play" and len(args) >= 2:
             return play(args[1])
+        if what == "install-dlc" and len(args) >= 3:
+            return install_dlc(args[1], args[2])
         if what == "uninstall" and len(args) >= 2:
             uninstall(args[1])
             return 0

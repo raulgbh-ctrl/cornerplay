@@ -341,3 +341,26 @@ def test_catalog_games_keep_their_passes(monkeypatch):
     monkeypatch.setattr(G.requests, "get", lambda *a, **k: R())
     assert G._details(["9NX"], "US")[0]["passes"] == ["CFQ7TTC0K5DJ", "CFQ7TTC0P85B"]
     assert G.tier_of(["CFQ7TTC0K5DJ", "CFQ7TTC0P85B"]) == "premium" and G.tier_of(["x"]) == ""
+
+
+def test_xbox_add_ons(nexus_home, monkeypatch, tmp_path):
+    """Add-ons: the store's list with owned / installed marked; installed ones reach the game."""
+    from cornerplay import xodus
+    from cornerplay.stores.base import Game
+    monkeypatch.setattr(xodus, "STATE", tmp_path / "games.json")
+    monkeypatch.setattr(xodus, "ROOT", tmp_path / "xbox")
+    monkeypatch.setattr(gamepass, "addons", lambda pid: [
+        {"id": "9DLCA", "title": "A", "image": "", "price": "$5.00", "url": "u"},
+        {"id": "9DLCB", "title": "B", "image": "", "price": "$9.00", "url": "u"},
+        {"id": "9DLCC", "title": "C", "image": "", "price": "$1.00", "url": "u"}])
+    monkeypatch.setattr(nexus, "owned", lambda force=False: ["9GAME", "9DLCA", "9DLCB"])
+    folder = xodus.content_dir("9GAME", "9DLCB")
+    folder.mkdir(parents=True)
+    xodus._save_state({"9GAME": {"path": str(tmp_path), "dlcs": {"9DLCB": {"path": str(folder)}}}})
+    game = Game(store="xbox", id="xb-9GAME", title="G", installed=True, extra={"store_id": "9GAME"})
+    rows = {r["id"]: r for r in X.Xbox().dlcs(game)}
+    assert rows["9DLCA"]["status"] == "owned" and rows["9DLCA"]["canInstall"] and not rows["9DLCA"]["price"]
+    assert rows["9DLCB"]["status"] == "installed" and not rows["9DLCB"]["canInstall"]
+    assert rows["9DLCC"]["status"] == "available" and rows["9DLCC"]["price"] == "$1.00"
+    assert "install-dlc" in X.Xbox().install_dlc(game, "9DLCA").argv
+    assert xodus.play_env("9GAME") == {"XODUS_CONTENT_ROOTS": "Z:" + str(folder).replace("/", "\\")}

@@ -26,7 +26,7 @@ class Xbox(Store):
     tile = "#107c10"  # its logo sits in white on a tile of this colour
     login_kind = "external"
     external_installs = WINDOWS  # Windows: the Xbox app installs; Linux: Cornerplay itself (xodus.py)
-    dlc_note = "Add-ons are installed from Nexus Launcher (Linux) or the Xbox app (Windows)."
+    dlc_note = ""
 
     # --- state -------------------------------------------------------------------------------
     def problem(self):
@@ -166,6 +166,36 @@ class Xbox(Store):
             secs, last = played.get(g.extra["title_id"], (0, 0))
             if secs or last:  # shown like Steam's own play time (playtime.of takes the larger)
                 g.extra["steam_playtime"], g.extra["steam_last_played"] = secs, last
+
+    # --- add-ons -----------------------------------------------------------------------------
+    def dlcs(self, game):
+        """The game's add-ons from the Xbox store, the ones the account owns marked; on Linux an
+        owned one can be downloaded for a game Cornerplay installed (xodus.install_dlc)."""
+        store_id = game.extra.get("store_id") or ""
+        if not store_id:
+            return []
+        owned, here = set(), {}
+        if WINDOWS:
+            pass  # the Xbox app installs add-ons; owned ones show as "owned" once Windows says so
+        else:
+            from .. import nexus, xodus
+            owned = set(nexus.owned())
+            here = ((xodus.state().get(store_id) or {}).get("dlcs") or {}) if game.id.startswith("xb-") else {}
+        mine = game.id.startswith("xb-") and game.installed and not WINDOWS
+        rows = []
+        for a in gamepass.addons(store_id):
+            status = "installed" if a["id"] in here else "owned" if a["id"] in owned else "available"
+            rows.append({**a, "price": "" if status != "available" else a["price"], "status": status,
+                         "canInstall": status == "owned" and mine})
+        return rows
+
+    def install_dlc(self, game, dlc_id):
+        if WINDOWS:
+            from .. import winxbox
+            return Command(winxbox.store_page_argv(dlc_id))
+        if not game.id.startswith("xb-") or not game.installed:
+            raise StoreError("Install the game with Cornerplay first")
+        return Command(python_argv("cornerplay.xodus", "install-dlc", game.id[3:], dlc_id))
 
     # --- actions -----------------------------------------------------------------------------
     def install(self, game):

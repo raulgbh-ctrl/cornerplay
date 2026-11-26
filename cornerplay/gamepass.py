@@ -158,3 +158,64 @@ def catalog(force=False) -> list:
         return cached.get("games") or []
     write_json(CACHE, {"t": time.time(), "market": market(), "v": CACHE_VERSION, "games": games})
     return games
+
+
+# --- add-ons (DLC) ----------------------------------------------------------------------------------
+ADDONS = CACHE_DIR / "xbox-addons.json"
+_ADDONS_RE = re.compile(r'"PRODUCTADDONS_([0-9A-Z]{12})":\{"type":\d+,"data":\{"products":(\[[^\]]*\])')
+
+
+def _price(product) -> str:
+    """The Store's price, like "$19.99" ("" when it is not for sale on its own)."""
+    for sku in product.get("DisplaySkuAvailabilities") or []:
+        for av in sku.get("Availabilities") or []:
+            if "Purchase" not in (av.get("Actions") or []):
+                continue
+            price = (av.get("OrderManagementData") or {}).get("Price") or {}
+            amount, cur = price.get("ListPrice"), price.get("CurrencyCode") or ""
+            if amount is None:
+                continue
+            if not amount:
+                return "Free"
+            from .itad import money
+            text = money({"amount": price.get("ListPrice"), "currency": cur})
+            msrp = price.get("MSRP")
+            if msrp and amount < msrp:
+                text += f" (-{round(100 - 100 * amount / msrp)}%)"
+            return text
+    return ""
+
+
+def addons(product_id: str) -> list:
+    """A game's add-ons as the Xbox store lists them: [{"id", "title", "image", "price", "url"}].
+    The list comes from the game's xbox.com page (Microsoft's own add-on service answers only its
+    apps), the details from the Store's product service. Kept for a day; [] when unreachable."""
+    cached = read_json(ADDONS) or {}
+    mkt = market()
+    hit = cached.get(f"{mkt}:{product_id}")
+    if hit and time.time() - hit.get("t", 0) < TTL:
+        return hit.get("items") or []
+    try:
+        r = requests.get(f"https://www.xbox.com/en-US/games/store/x/{product_id}", timeout=30,
+                         headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/130 Safari/537.36"})
+        r.raise_for_status()
+        m = next((m for m in _ADDONS_RE.finditer(r.text) if m.group(1) == product_id), None)
+        ids = re.findall(r'"productId":"([0-9A-Z]{12})"', m.group(2)) if m else []
+        items = []
+        for i in range(0, len(ids), BATCH):
+            d = requests.get("https://displaycatalog.mp.microsoft.com/v7.0/products",
+                             params={"bigIds": ",".join(ids[i:i + BATCH]), "market": mkt, "languages": "en-us"}, timeout=30)
+            d.raise_for_status()
+            for p in d.json().get("Products") or []:
+                props = (p.get("LocalizedProperties") or [{}])[0]
+                title = (props.get("ProductTitle") or "").strip()
+                if title:
+                    items.append({"id": p.get("ProductId", ""), "title": title,
+                                  "image": _image(props.get("Images") or [], "BoxArt", "Poster", "Tile", "Logo"),
+                                  "price": _price(p),
+                                  "url": f"https://www.xbox.com/games/store/x/{p.get('ProductId', '')}"})
+    except (requests.RequestException, ValueError):
+        return (hit or {}).get("items") or []
+    cached[f"{mkt}:{product_id}"] = {"t": time.time(), "items": items}
+    write_json(ADDONS, cached)
+    return items
