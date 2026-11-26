@@ -81,3 +81,26 @@ def test_frames_are_checked():
             A.parse("NEXUS_AUTH_V1 " + bad)
     assert A.trusted("https://sisu.xboxlive.com/connect") and not A.trusted("https://login.live.com.evil.io/")
     assert "CloudExperienceHost.Bridge.dispatchMessage" in A.context_script("c")
+
+
+def test_xbox_achievements_and_play_time(tmp_path, monkeypatch):
+    """Achievements and play time come from the backend, per Xbox title id."""
+    from cornerplay import achievements, xodus
+    exe = tmp_path / "xodus-cli"
+    exe.write_text(f"""#!{sys.executable}
+import json, sys
+cmd, tid = sys.argv[1], sys.argv[2]
+if cmd == "achievements":
+    print(json.dumps({{"items": [{{"state": "unlocked", "gamerscore": 10}}, {{"state": "locked", "gamerscore": 40}},
+                                 {{"state": "unlocked", "gamerscore": 5, "revoked": True}}]}}))
+elif cmd == "game-activity":
+    print(json.dumps({{"minutesPlayed": 90 if tid == "1" else None, "lastPlayed": "2026-11-20T10:00:00Z" if tid == "1" else None}}))
+""")
+    exe.chmod(0o755)
+    monkeypatch.setattr(xodus, "backend", lambda: str(exe))
+    assert achievements.xbox_fetch("1") == {"done": 1, "total": 2, "score": 10, "scoreTotal": 50}
+    assert achievements.cached("xbox:1")["total"] == 2 and achievements.progress("xbox:1") == 0.5
+    played = xodus.activity(["1", "2"])
+    from datetime import datetime, timezone
+    when = int(datetime(2026, 11, 20, 10, tzinfo=timezone.utc).timestamp())
+    assert played == {"1": (5400, when)}  # never played: left out

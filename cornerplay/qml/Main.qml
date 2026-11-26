@@ -3455,6 +3455,7 @@ ApplicationWindow {
                     Pill {
                         visible: !!detail.ach.total
                         label: "\u{1F3C6}  " + (detail.ach.done || 0) + " / " + (detail.ach.total || 0) + qsTr(" achievements")
+                               + (detail.ach.scoreTotal ? "  ·  " + (detail.ach.score || 0) + " / " + detail.ach.scoreTotal + " G" : "")
                         accent: !!detail.ach.total && detail.ach.done === detail.ach.total
                     }
                     Pill {

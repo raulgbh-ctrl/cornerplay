@@ -19,7 +19,7 @@ ALL_PC_GAMES = "fdd9e2a7-0fee-49f6-ad69-4354098401ff"  # "All PC Games" in PC Ga
 CACHE = CACHE_DIR / "gamepass.json"
 TTL = 24 * 3600
 BATCH = 100  # products asked for at once (the details service answers 100 in about a second)
-CACHE_VERSION = 2  # 2: each game keeps "passes", the Game Pass tiers that include it
+CACHE_VERSION = 3  # 2: each game keeps "passes" (the Game Pass tiers that include it); 3: "title_id"
 
 # Microsoft's Game Pass products (the ids xbox.com itself uses). Each game's Store listing names the
 # passes that include it, so a tier's games are the catalog's games that name its pass.
@@ -102,7 +102,9 @@ def _details(ids, mkt):
             title = (props.get("ProductTitle") or "").strip()
             if not title:
                 continue
-            out.append({"id": p.get("ProductId", ""), "title": title,
+            title_id = next((str(a.get("Value") or "") for a in p.get("AlternateIds") or []
+                             if a.get("IdType") == "XboxTitleId"), "")
+            out.append({"id": p.get("ProductId", ""), "title": title, "title_id": title_id,
                         "cover": _image(images, "Poster", "BoxArt"),
                         "hero": _image(images, "SuperHeroArt", "TitledHeroArt", "Screenshot"),
                         "publisher": (props.get("PublisherName") or "").strip(),
@@ -121,14 +123,15 @@ def products(ids) -> list:
     cached = read_json(cache) or {}
     mkt = market()
     known = cached.get("games") or {}
-    if cached.get("market") == mkt and time.time() - cached.get("t", 0) < TTL and all(i in known for i in ids):
+    if (cached.get("market") == mkt and cached.get("v") == CACHE_VERSION and time.time() - cached.get("t", 0) < TTL
+            and all(i in known for i in ids)):
         return [known[i] for i in ids if known[i]]
     try:
         found = {g["id"]: g for g in _details(ids, mkt)}
     except (requests.RequestException, ValueError):
         return [known[i] for i in ids if known.get(i)]
     known = {i: found.get(i) or {} for i in ids}
-    write_json(cache, {"t": time.time(), "market": mkt, "games": known})
+    write_json(cache, {"t": time.time(), "market": mkt, "v": CACHE_VERSION, "games": known})
     return [known[i] for i in ids if known[i]]
 
 

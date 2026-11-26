@@ -557,6 +557,44 @@ def read_profile(force: bool = False) -> dict:
     return out
 
 
+ACTIVITY_TTL = 6 * 3600
+
+
+def activity(title_ids, force: bool = False) -> dict:
+    """{title id: (seconds played, last played as a Unix time)} from Xbox's own records (what the
+    account played anywhere, the Xbox app and consoles included), for games played at all.
+    Cached for a few hours; asked one game at a time, only for the ones not known yet."""
+    from datetime import datetime
+    from .config import CACHE_DIR, read_json, write_json
+    cache = CACHE_DIR / "xbox-activity.json"
+    data = read_json(cache) or {}
+    now = time.time()
+    exe = backend()
+    changed = False
+    for tid in {str(t) for t in title_ids if t}:
+        hit = data.get(tid)
+        if exe and (force or not hit or now - hit.get("t", 0) > ACTIVITY_TTL):
+            try:
+                r = subprocess.run([exe, "game-activity", tid, "--json"], capture_output=True, text=True,
+                                   timeout=60, stdin=subprocess.DEVNULL)
+                d = json.loads(r.stdout) if r.returncode == 0 and r.stdout.strip() else None
+            except (OSError, subprocess.SubprocessError, ValueError):
+                d = None
+            if isinstance(d, dict):
+                last = 0
+                try:
+                    if d.get("lastPlayed"):
+                        last = int(datetime.fromisoformat(str(d["lastPlayed"]).replace("Z", "+00:00")).timestamp())
+                except ValueError:
+                    pass
+                data[tid] = {"t": now, "seconds": int(d.get("minutesPlayed") or 0) * 60, "last": last}
+                changed = True
+    if changed:
+        write_json(cache, data)
+    return {t: (v.get("seconds", 0), v.get("last", 0)) for t, v in data.items()
+            if t in {str(x) for x in title_ids} and (v.get("seconds") or v.get("last"))}
+
+
 def gamerpic() -> str:
     p = account_dir() / "gamerpic.jpg"
     return str(p) if p.exists() else ""

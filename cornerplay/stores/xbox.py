@@ -147,8 +147,25 @@ class Xbox(Store):
                 continue
             games.append(Game(store=self.id, id="gp-" + c["id"], title=c["title"], installed=False, cover=c["cover"],
                               extra={"store_id": c["id"], "gamepass": True, "owned_only": WINDOWS, "hero": c["hero"],
-                                     "publisher": c["publisher"]}))
+                                     "publisher": c["publisher"], "title_id": c.get("title_id", "")}))
+        if not WINDOWS:
+            self._xbox_records(games)
         return games
+
+    @staticmethod
+    def _xbox_records(games):
+        """Xbox title ids (for achievements) and play time from Xbox's own records, for the games
+        installed or owned (not every catalog tile: one backend call per game)."""
+        from .. import xodus
+        mine = [g for g in games if not g.id.startswith("gp-") and g.extra.get("store_id")]
+        tids = {c["id"]: c.get("title_id", "") for c in gamepass.products([g.extra["store_id"] for g in mine])}
+        for g in mine:
+            g.extra["title_id"] = tids.get(g.extra["store_id"], "")
+        played = xodus.activity([g.extra["title_id"] for g in mine if g.extra["title_id"]]) if xodus.backend() else {}
+        for g in mine:
+            secs, last = played.get(g.extra["title_id"], (0, 0))
+            if secs or last:  # shown like Steam's own play time (playtime.of takes the larger)
+                g.extra["steam_playtime"], g.extra["steam_last_played"] = secs, last
 
     # --- actions -----------------------------------------------------------------------------
     def install(self, game):

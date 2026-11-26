@@ -4,7 +4,8 @@ from GOG Galaxy's gameplay API with your GOG sign-in. Epic keeps achievements to
 GOG: each game has its own Galaxy client id and secret (in its build manifest). A token for
 that client is made from your GOG sign-in (the way GOG Galaxy and gogdl do for cloud saves,
 without starting a new session), then gameplay.gog.com lists the game's achievements.
-Stored together, GOG games under "gog:<id>".
+Xbox's from the Xbox backend (xodus-cli achievements <title id>) with your Xbox sign-in.
+Stored together, GOG games under "gog:<id>", Xbox games under "xbox:<title id>".
 """
 import time
 
@@ -69,6 +70,34 @@ def gog_fetch(store, game_id):
         return None
     data = read_json(FILE) or {}
     data["gog:" + game_id] = dict(result, t=time.time())
+    write_json(FILE, data)
+    _all["t"] = 0
+    return result
+
+
+def xbox_fetch(title_id):
+    """{"done", "total", "score", "scoreTotal"} for an Xbox game ({} when it has none); None when
+    the backend could not be asked (not signed in, offline)."""
+    import json
+    import subprocess
+    from .xodus import backend
+    exe = backend()
+    if not exe or not title_id:
+        return None
+    try:
+        r = subprocess.run([exe, "achievements", str(title_id), "--json"], capture_output=True, text=True,
+                           timeout=60, stdin=subprocess.DEVNULL)
+        items = (json.loads(r.stdout) or {}).get("items") if r.returncode == 0 and r.stdout.strip() else None
+    except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
+        return None
+    if not isinstance(items, list):
+        return None
+    items = [a for a in items if isinstance(a, dict) and not a.get("revoked")]
+    won = [a for a in items if str(a.get("state") or "").lower() in ("unlocked", "achieved")]
+    result = ({"done": len(won), "total": len(items), "score": sum(int(a.get("gamerscore") or 0) for a in won),
+               "scoreTotal": sum(int(a.get("gamerscore") or 0) for a in items)} if items else {})
+    data = read_json(FILE) or {}
+    data["xbox:" + str(title_id)] = dict(result, t=time.time())
     write_json(FILE, data)
     _all["t"] = 0
     return result

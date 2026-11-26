@@ -332,7 +332,9 @@ _FIELDS = {
     "copies": lambda m, g: 1,
     "update": lambda m, g: bool(g.installed and g.extra.get("update")),
     "achieved": lambda m, g: achievements.progress(g.id) if g.store == "steam"
-                             else achievements.progress("gog:" + g.id) if g.store == "gog" else -1.0,
+                             else achievements.progress("gog:" + g.id) if g.store == "gog"
+                             else achievements.progress("xbox:" + g.extra["title_id"]) if g.store == "xbox" and g.extra.get("title_id")
+                             else -1.0,
     "playtime": lambda m, g: playtime.of(g, m.played)[0],
     "lastPlayed": lambda m, g: playtime.of(g, m.played)[1],
     "covers": lambda m, g: _covers(g),
@@ -3136,6 +3138,22 @@ class AioLaunch(QObject):
     def achievements(self, key):
         """Steam or GOG achievement progress for a game; {} until known (achievementsReady follows)."""
         g = self.model.find(key)
+        if g and g.store == "xbox" and os.name != "nt":
+            tid = g.extra.get("title_id") or ""
+            if not tid:
+                return {}
+            hit = achievements.cached("xbox:" + tid)
+            if hit is not None:
+                return hit
+            pend = "ach:" + key
+            if pend not in self._details_pending:
+                self._details_pending.add(pend)
+
+                def xbox_work():
+                    d = achievements.xbox_fetch(tid) or {}
+                    return lambda: (self._details_pending.discard(pend), self.achievementsReady.emit(key, d))
+                self._bg(xbox_work)
+            return {}
         if g and g.store == "gog":
             hit = achievements.cached("gog:" + g.id)
             if hit is not None:
