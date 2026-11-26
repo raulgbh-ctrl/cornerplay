@@ -19,7 +19,7 @@ import shlex
 import sys
 
 from . import dlcfinder, family, steamweb
-from . import installinfo, humbleshop, pkgs, patchnotes, mods, workshop, cleanup, steambundles, syscontrol, achievements, backup, perf, search, couch, host, hostimport, statsdata, steamrun, wishlist, health, savebackup, importer, personal, problems, storage, updates, covers, details, epicfree, shelves, gamecolour, playtime, protondb, steamcompat, proton, runner, saves, session, steamgames, steamshortcut, theme as themes
+from . import installinfo, storesearch, humbleshop, pkgs, patchnotes, mods, workshop, cleanup, steambundles, syscontrol, achievements, backup, perf, search, couch, host, hostimport, statsdata, steamrun, wishlist, health, savebackup, importer, personal, problems, storage, updates, covers, details, epicfree, shelves, gamecolour, playtime, protondb, steamcompat, proton, runner, saves, session, steamgames, steamshortcut, theme as themes
 from . import __version__
 from .config import CACHE_DIR, CONFIG_DIR as CONFIG_DIR_STREAM, DATA_DIR as DATA_DIR_STREAM, DEFAULTS, LANGUAGES, LOG_DIR, game_options, read_json, settings, write_json
 from .net import redact
@@ -743,6 +743,8 @@ class AioLaunch(QObject):
     gameChanged = Signal(str)
     loginReady = Signal(str, str, str)   # store, url, prompt
     loginWeb = Signal(str, str, str)     # store, store name, url (built-in sign-in window)
+    storeSearchReady = Signal(str, "QVariantMap")  # query, storesearch.search() with "owned" marked
+    storeShelvesReady = Signal("QVariantList")      # storesearch.shelves() with "owned" marked
     xboxSignin = Signal()                # Xbox on Linux: open XboxLogin.qml (it calls xboxLoginStart)
     xboxAuthOpen = Signal(int, str)      # session, Microsoft sign-in page to show
     xboxAuthContext = Signal(int, str)   # session, JavaScript to run in that page
@@ -2588,6 +2590,58 @@ class AioLaunch(QObject):
     def _steam_owned(self):
         games = [g for g in self.model.games if g.store == "steam" and g.id.isdigit()]
         return {int(g.id) for g in games}, [g.title for g in games]
+
+    def _mark_owned(self, rows):
+        """Each store result gets "owned": that store's copy is in the library (by id, else name)."""
+        from .dlcfinder import norm
+        ids, names = set(), set()
+        for g in self.model.games:
+            if g.extra.get("owned_only") or g.id.startswith("gp-"):
+                continue
+            ids.add((g.store, str(g.extra.get("store_id") or g.id)))
+            names.add((g.store, norm(g.title)))
+        for r in rows:
+            r["owned"] = (r["store"], r["id"]) in ids or (r["store"], norm(r["title"])) in names
+        return rows
+
+    @Slot(str)
+    def storeSearch(self, query):
+        """The Store page's search: every store at once (storesearch.py); storeSearchReady follows."""
+        query = (query or "").strip()
+        self._store_query = query
+        if not query:
+            return self.storeSearchReady.emit("", {"groups": [], "failed": [], "links": []})
+
+        def work():
+            try:
+                res = storesearch.search(query)
+            except Exception:  # noqa: BLE001
+                res = {"groups": [], "failed": list(storesearch.SEARCHERS), "links": storesearch.site_links(query)}
+
+            def done():
+                if getattr(self, "_store_query", "") != query:
+                    return  # typed on since: a newer search is coming
+                for g in res["groups"]:
+                    self._mark_owned(g["offers"])
+                    g["owned"] = any(o["owned"] for o in g["offers"])
+                self.storeSearchReady.emit(query, res)
+            return done
+        self._bg(work)
+
+    @Slot()
+    def loadStoreShelves(self):
+        def work():
+            try:
+                shelves = storesearch.shelves()
+            except Exception:  # noqa: BLE001
+                shelves = []
+
+            def done():
+                for s in shelves:
+                    self._mark_owned(s["items"])
+                self.storeShelvesReady.emit(shelves)
+            return done
+        self._bg(work)
 
     @Slot()
     @Slot(bool)

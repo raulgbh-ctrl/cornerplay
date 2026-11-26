@@ -165,25 +165,26 @@ ADDONS = CACHE_DIR / "xbox-addons.json"
 _ADDONS_RE = re.compile(r'"PRODUCTADDONS_([0-9A-Z]{12})":\{"type":\d+,"data":\{"products":(\[[^\]]*\])')
 
 
-def _price(product) -> str:
-    """The Store's price, like "$19.99" ("" when it is not for sale on its own)."""
+def price_parts(product):
+    """(price, price before a discount or None, currency) of the Store's offer; (None, None, "")
+    when it is not for sale on its own."""
     for sku in product.get("DisplaySkuAvailabilities") or []:
         for av in sku.get("Availabilities") or []:
             if "Purchase" not in (av.get("Actions") or []):
                 continue
             price = (av.get("OrderManagementData") or {}).get("Price") or {}
-            amount, cur = price.get("ListPrice"), price.get("CurrencyCode") or ""
-            if amount is None:
+            if price.get("ListPrice") is None:
                 continue
-            if not amount:
-                return "Free"
-            from .itad import money
-            text = money({"amount": price.get("ListPrice"), "currency": cur})
-            msrp = price.get("MSRP")
-            if msrp and amount < msrp:
-                text += f" (-{round(100 - 100 * amount / msrp)}%)"
-            return text
-    return ""
+            return price["ListPrice"], price.get("MSRP"), price.get("CurrencyCode") or ""
+    return None, None, ""
+
+
+def _price(product) -> str:
+    """The Store's price in the Store page's one currency, like "$19.99 (-50%)" ("" when it is
+    not for sale on its own)."""
+    from .currency import text
+    amount, msrp, cur = price_parts(product)
+    return text(amount, cur, msrp) if amount is not None else ""
 
 
 def addons(product_id: str) -> list:

@@ -21,7 +21,22 @@ Popup {
                                                                           shop: g.shop || "", owned: g.owned, now: true, when: g.when })))
     readonly property var sales: app.wishlistSalesAll || []
     readonly property var coming: app.releaseCalendar || []
-    onOpened: { flick.contentY = 0; app.loadHumbleShop(); app.loadSteamBundles() }
+    onOpened: { flick.contentY = 0; app.loadHumbleShop(); app.loadSteamBundles(); app.loadStoreShelves() }
+
+    // Search every store at once (storesearch.py), and each store's own shelf to browse.
+    property string query: ""
+    property var results: ({ groups: [], failed: [], links: [] })
+    property bool searching: false
+    property var shelves: []
+    readonly property var storeNames: ({ steam: "Steam", epic: "Epic Games", gog: "GOG", xbox: "Xbox" })
+    Timer { id: typing; interval: 450; onTriggered: { store.searching = store.query !== ""; app.storeSearch(store.query) } }
+    function searchFor(text) { searchField.text = text }
+    onQueryChanged: { if (query === "") { searching = false; results = ({ groups: [], failed: [], links: [] }); typing.stop() } else typing.restart() }
+    Connections {
+        target: app
+        function onStoreSearchReady(q, res) { if (q === store.query) { store.results = res; store.searching = false } }
+        function onStoreShelvesReady(list) { store.shelves = list }
+    }
 
     component Head: RowLayout {
         id: head
@@ -95,176 +110,313 @@ Popup {
                     Text { text: qsTr("Store"); color: store.theme.onSurface; font.family: app.titleFamily; font.pixelSize: 28; font.weight: Font.Bold }
                     Text {
                         width: parent.width; wrapMode: Text.WordWrap
-                        text: qsTr("Free games, sales on your wishlist and bundles from every store, in one place. Games you own are marked.")
+                        text: qsTr("Search and browse every store, with free games, sales on your wishlist and bundles, in one place. Games you own are marked.")
                         color: store.theme.onSurfaceVariant; font.pixelSize: 13
                     }
                 }
                 KButton { theme: store.theme; iconName: "x"; ToolTip.visible: hovered; ToolTip.text: qsTr("Back to the library (Esc)"); onClicked: store.close() }
             }
 
-            // Free to keep
-            Column {
-                visible: store.free.length > 0
-                width: parent.width
-                spacing: 10
-                Head {
-                    readonly property int n: store.free.filter(g => g.now && !g.owned).length
-                    icon: "gift"; title: qsTr("Free to keep"); note: n ? qsTr("%1 now").arg(n) : ""
-                }
-                Flow {
-                    width: parent.width
-                    spacing: 12
-                    Repeater {
-                        model: store.free
-                        Card {
-                            required property var modelData
-                            art: modelData.art; title: modelData.title; url: modelData.url
-                            line1: modelData.owned ? qsTr("In your library") : modelData.now ? (modelData.when ? qsTr("Free until ") + modelData.when : qsTr("Free now"))
-                                                                                             : qsTr("Free from ") + modelData.when
-                            line1Color: modelData.now && !modelData.owned ? store.theme.primary : store.theme.outline
-                            line2: modelData.shop
-                            badge: modelData.now && !modelData.owned ? qsTr("FREE") : ""
-                        }
-                    }
-                }
+            KField {
+                id: searchField
+                objectName: "storeSearchField"
+                theme: store.theme
+                width: Math.min(parent.width, 640)
+                iconName: "search"
+                pill: true
+                placeholderText: qsTr("Search every store")
+                onTextChanged: store.query = text.trim()
+                Keys.onEscapePressed: event => { if (text) { text = ""; event.accepted = true } else store.close() }
             }
 
-            // Sales on your wishlist (the store's own sale, or IsThereAnyDeal's cheaper one)
+            // Search results: one row per game, with every store that sells it and its price there.
             Column {
-                visible: store.sales.length > 0
+                visible: store.query !== ""
                 width: parent.width
                 spacing: 10
-                Head { icon: "tag"; title: qsTr("On sale from your wishlist"); note: store.sales.length + "" }
-                Flow {
-                    width: parent.width
-                    spacing: 12
-                    Repeater {
-                        model: store.sales
-                        Card {
-                            required property var modelData
-                            readonly property var best: modelData.best && modelData.best.cut > (modelData.discount || 0) ? modelData.best : null
-                            art: [modelData.tall, modelData.wide].filter(u => !!u); title: modelData.title
-                            url: best ? best.url : modelData.url
-                            badge: "-" + (best ? best.cut : modelData.discount) + "%"
-                            readonly property string was: (best ? best.was : modelData.was) || ""
-                            line1: best ? best.price : modelData.price
-                            line2: (was ? qsTr("was %1").arg(was) + "  ·  " : "")
-                                   + (best ? best.shop + (best.low ? "  ·  " + qsTr("lowest ever") : "") : (modelData.store === "gog" ? "GOG" : "Steam"))
-                        }
-                    }
+                Text {
+                    visible: store.searching || (store.results.groups.length === 0)
+                    text: store.searching ? qsTr("Searching Steam, Epic, GOG and Xbox…") : qsTr("Nothing found for “%1”").arg(store.query)
+                    color: store.theme.outline; font.pixelSize: 13
                 }
-            }
-
-            // Price watch: each wishlist game can wait for its own discount (a toast and a
-            // notification when it gets there). A click on the chip steps through the choices.
-            Column {
-                visible: (app.wishlistAll || []).length > 0
-                width: parent.width
-                spacing: 10
-                Head { icon: "bell"; title: qsTr("Price watch"); note: qsTr("tell me when a wishlist game gets this cheap") }
-                Flow {
-                    width: parent.width
-                    spacing: 8
-                    Repeater {
-                        model: app.wishlistAll || []
-                        Rectangle {
-                            id: pw
-                            required property var modelData
-                            readonly property var steps: [0, 1, 25, 50, 75, 90]
-                            readonly property string want: ({ 0: qsTr("Off"), 1: qsTr("Any sale"), 25: qsTr("25% off"), 50: qsTr("50% off"),
-                                                             75: qsTr("75% off"), 90: qsTr("90% off") })[modelData.watch] || qsTr("Off")
-                            width: 300; height: 58; radius: 10
-                            color: store.theme.surfaceContainerHigh
-                            border.width: modelData.watch ? 1 : 0; border.color: store.theme.primary
-                            RoundedArt {
-                                x: 6; y: 6; width: 31; height: 46; radius: 6
-                                ArtImage { anchors.fill: parent; sources: [pw.modelData.tall, pw.modelData.wide].filter(u => !!u); sourceSize.width: 64 }
+                Repeater {
+                    model: store.searching ? [] : store.results.groups
+                    Rectangle {
+                        id: hit
+                        required property var modelData
+                        width: parent.width
+                        height: 96
+                        radius: 12
+                        color: hitHover.hovered ? store.theme.surfaceContainerHigh : store.theme.surfaceContainer
+                        HoverHandler { id: hitHover }
+                        RoundedArt {
+                            id: hitArt
+                            x: 8; y: 8; width: 60; height: 80; radius: 8
+                            ArtImage { anchors.fill: parent; sources: hit.modelData.art; sourceSize.width: 120 }
+                        }
+                        Column {
+                            anchors { left: hitArt.right; leftMargin: 14; right: parent.right; rightMargin: 14; verticalCenter: parent.verticalCenter }
+                            spacing: 8
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                Text { Layout.fillWidth: true; text: hit.modelData.title; font.family: app.titleFamily; color: store.theme.onSurface
+                                       font.pixelSize: 15; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                                Text { visible: hit.modelData.owned; text: qsTr("In your library"); color: store.theme.outline; font.pixelSize: 12 }
                             }
-                            Column {
-                                anchors { left: parent.left; leftMargin: 46; right: chip.left; rightMargin: 8; verticalCenter: parent.verticalCenter }
-                                spacing: 2
-                                Text { width: parent.width; text: pw.modelData.title; color: store.theme.onSurface; font.pixelSize: 13
-                                       font.weight: Font.DemiBold; elide: Text.ElideRight }
-                                Text { width: parent.width; elide: Text.ElideRight; font.pixelSize: 12
-                                       text: (pw.modelData.price || "") + (pw.modelData.cut ? "  ·  -" + pw.modelData.cut + "%" : "")
-                                       color: pw.modelData.cut ? store.theme.primary : store.theme.outline }
-                            }
-                            Rectangle {
-                                id: chip
-                                anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
-                                height: 28; radius: 14; width: chipT.implicitWidth + 20
-                                color: pw.modelData.watch ? store.theme.primary : chipHover.hovered ? store.theme.surfaceContainerHighest : "transparent"
-                                border.width: pw.modelData.watch ? 0 : 1; border.color: store.theme.outlineVariant
-                                Text { id: chipT; anchors.centerIn: parent; text: pw.want; font.pixelSize: 12; font.weight: Font.DemiBold
-                                       color: pw.modelData.watch ? store.theme.onPrimary : store.theme.onSurfaceVariant }
-                                HoverHandler { id: chipHover; cursorShape: Qt.PointingHandCursor }
-                                ToolTip.visible: chipHover.hovered
-                                ToolTip.text: qsTr("Click to choose when to be told")
-                                TapHandler {
-                                    onTapped: {
-                                        const i = pw.steps.indexOf(pw.modelData.watch)
-                                        app.setPriceWatch(pw.modelData.store, pw.modelData.id, pw.steps[(i + 1) % pw.steps.length])
+                            Flow {
+                                width: parent.width
+                                spacing: 8
+                                Repeater {
+                                    model: hit.modelData.offers
+                                    Rectangle {
+                                        id: offer
+                                        required property var modelData
+                                        height: 30; radius: 15
+                                        width: offerRow.implicitWidth + 20
+                                        color: offerHover.hovered ? store.theme.primaryContainer : store.theme.surfaceContainerHighest
+                                        Row {
+                                            id: offerRow
+                                            anchors.centerIn: parent
+                                            spacing: 6
+                                            StoreTile { store: offer.modelData.store; size: 18; anchors.verticalCenter: parent.verticalCenter }
+                                            Text { anchors.verticalCenter: parent.verticalCenter; font.pixelSize: 12
+                                                   color: offerHover.hovered ? store.theme.onPrimaryContainer : store.theme.onSurface
+                                                   text: offer.modelData.shop + "  " + (offer.modelData.owned ? qsTr("owned") : (offer.modelData.price || "")) }
+                                        }
+                                        HoverHandler { id: offerHover; cursorShape: Qt.PointingHandCursor }
+                                        TapHandler { onTapped: app.openUrl(offer.modelData.url) }
                                     }
                                 }
                             }
                         }
                     }
                 }
+                Text {
+                    visible: !store.searching && store.results.failed.length > 0
+                    text: qsTr("Did not answer: %1").arg(store.results.failed.map(id => store.storeNames[id] || id).join(", "))
+                    color: store.theme.outline; font.pixelSize: 12
+                }
+                Flow {
+                    visible: !store.searching && store.results.links.length > 0
+                    width: parent.width
+                    spacing: 8
+                    Text { text: qsTr("Also look on:"); color: store.theme.outline; font.pixelSize: 12; height: 28; verticalAlignment: Text.AlignVCenter }
+                    Repeater {
+                        model: store.searching ? [] : store.results.links
+                        KButton { required property var modelData; theme: store.theme; text: modelData.shop; onClicked: app.openUrl(modelData.url) }
+                    }
+                }
             }
 
-            // Release calendar: wishlist games not out yet, by month (and the ones just out).
-            Column {
-                visible: store.coming.length > 0
+            Column {  // browsing: hidden while searching
+                visible: store.query === ""
                 width: parent.width
-                spacing: 10
-                Head { icon: "calendar"; title: qsTr("Coming from your wishlist"); note: store.coming.length + "" }
-                Repeater {
-                    model: {
-                        const months = []
-                        for (const g of store.coming) {
-                            const m = g.out ? qsTr("Out now") : g.month
-                            if (!months.length || months[months.length - 1].name !== m) months.push({ name: m, games: [] })
-                            months[months.length - 1].games.push(g)
-                        }
-                        return months
+                spacing: 26
+                // Free to keep
+                Column {
+                    visible: store.free.length > 0
+                    width: parent.width
+                    spacing: 10
+                    Head {
+                        readonly property int n: store.free.filter(g => g.now && !g.owned).length
+                        icon: "gift"; title: qsTr("Free to keep"); note: n ? qsTr("%1 now").arg(n) : ""
                     }
+                    Flow {
+                        width: parent.width
+                        spacing: 12
+                        Repeater {
+                            model: store.free
+                            Card {
+                                required property var modelData
+                                art: modelData.art; title: modelData.title; url: modelData.url
+                                line1: modelData.owned ? qsTr("In your library") : modelData.now ? (modelData.when ? qsTr("Free until ") + modelData.when : qsTr("Free now"))
+                                                                                                 : qsTr("Free from ") + modelData.when
+                                line1Color: modelData.now && !modelData.owned ? store.theme.primary : store.theme.outline
+                                line2: modelData.shop
+                                badge: modelData.now && !modelData.owned ? qsTr("FREE") : ""
+                            }
+                        }
+                    }
+                }
+
+                // One shelf per store: what is on sale or popular there now.
+                Repeater {
+                    model: store.shelves
                     Column {
+                        id: shelf
                         required property var modelData
+                        visible: shelf.modelData.items.length > 0
+                        width: parent.width
+                        spacing: 10
+                        RowLayout {
+                            width: parent.width
+                            spacing: 10
+                            StoreTile { store: shelf.modelData.store; size: 22 }
+                            Text { text: shelf.modelData.title; color: store.theme.onSurface; font.pixelSize: 16; font.weight: Font.DemiBold }
+                            Item { Layout.fillWidth: true }
+                            KButton { theme: store.theme; text: qsTr("Open %1").arg(shelf.modelData.shop); onClicked: app.openUrl(shelf.modelData.home) }
+                        }
+                        ListView {
+                        id: storeRow
+                        ShelfArrows { view: storeRow; theme: store.theme }
+                        width: parent.width
+                        height: 132
+                        orientation: ListView.Horizontal
+                        spacing: 12
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        model: shelf.modelData.items
+                        delegate: Card {
+                            required property var modelData
+                            art: modelData.art; title: modelData.title; url: modelData.url
+                            line1: modelData.owned ? qsTr("In your library") : (modelData.price || qsTr("See the price"))
+                            line1Color: modelData.owned ? store.theme.outline : store.theme.primary
+                            line2: modelData.shop
+                            badge: modelData.owned ? qsTr("OWNED") : ""
+                        }
+                    }
+                    }
+                }
+
+                // Sales on your wishlist (the store's own sale, or IsThereAnyDeal's cheaper one)
+                Column {
+                    visible: store.sales.length > 0
+                    width: parent.width
+                    spacing: 10
+                    Head { icon: "tag"; title: qsTr("On sale from your wishlist"); note: store.sales.length + "" }
+                    Flow {
+                        width: parent.width
+                        spacing: 12
+                        Repeater {
+                            model: store.sales
+                            Card {
+                                required property var modelData
+                                readonly property var best: modelData.best && modelData.best.cut > (modelData.discount || 0) ? modelData.best : null
+                                art: [modelData.tall, modelData.wide].filter(u => !!u); title: modelData.title
+                                url: best ? best.url : modelData.url
+                                badge: "-" + (best ? best.cut : modelData.discount) + "%"
+                                readonly property string was: (best ? best.was : modelData.was) || ""
+                                line1: best ? best.price : modelData.price
+                                line2: (was ? qsTr("was %1").arg(was) + "  ·  " : "")
+                                       + (best ? best.shop + (best.low ? "  ·  " + qsTr("lowest ever") : "") : (modelData.store === "gog" ? "GOG" : "Steam"))
+                            }
+                        }
+                    }
+                }
+
+                // Price watch: each wishlist game can wait for its own discount (a toast and a
+                // notification when it gets there). A click on the chip steps through the choices.
+                Column {
+                    visible: (app.wishlistAll || []).length > 0
+                    width: parent.width
+                    spacing: 10
+                    Head { icon: "bell"; title: qsTr("Price watch"); note: qsTr("tell me when a wishlist game gets this cheap") }
+                    Flow {
                         width: parent.width
                         spacing: 8
-                        Text { text: modelData.name; color: store.theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold
-                               font.capitalization: Font.AllUppercase; font.letterSpacing: 1 }
-                        Flow {
-                            width: parent.width
-                            spacing: 12
-                            Repeater {
-                                model: modelData.games
-                                Card {
-                                    required property var modelData
-                                    art: [modelData.tall, modelData.wide].filter(u => !!u); title: modelData.title
-                                    url: modelData.url
-                                    badge: modelData.label
-                                    line1: modelData.out ? qsTr("Out now") + (modelData.price ? "  ·  " + modelData.price : "") : modelData.when
-                                    line1Color: modelData.out ? store.theme.primary : store.theme.onSurface
-                                    line2: modelData.store === "gog" ? "GOG" : "Steam"
+                        Repeater {
+                            model: app.wishlistAll || []
+                            Rectangle {
+                                id: pw
+                                required property var modelData
+                                readonly property var steps: [0, 1, 25, 50, 75, 90]
+                                readonly property string want: ({ 0: qsTr("Off"), 1: qsTr("Any sale"), 25: qsTr("25% off"), 50: qsTr("50% off"),
+                                                                 75: qsTr("75% off"), 90: qsTr("90% off") })[modelData.watch] || qsTr("Off")
+                                width: 300; height: 58; radius: 10
+                                color: store.theme.surfaceContainerHigh
+                                border.width: modelData.watch ? 1 : 0; border.color: store.theme.primary
+                                RoundedArt {
+                                    x: 6; y: 6; width: 31; height: 46; radius: 6
+                                    ArtImage { anchors.fill: parent; sources: [pw.modelData.tall, pw.modelData.wide].filter(u => !!u); sourceSize.width: 64 }
+                                }
+                                Column {
+                                    anchors { left: parent.left; leftMargin: 46; right: chip.left; rightMargin: 8; verticalCenter: parent.verticalCenter }
+                                    spacing: 2
+                                    Text { width: parent.width; text: pw.modelData.title; color: store.theme.onSurface; font.pixelSize: 13
+                                           font.weight: Font.DemiBold; elide: Text.ElideRight }
+                                    Text { width: parent.width; elide: Text.ElideRight; font.pixelSize: 12
+                                           text: (pw.modelData.price || "") + (pw.modelData.cut ? "  ·  -" + pw.modelData.cut + "%" : "")
+                                           color: pw.modelData.cut ? store.theme.primary : store.theme.outline }
+                                }
+                                Rectangle {
+                                    id: chip
+                                    anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
+                                    height: 28; radius: 14; width: chipT.implicitWidth + 20
+                                    color: pw.modelData.watch ? store.theme.primary : chipHover.hovered ? store.theme.surfaceContainerHighest : "transparent"
+                                    border.width: pw.modelData.watch ? 0 : 1; border.color: store.theme.outlineVariant
+                                    Text { id: chipT; anchors.centerIn: parent; text: pw.want; font.pixelSize: 12; font.weight: Font.DemiBold
+                                           color: pw.modelData.watch ? store.theme.onPrimary : store.theme.onSurfaceVariant }
+                                    HoverHandler { id: chipHover; cursorShape: Qt.PointingHandCursor }
+                                    ToolTip.visible: chipHover.hovered
+                                    ToolTip.text: qsTr("Click to choose when to be told")
+                                    TapHandler {
+                                        onTapped: {
+                                            const i = pw.steps.indexOf(pw.modelData.watch)
+                                            app.setPriceWatch(pw.modelData.store, pw.modelData.id, pw.steps[(i + 1) % pw.steps.length])
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            // Humble Choice and Humble's game bundles (tiers priced against buying separately)
-            HumbleShop { width: parent.width; theme: store.theme; shown: store.opened }
+                // Release calendar: wishlist games not out yet, by month (and the ones just out).
+                Column {
+                    visible: store.coming.length > 0
+                    width: parent.width
+                    spacing: 10
+                    Head { icon: "calendar"; title: qsTr("Coming from your wishlist"); note: store.coming.length + "" }
+                    Repeater {
+                        model: {
+                            const months = []
+                            for (const g of store.coming) {
+                                const m = g.out ? qsTr("Out now") : g.month
+                                if (!months.length || months[months.length - 1].name !== m) months.push({ name: m, games: [] })
+                                months[months.length - 1].games.push(g)
+                            }
+                            return months
+                        }
+                        Column {
+                            required property var modelData
+                            width: parent.width
+                            spacing: 8
+                            Text { text: modelData.name; color: store.theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold
+                                   font.capitalization: Font.AllUppercase; font.letterSpacing: 1 }
+                            Flow {
+                                width: parent.width
+                                spacing: 12
+                                Repeater {
+                                    model: modelData.games
+                                    Card {
+                                        required property var modelData
+                                        art: [modelData.tall, modelData.wide].filter(u => !!u); title: modelData.title
+                                        url: modelData.url
+                                        badge: modelData.label
+                                        line1: modelData.out ? qsTr("Out now") + (modelData.price ? "  ·  " + modelData.price : "") : modelData.when
+                                        line1Color: modelData.out ? store.theme.primary : store.theme.onSurface
+                                        line2: modelData.store === "gog" ? "GOG" : "Steam"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
-            // Steam bundles priced for you
-            SteamBundles { width: parent.width; theme: store.theme; shown: store.opened }
+                // Humble Choice and Humble's game bundles (tiers priced against buying separately)
+                HumbleShop { width: parent.width; theme: store.theme; shown: store.opened }
 
-            Text {
-                visible: store.free.length === 0 && store.sales.length === 0
-                width: parent.width; wrapMode: Text.WordWrap
-                text: qsTr("Wishlist sales show here once Settings › Library › wishlists on sale is on.")
-                color: store.theme.outline; font.pixelSize: 12
+                // Steam bundles priced for you
+                SteamBundles { width: parent.width; theme: store.theme; shown: store.opened }
+
+                Text {
+                    visible: store.free.length === 0 && store.sales.length === 0
+                    width: parent.width; wrapMode: Text.WordWrap
+                    text: qsTr("Wishlist sales show here once Settings › Library › wishlists on sale is on.")
+                    color: store.theme.outline; font.pixelSize: 12
+                }
+
             }
         }
     }

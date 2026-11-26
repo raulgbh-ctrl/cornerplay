@@ -4171,6 +4171,7 @@ ApplicationWindow {
     // -------------------------------------------------------------------- store
     StorePage {
         id: storePage
+        objectName: "storePage"
         theme: win.theme
         x: sidebar.width; y: 0
         width: win.width - sidebar.width; height: win.height
@@ -8225,6 +8226,17 @@ ApplicationWindow {
                                             { label: qsTr("None"), value: "no" }]
                                     Component.onCompleted: select(app.settingsMap.gamepass_member || "auto")
                                     onActivated: app.setSetting("gamepass_member", currentValue)
+                                }
+                            }
+                            Row2 {
+                                label: qsTr("Store prices in")
+                                hint: qsTr("Every store's price on the Store page in one currency; ≈ marks a converted one (European Central Bank rates).")
+                                KCombo {
+                                    theme: win.theme; Layout.fillWidth: true
+                                    model: [{ label: qsTr("Automatic (euros in Europe, else dollars)"), value: "auto" },
+                                            { label: qsTr("Euros (€)"), value: "EUR" }, { label: qsTr("Dollars ($)"), value: "USD" }]
+                                    Component.onCompleted: select(app.settingsMap.store_currency || "auto")
+                                    onActivated: app.setSetting("store_currency", currentValue)
                                 }
                             }
                             Toggle { label: qsTr("Back up a game's saves before it starts (keeps the last 5; a game's More > Save backups to restore)"); settingKey: "save_backups" }
