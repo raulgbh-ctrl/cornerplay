@@ -96,6 +96,16 @@ class Xbox(Store):
                               install_path=g["path"], cover=c.get("cover") or g.get("cover", ""),
                               cover_fallback=g.get("cover", ""), extra={**extra, "hero": c.get("hero") or g.get("hero", "")}))
             have.add(g.get("storeId") or "")
+        if not WINDOWS:  # games this account owns but has not installed (Nexus reads them)
+            from .. import nexus
+            for c in gamepass.products(nexus.owned()):
+                if c["id"] in have:
+                    continue
+                games.append(Game(store=self.id, id="own-" + c["id"], title=c["title"], installed=False,
+                                  cover=c["cover"], extra={"store_id": c["id"], "owned": True, "owned_only": True,
+                                                           "gamepass": c["id"] in by_store_id, "hero": c["hero"],
+                                                           "publisher": c["publisher"]}))
+                have.add(c["id"])
         for c in catalog:  # PC Game Pass games not installed here: pick one, install it
             if c["id"] in have:
                 continue

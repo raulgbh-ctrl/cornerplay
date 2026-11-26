@@ -67,6 +67,27 @@ def _details(ids, mkt):
     return out
 
 
+def products(ids) -> list:
+    """Titles and art for some Store product ids (the games an account owns), cached like the
+    catalog; ids Microsoft does not know are left out."""
+    ids = [i for i in ids if i]
+    if not ids:
+        return []
+    cache = CACHE_DIR / "xbox-products.json"
+    cached = read_json(cache) or {}
+    mkt = market()
+    known = cached.get("games") or {}
+    if cached.get("market") == mkt and time.time() - cached.get("t", 0) < TTL and all(i in known for i in ids):
+        return [known[i] for i in ids if known[i]]
+    try:
+        found = {g["id"]: g for g in _details(ids, mkt)}
+    except (requests.RequestException, ValueError):
+        return [known[i] for i in ids if known.get(i)]
+    known = {i: found.get(i) or {} for i in ids}
+    write_json(cache, {"t": time.time(), "market": mkt, "games": known})
+    return [known[i] for i in ids if known[i]]
+
+
 def catalog(force=False) -> list:
     """[{"id" (the Store's product id), "title", "cover", "hero", "publisher"}]; the cached copy
     when the network is down, [] when there never was one."""

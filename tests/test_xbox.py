@@ -187,3 +187,37 @@ def test_windows_package_listing_runs():
     assert packages and all(isinstance(p, dict) for p in packages)
     assert isinstance(winxbox.games(), list)
     assert isinstance(winxbox.xbox_app_installed(), bool)
+
+
+def test_owned_games_come_from_nexus_backend(nexus_home, monkeypatch, tmp_path):
+    """Games the account bought show in the library before they are installed: Nexus's backend
+    (xodus-cli library --json) lists them, the Store's catalog names them."""
+    backends = nexus.PROFILE / "xodus-backends"
+    backends.mkdir()
+    cli = tmp_path / "xodus-cli"
+    cli.write_text("#!/bin/sh\n[ \"$1 $2\" = \"library --json\" ] || exit 2\ncat <<'J'\n" + json.dumps({"schema": 1, "entitlements": [
+        {"productId": "9NFALLOUT", "status": "Active", "isTrial": False},
+        {"productId": "9NFORZA", "status": "Active", "isTrial": False},   # installed already
+        {"productId": "9NTRIAL", "status": "Active", "isTrial": True},    # a trial: not a game you own
+        {"productId": "9NGONE", "status": "Expired", "isTrial": False}]}) + "\nJ\n")
+    cli.chmod(0o755)
+    (backends / "current.json").write_text(json.dumps({"binaryPath": str(cli)}))
+    monkeypatch.setattr(gamepass, "catalog", lambda force=False: CATALOG)
+    asked = []
+    monkeypatch.setattr(gamepass, "_details", lambda ids, mkt: asked.extend(ids) or [
+        {"id": i, "title": {"9NFALLOUT": "Fallout 76 (PC)", "9NFORZA": "Forza Horizon 6"}[i], "cover": "c", "hero": "",
+         "publisher": "Bethesda"} for i in ids])
+    assert nexus.owned(force=True) == ["9NFALLOUT", "9NFORZA"]
+    games = {g.id: g for g in X.Xbox().fetch()}
+    fo = games["own-9NFALLOUT"]
+    assert fo.title == "Fallout 76 (PC)" and not fo.installed and fo.extra["owned"] and fo.extra["owned_only"]
+    assert "own-9NFORZA" not in games and games["fh6"].installed  # installed: one tile, not two
+    assert "gp-9NPAL" in games
+
+
+def test_owned_keeps_the_last_list_when_nexus_cannot_answer(nexus_home):
+    from cornerplay.config import CACHE_DIR, write_json
+    write_json(CACHE_DIR / "xbox-owned.json", {"t": 0, "ids": ["9NKEPT"]})
+    assert nexus.owned(force=True) == ["9NKEPT"]  # no backend to ask: the last list stays
+    (CACHE_DIR / "xbox-owned.json").unlink()
+    assert nexus.owned(force=True) == []

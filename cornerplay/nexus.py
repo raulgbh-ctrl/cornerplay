@@ -95,6 +95,51 @@ def games() -> list:
     return out
 
 
+def backend() -> str:
+    """Nexus's own command-line backend (xodus-cli), "" before Nexus has fetched it."""
+    try:
+        with open(PROFILE / "xodus-backends" / "current.json", encoding="utf-8") as f:
+            path = str((json.load(f) or {}).get("binaryPath") or "")
+    except (OSError, ValueError, AttributeError):
+        return ""
+    return path if path and os.access(path, os.X_OK) else ""
+
+
+OWNED_TTL = 6 * 3600
+
+
+def owned(force: bool = False) -> list:
+    """The Store product ids of the games the signed-in Microsoft account owns (bought, not only
+    installed), read by Nexus's backend without starting a sign-in. Cached for a few hours; the
+    cached list when it cannot be asked, [] when Nexus is not signed in."""
+    import time
+    from .config import CACHE_DIR, read_json, write_json
+    cache = CACHE_DIR / "xbox-owned.json"
+    cached = read_json(cache) or {}
+    if not force and time.time() - cached.get("t", 0) < OWNED_TTL:
+        return list(cached.get("ids") or [])
+    exe = backend()
+    if not exe:
+        return list(cached.get("ids") or [])
+    try:
+        r = subprocess.run([exe, "library", "--json"], capture_output=True, text=True, timeout=90,
+                           stdin=subprocess.DEVNULL)
+        data = json.loads(r.stdout) if r.returncode == 0 and r.stdout.strip() else None
+    except (OSError, subprocess.SubprocessError, ValueError):
+        data = None
+    if not isinstance(data, dict):
+        return list(cached.get("ids") or [])
+    ids = []
+    for e in data.get("entitlements") or []:
+        if not isinstance(e, dict) or e.get("isTrial") or str(e.get("status") or "Active") != "Active":
+            continue
+        pid = str(e.get("productId") or "").strip()
+        if pid and pid not in ids:
+            ids.append(pid)
+    write_json(cache, {"t": time.time(), "ids": ids})
+    return ids
+
+
 def gamertag() -> str:
     for name in ("xbox-profile.json", "xbox-profile-license.json"):
         try:
