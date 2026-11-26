@@ -52,7 +52,8 @@ def test_nexus_games_and_account(nexus_home):
     assert nexus.argv("fh6") == [str(nexus_home / "opt" / "Nexus-Launcher.AppImage"), "--launch-game", "fh6"]
 
 
-def test_store_lists_installed_games_and_the_catalog(nexus_home):
+def test_store_lists_installed_games_and_the_catalog(nexus_home, monkeypatch):
+    monkeypatch.setattr(X.Xbox, "has_gamepass", lambda self: True)
     s = X.Xbox()
     assert s.logged_in() and "Raul GBH" in s.account()
     games = {g.id: g for g in s.fetch()}
@@ -93,6 +94,7 @@ def test_connect_installs_nexus_through_a_helper(nexus_home, monkeypatch):
 
 def test_store_on_windows(monkeypatch):
     monkeypatch.setattr(X, "WINDOWS", True)
+    monkeypatch.setattr(X.Xbox, "has_gamepass", lambda self: True)
     monkeypatch.setattr(gamepass, "catalog", lambda force=False: CATALOG)
     monkeypatch.setattr(winxbox, "xbox_app_installed", lambda: True)
     monkeypatch.setattr(winxbox, "games", lambda: [
@@ -203,6 +205,7 @@ def test_owned_games_come_from_nexus_backend(nexus_home, monkeypatch, tmp_path):
     cli.chmod(0o755)
     (backends / "current.json").write_text(json.dumps({"binaryPath": str(cli)}))
     monkeypatch.setattr(gamepass, "catalog", lambda force=False: CATALOG)
+    monkeypatch.setattr(X.Xbox, "has_gamepass", lambda self: True)
     asked = []
     monkeypatch.setattr(gamepass, "_details", lambda ids, mkt: asked.extend(ids) or [
         {"id": i, "title": {"9NFALLOUT": "Fallout 76 (PC)", "9NFORZA": "Forza Horizon 6"}[i], "cover": "c", "hero": "",
@@ -221,3 +224,34 @@ def test_owned_keeps_the_last_list_when_nexus_cannot_answer(nexus_home):
     assert nexus.owned(force=True) == ["9NKEPT"]  # no backend to ask: the last list stays
     (CACHE_DIR / "xbox-owned.json").unlink()
     assert nexus.owned(force=True) == []
+
+
+
+def test_no_game_pass_games_without_game_pass(nexus_home, monkeypatch):
+    """Nexus saves "unknown" and no pass products when the account has no Game Pass: then the
+    catalog's games are left out (they could not be played), installed and owned games stay."""
+    from cornerplay.config import CACHE_DIR, settings
+    (CACHE_DIR / "xbox-owned.json").unlink(missing_ok=True)
+    monkeypatch.setattr(gamepass, "catalog", lambda force=False: CATALOG)
+    monkeypatch.setattr(settings, "get", lambda k, d=None: {"gamepass_member": "auto"}.get(k, d))
+    prof = nexus.PROFILE / "xbox-profile.json"
+    prof.write_text(json.dumps({"gamertag": "Raul GBH", "subscription": {"status": "unknown", "productIds": []}}))
+    assert not nexus.gamepass_member()
+    games = {g.id: g for g in X.Xbox().fetch()}
+    assert "gp-9NPAL" not in games and "fh6" in games
+    prof.write_text(json.dumps({"gamertag": "Raul GBH", "subscription": {"status": "active", "productIds": ["CFQ7TTC0KGQ8"]}}))
+    assert nexus.gamepass_member()
+    assert "gp-9NPAL" in {g.id for g in X.Xbox().fetch()}
+    prof.write_text(json.dumps({"subscription": {"status": "active", "productIds": ["CFQ7TTC0KGQ8"],
+                                                 "validUntil": "2020-01-01T00:00:00Z"}}))
+    assert not nexus.gamepass_member()  # ran out
+
+
+def test_game_pass_choice_wins(monkeypatch):
+    from cornerplay.config import settings
+    for chosen, want in (("yes", True), ("no", False)):
+        monkeypatch.setattr(settings, "get", lambda k, d=None, c=chosen: {"gamepass_member": c}.get(k, d))
+        assert X.Xbox().has_gamepass() is want
+    monkeypatch.setattr(X, "WINDOWS", True)
+    monkeypatch.setattr(settings, "get", lambda k, d=None: {"gamepass_member": "auto"}.get(k, d))
+    assert X.Xbox().has_gamepass() is False  # Windows cannot tell: hidden until you say yes

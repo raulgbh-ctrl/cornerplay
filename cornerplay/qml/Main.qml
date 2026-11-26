@@ -8206,6 +8206,18 @@ ApplicationWindow {
                             Toggle { label: qsTr("Before installing from Epic, GOG or Amazon, ask where, which language and which DLCs"); settingKey: "install_window" }
                             Toggle { label: qsTr("Show a game owned on several stores only once"); settingKey: "merge_duplicates" }
                             Toggle { label: qsTr("Xbox / Game Pass: the PC Game Pass games you have not installed, ready to install"); settingKey: "gamepass_catalog" }
+                            Row2 {
+                                label: qsTr("Do you have PC Game Pass?")
+                                hint: app.onWindows ? qsTr("Windows cannot tell Cornerplay, so its games only show once you say you have it.")
+                                                    : qsTr("Find out: Nexus Launcher asks Microsoft for your account. Game Pass games only show when you have it.")
+                                KCombo {
+                                    theme: win.theme; Layout.fillWidth: true
+                                    model: [{ label: app.onWindows ? qsTr("I'm not sure (hide them)") : qsTr("Find out for me"), value: "auto" },
+                                            { label: qsTr("Yes, I have it"), value: "yes" }, { label: qsTr("No"), value: "no" }]
+                                    Component.onCompleted: select(app.settingsMap.gamepass_member || "auto")
+                                    onActivated: app.setSetting("gamepass_member", currentValue)
+                                }
+                            }
                             Toggle { label: qsTr("Back up a game's saves before it starts (keeps the last 5; a game's More > Save backups to restore)"); settingKey: "save_backups" }
                             Toggle { label: qsTr("Update Epic, GOG and Amazon games overnight (plugged in, not on a metered connection, while Cornerplay is open)"); settingKey: "auto_update" }
                             RowLayout {

@@ -129,15 +129,45 @@ def owned(force: bool = False) -> list:
         data = None
     if not isinstance(data, dict):
         return list(cached.get("ids") or [])
-    ids = []
+    ids, via_pass = [], False
     for e in data.get("entitlements") or []:
         if not isinstance(e, dict) or e.get("isTrial") or str(e.get("status") or "Active") != "Active":
             continue
+        if any(str(e.get(k) or "").startswith(PASS_PREFIX) for k in ("productId", "satisfiedByProductId")):
+            via_pass = True  # the pass itself, or a game that comes with it
         pid = str(e.get("productId") or "").strip()
-        if pid and pid not in ids:
+        if pid and pid not in ids and not pid.startswith(PASS_PREFIX):
             ids.append(pid)
-    write_json(cache, {"t": time.time(), "ids": ids})
+    write_json(cache, {"t": time.time(), "ids": ids, "pass": via_pass})
     return ids
+
+
+PASS_PREFIX = "CFQ7TTC0"  # Microsoft's subscription products: Game Pass Ultimate, PC Game Pass...
+
+
+def gamepass_member() -> bool:
+    """Does the signed-in account have Game Pass? Nexus checks the membership with Microsoft and
+    keeps the answer with the profile ("active" plus the pass's product ids); a game in the library
+    that comes with a pass counts too. No answer, or "unknown", is a no: nothing proves a pass."""
+    from datetime import datetime, timezone
+    from .config import CACHE_DIR, read_json
+    for name in ("xbox-profile-license.json", "xbox-profile.json"):
+        try:
+            with open(PROFILE / name, encoding="utf-8") as f:
+                sub = (json.load(f) or {}).get("subscription") or {}
+        except (OSError, ValueError, AttributeError):
+            continue
+        if not isinstance(sub, dict):
+            continue
+        if str(sub.get("status") or "").lower() == "active" or sub.get("productIds"):
+            until = str(sub.get("validUntil") or "")
+            try:
+                if until and datetime.fromisoformat(until.replace("Z", "+00:00")) < datetime.now(timezone.utc):
+                    continue  # ran out
+            except ValueError:
+                pass
+            return True
+    return bool((read_json(CACHE_DIR / "xbox-owned.json") or {}).get("pass"))
 
 
 def gamertag() -> str:
@@ -214,6 +244,40 @@ def latest_tag() -> str:
     return latest_release(REPO).get("tag_name", "")
 
 
+WINDOW_CLASS = "org.xodusgaming.nexus"
+
+
+def running() -> bool:
+    """Is Nexus Launcher open? Its profile's SingletonLock points at "<host>-<pid>"."""
+    try:
+        pid = int(os.readlink(PROFILE / "SingletonLock").rsplit("-", 1)[1])
+    except (OSError, ValueError, IndexError):
+        return False
+    from .osinfo import pid_alive
+    return pid_alive(pid)
+
+
+def raise_window() -> bool:
+    """Bring an open Nexus Launcher to the front. A second start without a game does nothing in
+    Nexus (it only hands over --launch-game), so Cornerplay does it: Hyprland by IPC, else
+    wmctrl or kdotool where present. False when it is not open or could not be raised."""
+    if not running():
+        return False
+    from . import hypr
+    if hypr.running():
+        for c in hypr.clients():
+            if str(c.get("class") or "") == WINDOW_CLASS and c.get("address"):
+                return hypr.focus_window(c["address"])
+    for cmd in (["wmctrl", "-x", "-a", WINDOW_CLASS], ["kdotool", "search", "--class", WINDOW_CLASS, "windowactivate"]):
+        if shutil.which(cmd[0]):
+            try:
+                if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
+                    return True
+            except (OSError, subprocess.SubprocessError):
+                pass
+    return False
+
+
 def main(args=None):
     args = list(sys.argv[1:] if args is None else args)
     what = args[0] if args else "open"
@@ -225,6 +289,8 @@ def main(args=None):
             print(f"Nexus Launcher: not installed: {e}", file=sys.stderr)
             return 1
     if what == "open":
+        if len(args) < 2 and raise_window():  # already open: Nexus ignores a second plain start
+            return 0
         if not appimage():
             try:
                 install()

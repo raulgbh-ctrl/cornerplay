@@ -7111,7 +7111,12 @@ class AioLaunch(QObject):
             return
         if store.external_installs or g.extra.get("owned_only"):
             self._detach(cmd.argv, cmd.env, cmd.cwd, key)
-            self.toast.emit(f"{store.name} is taking over the install of {g.title}")
+            if g.store == "xbox" and not g.installed and not self.onWindows:
+                # Nexus cannot be told which game to show (Windows opens its Store page instead)
+                QGuiApplication.clipboard().setText(g.title)
+                self.toast.emit(f"Nexus Launcher is opening: search for {g.title} there (copied, paste it) and press Install")
+            else:
+                self.toast.emit(f"{store.name} is taking over the install of {g.title}")
         else:
             self._start_job(g, "install", cmd)
 

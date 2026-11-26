@@ -66,6 +66,18 @@ class Xbox(Store):
             raise StoreError(why)
         return {"command": python_argv("cornerplay.nexus", "open"), "env": nexus.env()}
 
+    def has_gamepass(self):
+        """Game Pass bought: Settings > Game Pass says so, else (Linux) Nexus's answer from
+        Microsoft. Windows has no way to tell Cornerplay, so there it is a no until you say yes."""
+        chosen = str(settings.get("gamepass_member") or "auto").lower()
+        if chosen in ("yes", "no"):
+            return chosen == "yes"
+        if WINDOWS:
+            return False
+        from .. import nexus
+        nexus.owned()  # refreshes the "a game came with a pass" hint now and then
+        return nexus.gamepass_member()
+
     # --- library -----------------------------------------------------------------------------
     def _installed(self):
         if WINDOWS:
@@ -76,7 +88,9 @@ class Xbox(Store):
 
     def fetch(self):
         # The catalog only once Xbox is connected (Nexus Launcher there, or the Xbox app on Windows).
-        catalog = gamepass.catalog() if settings.get("gamepass_catalog", True) and self.logged_in() else []
+        # ...and only with Game Pass bought: without it those games cannot be played.
+        catalog = (gamepass.catalog() if settings.get("gamepass_catalog", True) and self.logged_in()
+                   and self.has_gamepass() else [])
         by_store_id = {c["id"]: c for c in catalog}
         games, have = [], set()
         if not WINDOWS:
