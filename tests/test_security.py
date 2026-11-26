@@ -221,3 +221,29 @@ def test_signed_releases_need_their_signature(tmp_path, monkeypatch):
         updates.download(url, "", "0.19.1")
     assert got[-1] == url + ".sig" and not (tmp_path / "cornerplay.run").exists()
     updates.download(updates.ASSET_PREFIX + "v0.18.6/cornerplay.run", "", "0.18.6")  # before signing began
+
+
+THROWAWAY_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFWDOXXIcgn2JfCwwED51UPYznw/BeSGjmICxc3fVu7X"
+THROWAWAY_SIG = """-----BEGIN SSH SIGNATURE-----
+U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgVYM5dchyCfYl8LDAQPnVQ9jOfD
+8F5IaOYgLFzd9W7tcAAAASY29ybmVycGxheS1yZWxlYXNlAAAAAAAAAAZzaGE1MTIAAABT
+AAAAC3NzaC1lZDI1NTE5AAAAQKDho7vQTLvEOFvsXTlL0cQRhqnnnPyzZL9fNu7XFC6+JM
+Dc5T9b5PXUDGEj7Se6PVY5C3Q9nn5j3KncX/Do5wU=
+-----END SSH SIGNATURE-----
+"""
+
+
+def test_signature_checked_without_ssh_keygen(tmp_path, monkeypatch):
+    """Updates are checked in Python (sshsig.py), so Windows needs no OpenSSH: a signature made by
+    `ssh-keygen -Y sign` with a throwaway key passes; another file, key or namespace does not."""
+    from cornerplay import sshsig, updates
+    f = tmp_path / "f"
+    f.write_bytes(b"Cornerplay test file\n")
+    sig = tmp_path / "f.sig"
+    sig.write_text(THROWAWAY_SIG, newline="\r\n")  # Windows line ends are fine
+    monkeypatch.setattr(updates, "PUBLIC_KEY", THROWAWAY_KEY)
+    assert updates.verify_signature(f, sig)
+    assert not sshsig.verify(THROWAWAY_KEY, "other-namespace", THROWAWAY_SIG, f)
+    assert not sshsig.verify(updates.__dict__["PUBLIC_KEY"].replace("IFWD", "IFWE"), "cornerplay-release", THROWAWAY_SIG, f)
+    f.write_bytes(b"Cornerplay test file!\n")
+    assert not updates.verify_signature(f, sig)

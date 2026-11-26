@@ -168,32 +168,17 @@ PUBLIC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDAZPt3vmpJOzn8rfES7yCq7XXRi80
 SIGNED_FROM = (0, 19, 1)
 
 
-def _ssh_keygen():
-    import shutil
-    if shutil.which("ssh-keygen"):
-        return ["ssh-keygen"]
-    if host.IN_FLATPAK:
-        return host.argv(["ssh-keygen"])
-    return None
-
-
-def verify_signature(path, sig_path, keygen=None) -> bool:
-    """True when sig_path is this project's signature of the file at path."""
-    import subprocess
-    import tempfile
-    keygen = keygen if keygen is not None else _ssh_keygen()
-    if not keygen:
-        raise RuntimeError("Cannot check the update's signature: install OpenSSH (ssh-keygen)")
-    with tempfile.NamedTemporaryFile("w", suffix=".signers", delete=False) as f:
-        f.write(f'{SIGNER} namespaces="{SIGNER}" {PUBLIC_KEY}\n')
-        signers = f.name
+def verify_signature(path, sig_path) -> bool:
+    """True when sig_path is this project's signature of the file at path. Checked in Python
+    (sshsig.py), so it works the same everywhere: Windows has no ssh-keygen unless OpenSSH is
+    added, and a missing one used to stop every Windows update."""
+    from . import sshsig
     try:
-        with open(path, "rb") as data:
-            r = subprocess.run([*keygen, "-Y", "verify", "-f", signers, "-I", SIGNER, "-n", SIGNER, "-s", str(sig_path)],
-                               stdin=data, capture_output=True, timeout=60)
-        return r.returncode == 0
-    finally:
-        os.unlink(signers)
+        with open(sig_path, encoding="ascii") as f:
+            armored = f.read()
+    except (OSError, UnicodeDecodeError):
+        return False
+    return sshsig.verify(PUBLIC_KEY, SIGNER, armored, path)
 
 
 def download(asset, sha256="", version=""):
