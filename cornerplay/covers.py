@@ -47,6 +47,24 @@ def hi_res() -> bool:
     return (len(size) == 2 and size[0] >= 2400) or dpr >= 1.25
 
 
+# Store-side platform tags (mostly the Microsoft Store's): "Fallout 76 (PC)", "Starfield (Windows)",
+# "DOOM Eternal - PC", "Grounded - Windows Edition", "... for Windows 10".
+_PLATFORM = re.compile(r"\s*(?:[-–:]\s*|\bfor\s+)?(?:\(\s*)?\b(?:pc|windows(?:\s*10|\s*11)?)(?:\s+(?:edition|version))?\b\s*\)?\s*$",
+                       re.IGNORECASE)
+
+
+def same_game(title: str) -> str:
+    """The key that makes copies of one game on different stores one library entry: norm() without
+    a store's platform tag at the end."""
+    t = title or ""
+    for _ in range(2):
+        t2 = _PLATFORM.sub("", t)
+        if t2 == t or not t2.strip():
+            break
+        t = t2
+    return norm(t)
+
+
 def norm(title: str) -> str:
     t = title.lower().replace("™", "").replace("®", "").replace("&", "and")
     t = _NOISE.sub(" ", t)

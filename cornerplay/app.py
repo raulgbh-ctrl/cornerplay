@@ -397,7 +397,7 @@ class LibraryModel(QAbstractListModel):
     # --- grouping --------------------------------------------------------
     def group_id(self, g: Game) -> str:
         if settings.get("merge_duplicates") and g.id != "battlenet-app":
-            n = covers.norm(g.title)
+            n = covers.same_game(g.title)
             if n:
                 return "group:" + n
         return g.key

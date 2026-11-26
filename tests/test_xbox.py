@@ -364,3 +364,13 @@ def test_xbox_add_ons(nexus_home, monkeypatch, tmp_path):
     assert rows["9DLCC"]["status"] == "available" and rows["9DLCC"]["price"] == "$1.00"
     assert "install-dlc" in X.Xbox().install_dlc(game, "9DLCA").argv
     assert xodus.play_env("9GAME") == {"XODUS_CONTENT_ROOTS": "Z:" + str(folder).replace("/", "\\")}
+
+
+def test_xbox_titles_merge_with_other_stores():
+    """The Microsoft Store tags titles with the platform; the same game elsewhere is one entry."""
+    from cornerplay import covers
+    for xbox, other in (("Fallout 76 (PC)", "Fallout 76"), ("Starfield (Windows 10)", "Starfield"),
+                        ("DOOM Eternal - PC", "DOOM Eternal"), ("Grounded - Windows Edition", "Grounded")):
+        assert covers.same_game(xbox) == covers.same_game(other)
+    assert covers.same_game("PC Building Simulator") == "pcbuildingsimulator"  # only a tag at the end goes
+    assert covers.same_game("Windows") == "windows"
