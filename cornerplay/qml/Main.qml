@@ -26,6 +26,34 @@ ApplicationWindow {
     color: theme.background
 
     readonly property var theme: app.theme
+    // Settings > Appearance: Cornerplay draws its own title bar (TitleBar.qml), the same on every
+    // desktop and on Windows. Not in TV mode or full screen, where there is no frame at all.
+    readonly property bool ownFrame: app.settingsMap.own_titlebar === true
+    readonly property bool ownBar: ownFrame && !tv && visibility !== Window.FullScreen
+    flags: ownFrame ? (Qt.Window | Qt.FramelessWindowHint) : Qt.Window
+    header: TitleBar { visible: win.ownBar; theme: win.theme; window: win }
+    // Without the desktop's frame its edges are gone too: thin strips hand resizing back to it.
+    Item {
+        parent: win.contentItem.parent
+        anchors.fill: parent
+        z: 100000
+        visible: win.ownBar && win.visibility === Window.Windowed
+        readonly property int edge: 6
+        component Grip: MouseArea {
+            property int edges
+            hoverEnabled: true
+            acceptedButtons: Qt.LeftButton
+            onPressed: win.startSystemResize(edges)
+        }
+        Grip { edges: Qt.LeftEdge; cursorShape: Qt.SizeHorCursor; anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; anchors.topMargin: parent.edge; anchors.bottomMargin: parent.edge; width: parent.edge }
+        Grip { edges: Qt.RightEdge; cursorShape: Qt.SizeHorCursor; anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom; anchors.topMargin: parent.edge; anchors.bottomMargin: parent.edge; width: parent.edge }
+        Grip { edges: Qt.TopEdge; cursorShape: Qt.SizeVerCursor; anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.leftMargin: parent.edge; anchors.rightMargin: parent.edge; height: parent.edge }
+        Grip { edges: Qt.BottomEdge; cursorShape: Qt.SizeVerCursor; anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.leftMargin: parent.edge; anchors.rightMargin: parent.edge; height: parent.edge }
+        Grip { edges: Qt.LeftEdge | Qt.TopEdge; cursorShape: Qt.SizeFDiagCursor; anchors.left: parent.left; anchors.top: parent.top; width: parent.edge; height: parent.edge }
+        Grip { edges: Qt.RightEdge | Qt.TopEdge; cursorShape: Qt.SizeBDiagCursor; anchors.right: parent.right; anchors.top: parent.top; width: parent.edge; height: parent.edge }
+        Grip { edges: Qt.LeftEdge | Qt.BottomEdge; cursorShape: Qt.SizeBDiagCursor; anchors.left: parent.left; anchors.bottom: parent.bottom; width: parent.edge; height: parent.edge }
+        Grip { edges: Qt.RightEdge | Qt.BottomEdge; cursorShape: Qt.SizeFDiagCursor; anchors.right: parent.right; anchors.bottom: parent.bottom; width: parent.edge; height: parent.edge }
+    }
     property bool tv: startTv
     property bool hiddenAtStart: startHidden  // started with the PC: in the tray until opened (tray.py)
     visibility: hiddenAtStart ? Window.Hidden : tv && tvPlaced ? Window.FullScreen : Window.Windowed
@@ -6892,10 +6920,10 @@ ApplicationWindow {
         property bool linuxOnly: win.linuxOnlySettings[settingKey] === true  // hidden on Windows
         Component.onCompleted: if (linuxOnly && app.onWindows) visible = false  // wins over the row's own visible:
         Layout.fillWidth: true
-        implicitHeight: Math.max(48, tgText.implicitHeight + 24)  // a long label wraps instead of losing its end
-        radius: 12
+        implicitHeight: Math.max(50, tgText.implicitHeight + 26)  // a long label wraps instead of losing its end
+        radius: 16
         color: theme.surfaceContainerHigh
-        border.width: hit ? 2 : 0; border.color: theme.primary
+        border.width: hit ? 2 : 1; border.color: hit ? theme.primary : Qt.alpha(theme.onSurface, 0.06)
         Text {
             id: tgText
             anchors { left: parent.left; leftMargin: 14; right: sw.left; rightMargin: 10; verticalCenter: parent.verticalCenter }
@@ -7541,6 +7569,7 @@ ApplicationWindow {
                                     onMoved: app.setSetting("card_radius", value)
                                 }
                             }
+                            Toggle { label: qsTr("Cornerplay draws its own title bar, in its colours (the same on every desktop)"); settingKey: "own_titlebar" }
                             Toggle { label: qsTr("Show the store on a cover when pointed at"); settingKey: "show_badges" }
                             Toggle { label: qsTr("Always show game titles"); settingKey: "show_titles" }
                             Toggle { label: qsTr("Dim games that are not installed"); settingKey: "dim_uninstalled" }

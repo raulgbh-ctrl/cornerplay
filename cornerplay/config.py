@@ -175,6 +175,7 @@ DEFAULTS = {
     "density": "comfortable",  # space between covers: "compact", "comfortable", "roomy"
     "title_font": "",          # game titles: "" (rounded, Nunito), "condensed", "serif", "pixel"
     "card_radius": 14,
+    "own_titlebar": False,     # Cornerplay draws its own title bar in its colours (TitleBar.qml) instead of the desktop's
     "show_badges": True,
     "show_titles": False,
     "dim_uninstalled": True,
