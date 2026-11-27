@@ -524,11 +524,6 @@ ApplicationWindow {
     // Cozy touches behind the library: they hold still while the window is in the background or
     // a game is on, and are not made at all when switched off.
     readonly property bool cozyAwake: win.active && app.nowPlaying.length === 0
-    Loader {  // Look > Fireflies: only in the evening (the theme warmed for the night), dark themes
-        anchors.fill: parent
-        active: !!app.settingsMap.look_fireflies && (theme.warmth || 0) > 0 && !app.light && !win.tv && !app.still
-        sourceComponent: Fireflies { theme: win.theme; awake: win.cozyAwake }
-    }
     Loader {  // Seasonal touches (Settings > Appearance): the season's snow, leaves or petals, faintly
         anchors.fill: parent
         active: !!app.settingsMap.seasonal && !app.light && !win.tv
@@ -9326,6 +9321,15 @@ ApplicationWindow {
     // is not drawn at all (contentShown): the first frames then only have the splash to draw,
     // so they come at once and the main thread is free to start the animation on time. Its
     // animations are Animators (Qt's render thread), so a busy main thread cannot stutter them.
+    // Look > Fireflies: only in the evening (the theme warmed for the night), dark themes. Over
+    // the library (behind it the covers would hide them), never in the way of a click.
+    Loader {
+        anchors.fill: parent
+        z: 50
+        enabled: false
+        active: !!app.settingsMap.look_fireflies && (theme.warmth || 0) > 0 && !app.light && !win.tv && !app.still
+        sourceComponent: Fireflies { theme: win.theme; awake: win.cozyAwake }
+    }
     property bool shown: false  // the window has drawn its first frame (TV mode's intro waits for it)
     readonly property bool contentShown: !splash.visible || splash.ready || win.tv
     Connections {
@@ -9411,7 +9415,9 @@ ApplicationWindow {
     // Pointing at a cover for a moment plays its trailer inside it, muted (Settings > Appearance).
     property string trailerKey: ""
     property string trailerUrl: ""
-    readonly property bool trailersOk: app.settingsMap.hover_trailers !== false && !app.light && !win.tv
+    // Only while Cornerplay is the window in front: a trailer left playing behind other windows
+    // costs a tenth of a CPU core and its video memory for nothing.
+    readonly property bool trailersOk: app.settingsMap.hover_trailers !== false && !app.light && !win.tv && win.active
                                        && typeof canPlayVideo !== "undefined" && canPlayVideo
                                        && Qt.application.state === Qt.ApplicationActive
     onHoverKeyChanged: { trailerKey = ""; trailerUrl = ""; if (hoverKey && trailersOk) trailerWait.restart(); else trailerWait.stop() }
@@ -9422,14 +9428,14 @@ ApplicationWindow {
         onTriggered: {
             if (!win.hoverKey || grid.hoverIndex < 0 || win.popupOpen) return
             const d = app.gameDetails(win.hoverKey)   // {} until fetched; detailsReady follows
-            if (d.trailer) { win.trailerKey = win.hoverKey; win.trailerUrl = d.trailer }
+            if (d.trailer) { win.trailerKey = win.hoverKey; win.trailerUrl = d.trailerSmall || d.trailer }
         }
     }
     Connections {
         target: app
         function onDetailsReady(key, d) {
             if (key === win.hoverKey && grid.hoverIndex >= 0 && !trailerWait.running && win.trailersOk && d.trailer) {
-                win.trailerKey = key; win.trailerUrl = d.trailer
+                win.trailerKey = key; win.trailerUrl = d.trailerSmall || d.trailer
             }
         }
     }

@@ -97,7 +97,39 @@ def _steam(appid):
             "screenshots": [{"thumb": s.get("path_thumbnail", ""), "full": s.get("path_full", "")}
                             for s in (d.get("screenshots") or [])[:12]],
             # Steam serves trailers as HLS / DASH streams; Qt's FFmpeg backend plays HLS.
-            "trailer": movie.get("hls_h264") or movie.get("dash_h264") or ""}
+            "trailer": movie.get("hls_h264") or movie.get("dash_h264") or "",
+            # The same trailer at about 360p, video only, for the muted preview inside a cover:
+            # a third of the decoding work of the 720p stream.
+            "trailerSmall": small_variant(movie.get("hls_h264") or "")}
+
+
+def pick_variant(master, base, height=360):
+    """From an HLS master playlist, the URL of the smallest video stream at least `height`
+    tall (else the smallest there is); "" when the playlist lists no sizes."""
+    from urllib.parse import urljoin
+    found, size = [], None
+    for line in master.splitlines():
+        line = line.strip()
+        if line.startswith("#EXT-X-STREAM-INF"):
+            m = re.search(r"RESOLUTION=(\d+)x(\d+)", line)
+            size = int(m.group(2)) if m else None
+        elif line and not line.startswith("#") and size:
+            found.append((size, urljoin(base, line)))
+            size = None
+    if not found:
+        return ""
+    big_enough = [f for f in found if f[0] >= height]
+    return min(big_enough or found)[1]
+
+
+def small_variant(url):
+    if not url.endswith(".m3u8"):
+        return ""
+    try:
+        r = requests.get(url, timeout=8)
+        return pick_variant(r.text, url) if r.ok else ""
+    except Exception:  # noqa: BLE001 - only a smaller preview is lost; the full trailer still plays
+        return ""
 
 
 def _gog(gid):

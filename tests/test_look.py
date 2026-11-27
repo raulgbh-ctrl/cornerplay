@@ -35,3 +35,19 @@ def test_seasons_and_tint_stay_readable():
             t = theme.seasonal(theme.build(bg, acc), kind)
             assert theme.contrast(t["primary"], t["background"]) >= 4.5
             assert theme.contrast(t["onPrimary"], t["primary"]) >= 4.5
+
+
+def test_preview_picks_360p_stream():
+    from cornerplay.details import pick_variant
+    master = """#EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=2600000,RESOLUTION=1280x720,AUDIO="audio"
+hls_264_0_video.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=854x480,AUDIO="audio"
+hls_264_1_video.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=1000000,RESOLUTION=640x360,AUDIO="audio"
+hls_264_2_video.m3u8
+"""
+    base = "https://cdn.example/t/1/hls_264_master.m3u8"
+    assert pick_variant(master, base) == "https://cdn.example/t/1/hls_264_2_video.m3u8"
+    assert pick_variant(master, base, 480) == "https://cdn.example/t/1/hls_264_1_video.m3u8"
+    assert pick_variant("#EXTM3U\n", base) == ""
