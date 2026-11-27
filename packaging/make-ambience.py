@@ -88,15 +88,14 @@ def fire(rng):
 def write(sig, out):
     sig = sig / np.max(np.abs(sig)) * 0.7
     pcm = (sig * 32767).astype("<i2")
-    stereo = np.stack([pcm, np.roll(pcm, RATE // 50)], axis=1)  # a touch of width
     with tempfile.TemporaryDirectory() as tmp:
         wav = Path(tmp) / "x.wav"
-        with wave.open(str(wav), "wb") as w:
-            w.setnchannels(2)
+        with wave.open(str(wav), "wb") as w:  # mono: quiet background sound, and a small installer
+            w.setnchannels(1)
             w.setsampwidth(2)
             w.setframerate(RATE)
-            w.writeframes(stereo.tobytes())
-        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(wav), "-c:a", "libvorbis", "-q:a", "2",
+            w.writeframes(pcm.tobytes())
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(wav), "-c:a", "libvorbis", "-q:a", "0", "-ar", "32000",
                         str(out)], check=True)
 
 
