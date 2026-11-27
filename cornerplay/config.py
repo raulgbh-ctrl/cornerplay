@@ -203,6 +203,7 @@ DEFAULTS = {
     "game_workspace": False,
     "hud_levels": False,       # MangoHud levels (off / FPS / basic / full) switched from quick access while playing (hudlevels.py)   # Hyprland: games open on an empty workspace; back to yours when they close
     "jobs_low_priority": True, # installs, updates, compression run at low disk/CPU priority (ionice/nice)  # a gaming CPU scheduler (sched-ext LAVD) while playing (scx.py)
+    "keep_signed_in": True,    # store sign-ins (Epic, GOG, Amazon, Steam web) renewed in the background (keepalive.py)
     "launchers_hide": True,    # Hyprland: store apps (Steam, Battle.net, Nexus, Prism) stay hidden while their games start (launcherhide.py)
     "battlenet_warm": False,   # Battle.net started hidden with Cornerplay, so its games start in seconds
     "update_safety": True,     # btrfs: an instant copy of a game before it updates, to roll back (safety.py)

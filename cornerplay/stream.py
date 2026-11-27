@@ -20,10 +20,13 @@ import re
 import shlex
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 
 from . import host
+
+WINDOWS = sys.platform == "win32"
 
 TV_APP = "Cornerplay (TV mode)"
 MARK = "cornerplay"   # entries whose command runs Cornerplay are Cornerplay's own
@@ -227,8 +230,21 @@ def list_apps(pc: str, timeout: float = 25) -> list:
 HOST_FILE = "${XDG_CONFIG_HOME:-$HOME/.config}/sunshine/apps.json"   # as the host's shell spells it
 
 
+def windows_sunshine() -> str:
+    """Windows: sunshine.exe where its installer puts it ("" when it is not there)."""
+    for base in (os.environ.get("ProgramFiles") or r"C:\Program Files", os.environ.get("ProgramW6432") or ""):
+        exe = os.path.join(base, "Sunshine", "sunshine.exe") if base else ""
+        if exe and os.path.isfile(exe):
+            return exe
+    return ""
+
+
 def sunshine_dir() -> Path:
-    """Sunshine's config folder: its Flatpak's when only the Flatpak is installed."""
+    """Sunshine's config folder: its Flatpak's when only the Flatpak is installed; on Windows
+    the config folder beside sunshine.exe."""
+    if WINDOWS:
+        exe = windows_sunshine()
+        return Path(exe).parent / "config" if exe else Path(os.environ.get("ProgramFiles") or r"C:\Program Files") / "Sunshine" / "config"
     native = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "sunshine"
     flat = Path.home() / ".var/app" / SUNSHINE_FLATPAK / "config/sunshine"
     if sunshine_kind() == "flatpak" or (flat.is_dir() and not native.is_dir()):
@@ -248,7 +264,9 @@ def sunshine_kind() -> str:
     if _kind_cache and _kind_cache[0]:
         return _kind_cache[0]
     kind = ""
-    if host.which("sunshine"):
+    if WINDOWS:
+        kind = "windows" if windows_sunshine() or host.which("sunshine") else ""
+    elif host.which("sunshine"):
         kind = "native"
     else:
         try:
@@ -323,6 +341,9 @@ def fix_conf(conf: str = None) -> bool:
 def _launcher(kind: str = "") -> list:
     """How Sunshine starts Cornerplay. Sunshine's Flatpak runs its apps on the host through
     flatpak-spawn."""
+    if WINDOWS:  # the installed Cornerplay.exe (it takes --play itself), or Python running the package
+        from .osinfo import FROZEN, python_argv
+        return [sys.executable] if FROZEN else python_argv("cornerplay")
     if host.IN_FLATPAK:
         cmd = ["flatpak", "run", host.APP_ID]
     else:
@@ -368,6 +389,83 @@ def sunshine_apps(existing: dict, games: list, icon: str = "", fit: bool = True,
     data.setdefault("env", {"PATH": "$(PATH):$(HOME)/.local/bin"})
     data["apps"] = apps + ours
     return data
+
+
+def _cmdline(argv) -> str:
+    return subprocess.list2cmdline(argv) if WINDOWS else " ".join(shlex.quote(a) for a in argv)
+
+
+def game_app(game: dict, kind: str = "") -> dict:
+    """One game's Sunshine entry ({"key", "title", "image"?}): Moonlight starts it through
+    `cornerplay --play`, and the stream lasts as long as the game. Linux entries also fit the
+    display to the stream (prep-cmd); Windows leaves its display alone."""
+    run = _launcher(kind)
+    app = {"name": game["title"][:60], "cmd": _cmdline(run + ["--play", game["key"]]), "auto-detach": "false"}
+    if game.get("image"):
+        app["image-path"] = game["image"]
+    if not WINDOWS:
+        size = " $(SUNSHINE_CLIENT_WIDTH) $(SUNSHINE_CLIENT_HEIGHT) $(SUNSHINE_CLIENT_FPS)" if kind == "flatpak" else ""
+        r = _cmdline(run)
+        app["prep-cmd"] = [{"do": f"{r} --stream-display start{size}", "undo": f"{r} --stream-display stop", "elevated": "false"}]
+    return app
+
+
+def ensure_game(game: dict, login: dict = None) -> str:
+    """Make sure Moonlight offers this one game, keeping everything else in Sunshine's list.
+    Through Sunshine's web API when Cornerplay has its login (Linux and Windows: no files, no
+    administrator); else, on Linux, in apps.json and Sunshine restarted. Returns "api"/"file"."""
+    app = game_app(game, sunshine_kind())
+    if login:
+        try:
+            apps = (api("GET", "/api/apps", None, login).get("apps") or [])
+            idx = next((i for i, a in enumerate(apps) if isinstance(a, dict) and a.get("name") == app["name"]
+                        and MARK in str(a.get("cmd") or "").lower()), -1)
+            if idx >= 0 and apps[idx].get("cmd") == app["cmd"]:
+                return "api"  # already there, as it should be
+            api("POST", "/api/apps", dict(app, index=idx), login)
+            return "api"
+        except RuntimeError:
+            if WINDOWS:
+                raise
+    if WINDOWS:
+        raise RuntimeError("Cornerplay needs Sunshine's login: Settings > Advanced > This PC is the gaming PC")
+    text = _read()
+    try:
+        data = json.loads(text) if text and text.strip() else {}
+    except ValueError:
+        raise RuntimeError("Sunshine's apps.json is not valid JSON; left as it is")
+    data = data if isinstance(data, dict) else {}
+    apps = [a for a in (data.get("apps") or []) if isinstance(a, dict)
+            and not (a.get("name") == app["name"] and _ours(a))]
+    data["apps"] = apps + [app]
+    data.setdefault("env", {"PATH": "$(PATH):$(HOME)/.local/bin"})
+    _write(json.dumps(data, indent=2))
+    if sunshine_running():
+        restart_sunshine(login)
+    return "file"
+
+
+def lan_addresses() -> list:
+    """This PC's addresses on the home network (what Moonlight's "Add PC" wants), the main
+    one first. No packet is sent: connecting a UDP socket only picks the route."""
+    out = []
+    for target in (("192.168.0.1", 9), ("10.0.0.1", 9), ("8.8.8.8", 9)):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sk:
+                sk.connect(target)
+                ip = sk.getsockname()[0]
+        except OSError:
+            continue
+        if ip and not ip.startswith("127.") and ip not in out:
+            out.append(ip)
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            ip = info[4][0]
+            if not ip.startswith("127.") and ip not in out:
+                out.append(ip)
+    except OSError:
+        pass
+    return out[:3]
 
 
 def add_to_sunshine(games: list, icon: str = "", fit: bool = True) -> int:
@@ -423,6 +521,9 @@ def start_sunshine() -> str:
         r = subprocess.run(host.argv(["systemctl", "--user", "enable", "--now", unit]), capture_output=True, text=True, timeout=30)
         if r.returncode != 0:
             raise RuntimeError((r.stderr or "systemctl failed").strip().splitlines()[-1])
+    elif kind == "windows":  # its installer runs it as a service; started by hand when that is off
+        subprocess.Popen([windows_sunshine() or "sunshine"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), cwd=os.path.dirname(windows_sunshine()) or None)
     else:
         cmd = ["sunshine"] if kind == "native" else ["flatpak", "run", SUNSHINE_FLATPAK]
         subprocess.Popen(host.argv(["setsid"] + cmd), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -431,7 +532,7 @@ def start_sunshine() -> str:
         if sunshine_running():
             return unit
         time.sleep(0.25)
-    raise RuntimeError("Sunshine did not start (its log: journalctl --user -u sunshine)")
+    raise RuntimeError("Sunshine did not start" + ("" if kind == "windows" else " (its log: journalctl --user -u sunshine)"))
 
 
 def restart_sunshine(login: dict = None):

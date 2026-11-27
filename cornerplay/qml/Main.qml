@@ -3255,6 +3255,14 @@ ApplicationWindow {
                             win.selected.installed ? app.play(win.selectedKey) : win.install(win.selectedKey)
                         }
                     }
+                    // Play on TV (Sunshine here, Moonlight there): the dialog below walks through it.
+                    KButton {
+                        theme: detail.tint
+                        visible: !win.selected.job && !!win.selected.installed
+                        text: qsTr("Play on TV")
+                        iconName: "tv"
+                        onClicked: { app.playOnTv(win.selectedKey); tvPlayBox.open() }
+                    }
                     KButton {
                         theme: detail.tint
                         visible: !win.selected.job && !!win.selected.update
@@ -5422,6 +5430,97 @@ ApplicationWindow {
         }
     }
 
+    // Play on TV: this PC streams one game (Sunshine), Moonlight on the TV, phone or tablet plays it.
+    KDialog {
+        id: tvPlayBox
+        objectName: "tvPlayBox"
+        theme: win.theme
+        readonly property var t: app.tvPlay
+        readonly property var devices: t.devices || []
+        heading: qsTr("Play %1 on the TV").arg(t.title || "")
+        headingIcon: "tv"
+        width: Math.min(win.width - 60, 560)
+        onClosed: app.closeTvPlay()
+        ColumnLayout {
+            width: parent.width
+            spacing: 12
+            RowLayout {
+                visible: tvPlayBox.t.phase === "working"
+                spacing: 12
+                BusyIndicator { running: parent.visible; Layout.preferredWidth: 32; Layout.preferredHeight: 32 }
+                Text { color: theme.onSurfaceVariant; font.pixelSize: 13; text: qsTr("Getting it ready to stream…") }
+            }
+            // Sunshine is what streams; without it there is nothing to connect to.
+            ColumnLayout {
+                visible: tvPlayBox.t.phase === "install"
+                spacing: 8
+                Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 13
+                       text: qsTr("This PC needs Sunshine to stream games. Install it, then press Play on TV again.") }
+                Text { visible: !!tvPlayBox.t.installCmd; Layout.fillWidth: true; wrapMode: Text.WrapAnywhere
+                       font.family: "monospace"; font.pixelSize: 12; color: theme.primary; text: tvPlayBox.t.installCmd || "" }
+                Text { visible: !!tvPlayBox.t.installNote; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                       font.pixelSize: 12; color: theme.outline; text: tvPlayBox.t.installNote || "" }
+                RowLayout {
+                    spacing: 8
+                    KButton { visible: !!tvPlayBox.t.installCmd; theme: win.theme; text: qsTr("Copy the command"); iconName: "copy"
+                              onClicked: app.copyText(tvPlayBox.t.installCmd) }
+                    KButton { theme: win.theme; text: qsTr("Try again"); iconName: "refresh-cw"; onClicked: app.playOnTv(tvPlayBox.t.key) }
+                }
+            }
+            ColumnLayout {
+                visible: tvPlayBox.t.phase === "error"
+                spacing: 8
+                Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.error; font.pixelSize: 13
+                       text: qsTr("It could not be set up: %1").arg(tvPlayBox.t.message || "") }
+                KButton { theme: win.theme; text: qsTr("Try again"); iconName: "refresh-cw"; onClicked: app.playOnTv(tvPlayBox.t.key) }
+            }
+            // Ready: the game is in Moonlight's list. How to get there from the TV.
+            ColumnLayout {
+                visible: tvPlayBox.t.phase === "ready"
+                spacing: 10
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 16
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 13
+                               text: qsTr("1. On the TV, phone or tablet, open Moonlight.") }
+                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 13
+                               text: qsTr("2. Pick %1. On the same network it shows up by itself; if it does not, add it by this address:").arg(tvPlayBox.t.host || qsTr("this PC")) }
+                        Text { visible: (tvPlayBox.t.addresses || []).length > 0; color: theme.primary; font.pixelSize: 22; font.weight: Font.DemiBold
+                               text: (tvPlayBox.t.addresses || []).join("   ") }
+                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 13
+                               text: tvPlayBox.devices.length
+                                     ? qsTr("3. Pick %1 in its list. Paired already: %2.").arg(tvPlayBox.t.title || "").arg(tvPlayBox.devices.map(d => d.name).join(", "))
+                                     : qsTr("3. The first time, Moonlight shows a 4-digit PIN: type it below. Then pick %1 in its list.").arg(tvPlayBox.t.title || "") }
+                    }
+                    // A QR code to get Moonlight (phones and tablets), when qrencode is there to draw it.
+                    ColumnLayout {
+                        visible: !!tvPlayBox.t.qr
+                        spacing: 4
+                        Rectangle {
+                            Layout.preferredWidth: 132; Layout.preferredHeight: 132; radius: 10; color: "white"
+                            Image { anchors.fill: parent; anchors.margins: 6; source: tvPlayBox.t.qr || ""; fillMode: Image.PreserveAspectFit; smooth: false }
+                        }
+                        Text { Layout.preferredWidth: 132; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter
+                               color: theme.outline; font.pixelSize: 11; text: qsTr("No Moonlight yet? Scan to get it.") }
+                    }
+                }
+                RowLayout {
+                    spacing: 8
+                    KField { id: tvPin; theme: win.theme; Layout.preferredWidth: 110; placeholderText: qsTr("PIN"); inputMethodHints: Qt.ImhDigitsOnly
+                             onAccepted: app.tvPair(tvPin.text, tvName.text) }
+                    KField { id: tvName; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("Name it (Living room TV)") }
+                    KButton { theme: win.theme; primary: tvPlayBox.devices.length === 0; text: qsTr("Pair"); iconName: "link"
+                              enabled: tvPin.text.length === 4; onClicked: { app.tvPair(tvPin.text, tvName.text); tvPin.text = "" } }
+                }
+                Text { visible: !tvPlayBox.t.qr; Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.outline; font.pixelSize: 12
+                       text: qsTr("No Moonlight yet? Get it for the TV, phone or tablet at %1.").arg(tvPlayBox.t.moonlight || "moonlight-stream.org") }
+            }
+        }
+    }
+
     // This PC is the screen: the gaming PC's games (Sunshine's list, through Moonlight).
     KDialog {
         id: streamBox
@@ -6739,7 +6838,8 @@ ApplicationWindow {
                                 Rectangle {
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: 8; height: 8; radius: 4
-                                    color: modelData.problem ? theme.error : modelData.loggedIn ? "#6fd08c" : theme.outline
+                                    color: modelData.problem || (modelData.loggedIn && app.signins[modelData.id] === "expired") ? theme.error
+                                           : modelData.loggedIn ? "#6fd08c" : theme.outline
                                 }
                                 Text {
                                     width: parent.parent.width - 15
@@ -6747,6 +6847,8 @@ ApplicationWindow {
                                     font.pixelSize: 12
                                     color: modelData.problem ? theme.error : theme.onSurfaceVariant
                                 text: modelData.problem ? modelData.problem
+                                      // keepalive.py found the session ran out: say so before Play does
+                                      : modelData.loggedIn && app.signins[modelData.id] === "expired" ? qsTr("Signed out by %1: sign in again").arg(modelData.name)
                                       : modelData.loggedIn ? ("Connected" + (modelData.account ? " · " + modelData.account : ""))
                                       : modelData.id === "battlenet" ? qsTr("Install the Battle.net app from the library, or link your Blizzard account to list your games")
                                       : modelData.id === "xbox" ? (app.onWindows ? qsTr("Connect opens the Xbox app; games it installs show up here")
@@ -6816,6 +6918,20 @@ ApplicationWindow {
                 color: theme.outline
                 font.pixelSize: 12
                 text: qsTr("Sign-ins happen in your browser or in the store's own client. Cornerplay never sees your passwords; it only keeps the session tokens the stores hand back.")
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+                Text {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: theme.outline
+                    font.pixelSize: 12
+                    text: app.settingsMap.keep_signed_in
+                          ? qsTr("Cornerplay renews these sign-ins in the background every few hours, so a game never stops to ask for one.")
+                          : qsTr("Background renewal of sign-ins is off (Settings > Games).")
+                }
+                KButton { theme: win.theme; text: qsTr("Check now"); iconName: "refresh-cw"; onClicked: app.refreshSignins() }
             }
         }
     }
@@ -7860,6 +7976,7 @@ ApplicationWindow {
                                      label: app.onWindows ? qsTr("Keep store apps hidden while their games start: Steam, Battle.net, Prism (they show when they need you)")
                                                           : qsTr("Keep store apps hidden while their games start: Steam, Battle.net, Nexus, Prism (they show when they need you)")
                                      settingKey: "launchers_hide" }
+                            Toggle { label: qsTr("Keep store sign-ins fresh in the background (Epic, GOG, Amazon, Steam), so a game never stops to ask"); settingKey: "keep_signed_in" }
                             Toggle { visible: app.hyprland; label: qsTr("Battle.net: ready in the background, so its games start in seconds (uses some memory)"); settingKey: "battlenet_warm" }
                             Text { text: qsTr("While you play"); color: theme.onSurface; font.pixelSize: 15; font.weight: Font.DemiBold; Layout.topMargin: 6 }
                             Toggle { label: qsTr("Do not disturb (on Ryoku: its Game Mode)"); settingKey: "focus_dnd" }

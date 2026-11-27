@@ -3546,6 +3546,67 @@ class AioLaunch(QObject):
             self.checkSteamShortcut()
             self._auto_steam()
             self._announce_updates()
+            self._keepalive_start()
+
+    # --- store sign-ins kept fresh (keepalive.py) ------------------------------------------------
+    signinsChanged = Signal()
+    signins = Property("QVariantMap", lambda s: dict(s._signins), notify=signinsChanged)
+    _signins = {}  # store id -> "ok" / "expired" / "offline" / "skipped", from the last round
+
+    def _keepalive_start(self):
+        if self.demo or getattr(self, "_keepalive_on", False) or not settings.get("keep_signed_in"):
+            return
+        from . import keepalive
+        self._keepalive_on = True
+        QTimer.singleShot(keepalive.FIRST * 1000, self._keepalive_round)
+
+    def _keepalive_round(self):
+        from . import keepalive
+        if not settings.get("keep_signed_in"):
+            self._keepalive_on = False  # turned off: the next refresh starts it again once it is on
+            return
+        stores = {sid: st for sid, st in self.stores.items() if sid in keepalive.CHECKS}
+
+        def work():
+            try:
+                res = keepalive.refresh_all(stores)
+            except Exception:
+                res = {}
+            return lambda: self._keepalive_done(res)
+        self._bg(work)
+
+    def _keepalive_done(self, results):
+        from . import keepalive
+        seen = getattr(self, "_keepalive_seen", None) or keepalive.Seen()
+        self._keepalive_seen = seen
+        for sid in seen.news(results):
+            name = self.stores[sid].name if sid in self.stores else sid
+            self.toast.emit(f"{name} wants you to sign in again (Accounts > {name}), so its games start without asking")
+        if results != self._signins:
+            self._signins = dict(results)
+            self.signinsChanged.emit()
+        QTimer.singleShot(keepalive.EVERY * 1000, self._keepalive_round)
+
+    @Slot()
+    def refreshSignins(self):
+        """Settings > Accounts: renew every store's sign-in now."""
+        self.toast.emit("Checking your store sign-ins…")
+        from . import keepalive
+        stores = {sid: st for sid, st in self.stores.items() if sid in keepalive.CHECKS}
+
+        def work():
+            res = keepalive.refresh_all(stores)
+
+            def done():
+                seen = getattr(self, "_keepalive_seen", None) or keepalive.Seen()
+                self._keepalive_seen = seen
+                seen.news(res)
+                self._signins = dict(res)
+                self.signinsChanged.emit()
+                bad = [self.stores[s].name for s, r in res.items() if r == keepalive.EXPIRED]
+                self.toast.emit(("Sign in again: " + ", ".join(bad)) if bad else "Every store sign-in is fresh")
+            return done
+        self._bg(work)
 
     def _bnet_progress(self, games):
         """Battle.net downloads its games itself: show its progress (from product.db) on their
@@ -4267,6 +4328,80 @@ class AioLaunch(QObject):
                 return lambda: self.toast.emit(f"Added {what} to Sunshine")
             return lambda: self.toast.emit(f"Added {what} to Sunshine. Start Sunshine to see them in Moonlight.")
         self._bg(work)
+
+    # --- Play on TV: one game, ready for Moonlight on the TV, phone or tablet ----------------------
+    tvPlayChanged = Signal()
+    tvPlay = Property("QVariantMap", lambda s: dict(s._tv_play), notify=tvPlayChanged)
+    _tv_play = {}
+    MOONLIGHT_URL = "https://moonlight-stream.org"
+
+    def _set_tv_play(self, **st):
+        self._tv_play = st
+        self.tvPlayChanged.emit()
+
+    @Slot(str)
+    def playOnTv(self, key):
+        """Start Sunshine if needed, put this game in Moonlight's list, and say how to connect:
+        this PC's name and address, a QR code to get Moonlight, and the PIN step the first time."""
+        target = self.launchTarget(key) or key
+        g = self.model.find(target)
+        if not g or not g.installed:
+            self.toast.emit("Install the game first, then it can play on the TV")
+            return
+        if self.demo:
+            self._set_tv_play(key=key, title=g.title, phase="ready", host="demo-pc", addresses=["192.168.1.20"],
+                              devices=[], qr="", moonlight=self.MOONLIGHT_URL)
+            return
+        self._set_tv_play(key=key, title=g.title, phase="working", message="")
+        game = {"key": g.key, "title": g.title, "covers": _covers(g)}
+
+        def work():
+            from . import remote, stream
+            base = {"key": key, "title": g.title, "moonlight": self.MOONLIGHT_URL}
+            if not stream.sunshine_kind():
+                st = dict(base, phase="install", installCmd=pkgs.install_command("sunshine"), installNote=pkgs.note("sunshine"))
+                return lambda: self._set_tv_play(**st)
+            try:
+                if not stream.sunshine_running():
+                    stream.start_sunshine()
+                login = self._sun_login()
+                if not login and not stream.has_login():  # Sunshine's first run: a login Cornerplay keeps
+                    import secrets
+                    user, pw = "cornerplay", secrets.token_urlsafe(12)
+                    stream.create_login(user, pw)
+                    self._sun_save_login(user, pw)
+                    login = {"username": user, "password": pw}
+                game["image"] = self._sunshine_art(game["key"], game.pop("covers"))
+                stream.ensure_game(game, login)
+                devices = stream.paired_devices(login) if login else []
+            except Exception as e:  # Sunshine missing pieces, a refused login, a broken apps.json
+                st = dict(base, phase="error", message=str(e))
+                return lambda: self._set_tv_play(**st)
+            import socket
+            svg = remote.qr_svg(self.MOONLIGHT_URL)
+            qr = ("data:image/svg+xml;utf8," + QUrl.toPercentEncoding(svg).data().decode()) if svg else ""
+            st = dict(base, phase="ready", host=socket.gethostname(), addresses=stream.lan_addresses(),
+                      devices=devices, qr=qr)
+            return lambda: self._set_tv_play(**st)
+        self._bg(work)
+
+    @Slot(str, str)
+    def tvPair(self, pin, name):
+        """The PIN Moonlight shows the first time it connects: pairs it, then Play on TV again."""
+        key = self._tv_play.get("key", "")
+
+        def work():
+            from . import stream
+            try:
+                stream.pair_device(pin, name or "TV", self._sun_login() or {})
+            except RuntimeError as e:
+                return lambda msg=str(e): self.toast.emit(f"Not paired: {msg}")
+            return lambda: (self.toast.emit(f"Paired with {name.strip() or 'Moonlight'}"), key and self.playOnTv(key))
+        self._bg(work)
+
+    @Slot()
+    def closeTvPlay(self):
+        self._set_tv_play()
 
     @Slot()
     def wakePc(self):
