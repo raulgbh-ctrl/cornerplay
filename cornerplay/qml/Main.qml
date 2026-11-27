@@ -7571,7 +7571,7 @@ ApplicationWindow {
                                     onPicked: colour => app.setCustomColor("theme_bg", colour)
                                 }
                             }
-                            Toggle { label: qsTr("Seasonal touches: snow in winter, leaves in autumn and Halloween, petals in spring, fireflies on summer evenings, and the accent leaning toward the season"); settingKey: "seasonal" }
+                            Toggle { label: qsTr("Seasonal touches: snow in winter, leaves in autumn and Halloween, petals in spring, and the accent leaning toward the season"); settingKey: "seasonal" }
                             Row2 {
                                 label: qsTr("Spacing")
                                 Flow {
@@ -7782,7 +7782,6 @@ ApplicationWindow {
                             Toggle { label: qsTr("Play turns into a ring while the game starts"); settingKey: "look_playring" }
                             Toggle { label: qsTr("Aurora: three colours from the game's cover drift behind the library"); settingKey: "look_aurora" }
                             Toggle { label: qsTr("Cover glow: the cover you point at glows in its own colours"); settingKey: "look_coverglow" }
-                            Toggle { label: qsTr("Fireflies: in the evening, a few specks of light drift behind the library"); settingKey: "look_fireflies" }
                             Toggle { label: qsTr("Welcome back: Home says which game you were in, when and how far"); settingKey: "look_welcome" }
                             Toggle { label: qsTr("Game page: section tabs, a header that stays, achievements as a ring"); settingKey: "look_pagetabs" }
                             Toggle { label: qsTr("The window as art: the game under the pointer fills the whole window"); settingKey: "look_fullart" }
@@ -9321,15 +9320,6 @@ ApplicationWindow {
     // is not drawn at all (contentShown): the first frames then only have the splash to draw,
     // so they come at once and the main thread is free to start the animation on time. Its
     // animations are Animators (Qt's render thread), so a busy main thread cannot stutter them.
-    // Look > Fireflies: only in the evening (the theme warmed for the night), dark themes. Over
-    // the library (behind it the covers would hide them), never in the way of a click.
-    Loader {
-        anchors.fill: parent
-        z: 50
-        enabled: false
-        active: !!app.settingsMap.look_fireflies && (theme.warmth || 0) > 0 && !app.light && !win.tv && !app.still
-        sourceComponent: Fireflies { theme: win.theme; awake: win.cozyAwake }
-    }
     property bool shown: false  // the window has drawn its first frame (TV mode's intro waits for it)
     readonly property bool contentShown: !splash.visible || splash.ready || win.tv
     Connections {

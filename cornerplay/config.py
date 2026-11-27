@@ -112,7 +112,6 @@ DEFAULTS = {
     "look_skeleton": True,   # covers shimmer while their art loads (on by default: screens keep their shape)
     "look_playring": False,  # Play turns into a ring while the game starts, then a tick
     "look_coverglow": True,  # the cover under the pointer (or the controller) glows in its own colours
-    "look_fireflies": False, # in the evening, a few specks of light drift slowly behind the library
     "look_welcome": True,    # Home: "Good evening, welcome back" with the game you were last in, when and how far
     "desk_sounds": False,    # the desktop makes soft clicks when opening games and pressing Play
     "desk_ambience": "",     # quiet background sound while browsing: "", "rain", "fire", "music" (stops for games)

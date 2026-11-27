@@ -30,14 +30,13 @@ PRESETS = {
 PACKS = {
     "Cozy": {"theme_mode": "Cornerplay", "title_font": "", "card_radius": 22, "density": "roomy",
              "card_shadow": "soft", "evening_warmth": True, "desk_skin": "", "tv_skin": "",
-             "look_coverglow": True, "look_fireflies": True, "look_welcome": True},
+             "look_coverglow": True, "look_welcome": True},
     "Console": {"theme_mode": "Graphite", "title_font": "condensed", "card_radius": 6, "density": "compact",
-                "card_shadow": "deep", "desk_skin": "", "tv_skin": "", "look_coverglow": True,
-                "look_fireflies": False},
+                "card_shadow": "deep", "desk_skin": "", "tv_skin": "", "look_coverglow": True},
     "Retro": {"theme_mode": "Phosphor", "title_font": "pixel", "card_radius": 0, "density": "comfortable",
-              "card_shadow": "none", "desk_skin": "phosphor", "tv_skin": "phosphor", "look_fireflies": False},
+              "card_shadow": "none", "desk_skin": "phosphor", "tv_skin": "phosphor"},
     "Gallery": {"theme_mode": "Gallery", "title_font": "serif", "card_radius": 10, "density": "roomy",
-                "card_shadow": "soft", "desk_skin": "gallery", "tv_skin": "gallery", "look_fireflies": False},
+                "card_shadow": "soft", "desk_skin": "gallery", "tv_skin": "gallery"},
 }
 ACCENTS = ["#d2bcfd", "#8ab4f8", "#7fd0ff", "#8fd6a4", "#d7e075", "#ffd166", "#ffb59c", "#ff8a80",
            "#ffb1c8", "#e0e0e0"]
@@ -219,7 +218,7 @@ SEASON_TINT = {"winter": "#9fd8ff", "halloween": "#ff7a1a", "autumn": "#d9822b",
 
 def season(month, day, hour=12):
     """The season's touch for a date, the same as Seasonal.qml: "winter", "halloween",
-    "autumn", "spring", "summer" (evenings only) or ""."""
+    "autumn", "spring" or ""."""
     if month == 12 or (month == 1 and day <= 6):
         return "winter"
     if month == 10 and 24 <= day <= 31:
@@ -228,8 +227,6 @@ def season(month, day, hour=12):
         return "autumn"
     if (month == 3 and day >= 20) or month in (4, 5):
         return "spring"
-    if 6 <= month <= 8 and (hour >= 19 or hour < 5):
-        return "summer"
     return ""
 
 

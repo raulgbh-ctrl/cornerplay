@@ -110,3 +110,13 @@ elif cmd == "game-activity":
     from datetime import datetime, timezone
     when = int(datetime(2026, 11, 20, 10, tzinfo=timezone.utc).timestamp())
     assert played == {"1": (5400, when)}  # never played: left out
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the fake backend is a script with a #! line")
+def test_finished_sign_in_leaves_nothing_holding_the_app_open(tmp_path):
+    """A sign-in's timers must not keep Cornerplay alive after it quits (Python waits for
+    every non-daemon thread at exit; the 10-minute timeout used to be one)."""
+    before = {t for t in threading.enumerate() if not t.daemon}
+    run(tmp_path, "ok", lambda login, s: login.cancel(s))
+    left = [t for t in threading.enumerate() if not t.daemon and t not in before and t.is_alive()]
+    assert left == []

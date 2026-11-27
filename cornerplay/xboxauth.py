@@ -149,7 +149,9 @@ class Login:
         p = self.proc
         if p and p.poll() is None:
             p.terminate()
-            threading.Timer(1.5, lambda: p.poll() is None and p.kill()).start()
+            kill = threading.Timer(1.5, lambda: p.poll() is None and p.kill())
+            kill.daemon = True  # never what keeps Cornerplay running after it quits
+            kill.start()
 
     # --- from the backend ------------------------------------------------------------------------
     def start(self):
@@ -159,7 +161,11 @@ class Login:
                                      text=True, encoding="utf-8", errors="replace", env=env, bufsize=1)
         threading.Thread(target=self._read, daemon=True).start()
         threading.Thread(target=self._stderr, daemon=True).start()
-        threading.Timer(TIMEOUT, lambda: self.proc.poll() is None and self.fail("Sign-in timed out")).start()
+        # Daemon, and cancelled when the sign-in ends: a waiting timer would otherwise keep
+        # Cornerplay's process alive for up to ten minutes after the window closes.
+        self._timeout = threading.Timer(TIMEOUT, lambda: self.proc.poll() is None and self.fail("Sign-in timed out"))
+        self._timeout.daemon = True
+        self._timeout.start()
 
     def _stderr(self):
         self.err = []
@@ -181,6 +187,8 @@ class Login:
         except ProtocolError as e:
             self.fail(str(e))
         code = self.proc.wait()
+        if getattr(self, "_timeout", None):
+            self._timeout.cancel()
         if self.active:
             self.on_close(self.active)
             self.active = None

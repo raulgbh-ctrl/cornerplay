@@ -29,7 +29,7 @@ def test_packs_use_real_settings():
 
 def test_seasons_and_tint_stay_readable():
     assert theme.season(12, 24) == "winter" and theme.season(10, 31) == "halloween"
-    assert theme.season(10, 20) == "autumn" and theme.season(7, 1, 21) == "summer" and theme.season(7, 1, 12) == ""
+    assert theme.season(10, 20) == "autumn" and theme.season(7, 1, 21) == ""
     for bg, acc in theme.PRESETS.values():
         for kind in theme.SEASON_TINT:
             t = theme.seasonal(theme.build(bg, acc), kind)
