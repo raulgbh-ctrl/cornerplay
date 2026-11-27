@@ -25,6 +25,20 @@ PRESETS = {
     "Linen": ("#f5efe6", "#b4532a"),
     "Mint": ("#f0f6f2", "#1d7a55"),
 }
+# Theme packs: one pick sets the colours, the title font, corner roundness, spacing and the
+# little touches together (Settings > Appearance). Any of it can still be changed after.
+PACKS = {
+    "Cozy": {"theme_mode": "Cornerplay", "title_font": "", "card_radius": 22, "density": "roomy",
+             "card_shadow": "soft", "evening_warmth": True, "desk_skin": "", "tv_skin": "",
+             "look_coverglow": True, "look_fireflies": True, "look_welcome": True},
+    "Console": {"theme_mode": "Graphite", "title_font": "condensed", "card_radius": 6, "density": "compact",
+                "card_shadow": "deep", "desk_skin": "", "tv_skin": "", "look_coverglow": True,
+                "look_fireflies": False},
+    "Retro": {"theme_mode": "Phosphor", "title_font": "pixel", "card_radius": 0, "density": "comfortable",
+              "card_shadow": "none", "desk_skin": "phosphor", "tv_skin": "phosphor", "look_fireflies": False},
+    "Gallery": {"theme_mode": "Gallery", "title_font": "serif", "card_radius": 10, "density": "roomy",
+                "card_shadow": "soft", "desk_skin": "gallery", "tv_skin": "gallery", "look_fireflies": False},
+}
 ACCENTS = ["#d2bcfd", "#8ab4f8", "#7fd0ff", "#8fd6a4", "#d7e075", "#ffd166", "#ffb59c", "#ff8a80",
            "#ffb1c8", "#e0e0e0"]
 BACKGROUNDS = ["#141218", "#16181c", "#0f1620", "#111613", "#191312", "#000000", "#24273a", "#f6f3ee"]
@@ -197,6 +211,40 @@ def current(dark=None):
         theme["dark"] = luminance(theme["background"]) < 0.5
         return theme
     return from_wallpaper() or dict(FALLBACK)
+
+
+# Seasonal (Settings > Appearance, off by default): the accent leans a little toward the season.
+SEASON_TINT = {"winter": "#9fd8ff", "halloween": "#ff7a1a", "autumn": "#d9822b", "spring": "#ff9fc0"}
+
+
+def season(month, day, hour=12):
+    """The season's touch for a date, the same as Seasonal.qml: "winter", "halloween",
+    "autumn", "spring", "summer" (evenings only) or ""."""
+    if month == 12 or (month == 1 and day <= 6):
+        return "winter"
+    if month == 10 and 24 <= day <= 31:
+        return "halloween"
+    if (month == 10 and day >= 15) or (month == 11 and day <= 10):
+        return "autumn"
+    if (month == 3 and day >= 20) or month in (4, 5):
+        return "spring"
+    if 6 <= month <= 8 and (hour >= 19 or hour < 5):
+        return "summer"
+    return ""
+
+
+def seasonal(theme, kind):
+    """The theme with its accent leaning 20% toward the season's colour (still readable)."""
+    tint = SEASON_TINT.get(kind)
+    if not tint or not valid(theme.get("primary", "")):
+        return theme
+    out = dict(theme)
+    dark = out.get("dark", True)
+    acc = readable(mix(out["primary"], tint, 0.2), out["background"], "#ffffff" if dark else "#000000")
+    out["primary"] = acc
+    out["onPrimary"] = max(("#1b1b1f", "#ffffff"), key=lambda c: contrast(c, acc))
+    out["season"] = kind
+    return out
 
 
 # --- accessibility (Settings > Appearance > Accessibility) ------------------------------

@@ -85,6 +85,13 @@ ApplicationWindow {
     Component.onCompleted: if (tv) placeForTv()   // started straight in TV mode (--tv)
     property string selectedKey: ""
     property var selected: ({})
+    // Settings > Sound: a soft click opening a game's page, a softer one closing it.
+    property string soundKey: ""
+    onSelectedChanged: {
+        const k = (selected && selected.key) || ""
+        if (!win.tv && k !== soundKey && (k || soundKey)) app.uiSound(k ? "desk:move" : "desk:back")
+        soundKey = k
+    }
 
     // The theme with a game's own colour as its accent (see app.gameColour); unchanged for "".
     function tinted(accent) {
@@ -114,7 +121,7 @@ ApplicationWindow {
     }
     function activate(key) {
         const target = app.launchTarget(key)
-        if (target) { app.play(target); return }
+        if (target) { app.uiSound("desk:select"); app.play(target); return }
         select(key)
         const g = app.game(key)
         if (g.copies.filter(c => c.installed).length > 1)
@@ -511,6 +518,31 @@ ApplicationWindow {
             x: -width * 0.15; y: parent.height - height * 0.7
             radius: height / 2; blur: Math.min(260, width * 0.3)
             color: Qt.alpha(ambientGlow.c, 0.4)
+        }
+    }
+
+    // Cozy touches behind the library: they hold still while the window is in the background or
+    // a game is on, and are not made at all when switched off.
+    readonly property bool cozyAwake: win.active && app.nowPlaying.length === 0
+    Loader {  // Look > Fireflies: only in the evening (the theme warmed for the night), dark themes
+        anchors.fill: parent
+        active: !!app.settingsMap.look_fireflies && (theme.warmth || 0) > 0 && !app.light && !win.tv && !app.still
+        sourceComponent: Fireflies { theme: win.theme; awake: win.cozyAwake }
+    }
+    Loader {  // Seasonal touches (Settings > Appearance): the season's snow, leaves or petals, faintly
+        anchors.fill: parent
+        active: !!app.settingsMap.seasonal && !app.light && !win.tv
+        sourceComponent: Seasonal { theme: win.theme; count: 12; opacity: 0.45; awake: win.cozyAwake }
+    }
+    // Settings > Sound > Background sound: rain, a fire or the calm music while you browse;
+    // fades out when a game starts or the window goes to the background.
+    Loader {
+        active: typeof canPlayVideo !== "undefined" && canPlayVideo && !win.tv
+                && ["rain", "fire", "music"].indexOf(app.settingsMap.desk_ambience || "") >= 0
+        source: "TvMusic.qml"
+        onLoaded: {
+            item.track = Qt.binding(() => app.settingsMap.desk_ambience === "music" ? "ambient" : app.settingsMap.desk_ambience)
+            item.playing = Qt.binding(() => win.cozyAwake)
         }
     }
 
@@ -1429,13 +1461,49 @@ ApplicationWindow {
                     // Humble Bundle page, Humble's shop window: part of the header, so they scroll away.
                     header: Column {
                         width: grid.width
-                        // Look > Big titles: a greeting for the time of day.
+                        // Look > Big titles: a greeting for the time of day. Look > Welcome back: the
+                        // greeting, then the game you were last in, when and how far (its banner below has Resume).
+                        readonly property bool homeTop: !library.search && !library.storeFilter && !library.shelf && !library.showHidden
+                        readonly property var lastGame: app.settingsMap.look_welcome && homeTop && app.recentGames.length
+                                                        ? app.game(app.recentGames[0].key) : ({})
+                        readonly property string hello: { const h = new Date().getHours(); return h < 5 ? qsTr("Good night") : h < 12 ? qsTr("Good morning") : h < 18 ? qsTr("Good afternoon") : qsTr("Good evening") }
                         Text {
-                            visible: win.bigTitles && !library.search && !library.storeFilter && !library.shelf
+                            visible: win.bigTitles && parent.homeTop && !parent.lastGame.key
                             x: 10; bottomPadding: 14; topPadding: 6
-                            text: { const h = new Date().getHours(); return h < 5 ? qsTr("Good night") : h < 12 ? qsTr("Good morning") : h < 18 ? qsTr("Good afternoon") : qsTr("Good evening") }
+                            text: parent.hello
                             color: theme.onSurface
                             font.pixelSize: 34; font.weight: Font.Bold; font.family: app.titleFamily
+                        }
+                        RowLayout {
+                            id: welcome
+                            readonly property var g: parent.lastGame
+                            visible: !!g.key
+                            x: 10; width: parent.width - 20
+                            spacing: 18
+                            Column {
+                                Layout.fillWidth: true
+                                topPadding: 6; bottomPadding: 16; spacing: 4
+                                Text {
+                                    text: qsTr("%1, welcome back").arg(welcome.parent.hello)
+                                    color: theme.onSurface
+                                    font.pixelSize: win.bigTitles ? 34 : 26; font.weight: Font.Bold; font.family: app.titleFamily
+                                }
+                                Text {
+                                    width: parent.width
+                                    elide: Text.ElideRight
+                                    textFormat: Text.StyledText
+                                    color: theme.onSurfaceVariant; font.pixelSize: 15
+                                    text: {
+                                        const g = welcome.g
+                                        if (!g.key) return ""
+                                        const parts = [qsTr("You were in <b>%1</b>").arg(g.title.replace(/&/g, "&amp;").replace(/</g, "&lt;"))]
+                                        const when = app.playedText(0, g.lastPlayed || 0)
+                                        if (when) parts.push(when.replace(/^Last played /i, ""))
+                                        if (g.achieved > 0) parts.push(qsTr("%1% of achievements").arg(Math.round(g.achieved * 100)))
+                                        return parts.join(" · ")
+                                    }
+                                }
+                            }
                         }
                         Column {
                             width: grid.width
@@ -1900,6 +1968,7 @@ ApplicationWindow {
                         shimmer: win.lkSkeleton
                         playRing: win.lkPlayring
                         glow: win.ambientOn || win.deskSkin === "arcade"
+                        glowOnFocus: !!app.settingsMap.look_coverglow
                         Component.onCompleted: {
                             if (Date.now() > grid.waveUntil) return
                             const col = index % grid.columns, row = Math.floor(index / grid.columns)
@@ -2311,7 +2380,7 @@ ApplicationWindow {
                 anchors.centerIn: parent
                 width: Math.min(parent.width - 40, 460)
                 spacing: 12
-                EmptyScene { anchors.horizontalCenter: parent.horizontalCenter; width: 240; height: 160; theme: win.theme; kind: "search" }
+                EmptyScene { anchors.horizontalCenter: parent.horizontalCenter; width: 240; height: 160; theme: win.theme; kind: "lamp" }
                 Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: qsTr("No screenshots yet")
                        color: theme.onSurface; font.pixelSize: 20; font.weight: Font.DemiBold }
                 Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
@@ -3252,7 +3321,7 @@ ApplicationWindow {
                         iconName: win.selected.installed ? "play" : "download"
                         onClicked: {
                             app.preferCopy(win.selectedKey)
-                            win.selected.installed ? app.play(win.selectedKey) : win.install(win.selectedKey)
+                            win.selected.installed ? (app.uiSound("desk:select"), app.play(win.selectedKey)) : win.install(win.selectedKey)
                         }
                     }
                     // Play on TV (Sunshine here, Moonlight there): the dialog below walks through it.
@@ -3923,7 +3992,7 @@ ApplicationWindow {
                               .arg(abBox.nm(abBox.t[abBox.t.step])) + (abBox.t.short ? "  " + qsTr("(The last go was too short.)") : "")
                         color: theme.onSurface; font.pixelSize: 13
                     }
-                    KButton { theme: win.theme; primary: true; text: qsTr("Play"); iconName: "play"; onClicked: app.play(win.selectedKey) }
+                    KButton { theme: win.theme; primary: true; text: qsTr("Play"); iconName: "play"; onClicked: { app.uiSound("desk:select"); app.play(win.selectedKey) } }
                     KButton { theme: win.theme; text: qsTr("Stop the test"); iconName: "x"; onClicked: app.abStop(win.selectedKey) }
                 }
                 // Done: the two side by side, and the verdict.
@@ -6099,10 +6168,17 @@ ApplicationWindow {
                                      : Math.floor(secs / 3600) + " h " + Math.round((secs % 3600) / 60) + qsTr(" min left") }
         contentItem: ColumnLayout {
             spacing: 12
+            EmptyScene {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: 240; Layout.preferredHeight: 160
+                visible: app.downloads.length === 0
+                theme: win.theme; kind: "cat"
+            }
             Text {
                 Layout.fillWidth: true
                 visible: app.downloads.length === 0
                 wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
                 text: qsTr("Nothing is downloading.")
                 color: theme.onSurfaceVariant; font.pixelSize: 13
             }
@@ -7373,6 +7449,43 @@ ApplicationWindow {
                         ColumnLayout {
                             spacing: 16
                             Row2 {
+                                label: qsTr("Theme pack")
+                                hint: qsTr("Colours, title font, corners, spacing and the little touches in one pick. TV mode takes the look too. Anything below can still be changed after.")
+                                Flow {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Repeater {
+                                        model: app.themePacks
+                                        Rectangle {
+                                            id: packTile
+                                            required property var modelData
+                                            readonly property bool on: app.settingsMap.theme_pack === modelData.name
+                                            width: 132; height: 84
+                                            radius: Math.max(4, Math.min(18, modelData.settings.card_radius))
+                                            color: modelData.colours[0]
+                                            border.width: on ? 3 : 1
+                                            border.color: on ? theme.primary : theme.outlineVariant
+                                            Rectangle {  // the accent, as a little Play button
+                                                x: 12; y: 12; width: 34; height: 14
+                                                radius: Math.min(7, packTile.modelData.settings.card_radius / 2)
+                                                color: packTile.modelData.colours[1]
+                                            }
+                                            Text {
+                                                x: 12; anchors.bottom: parent.bottom; anchors.bottomMargin: 10
+                                                text: ({ Cozy: qsTr("Cozy"), Console: qsTr("Console"), Retro: qsTr("Retro"),
+                                                         Gallery: qsTr("Gallery") })[packTile.modelData.name] || packTile.modelData.name
+                                                font.family: packTile.modelData.font; font.pixelSize: 17; font.weight: Font.Bold
+                                                color: packTile.modelData.ink
+                                            }
+                                            HoverHandler { cursorShape: Qt.PointingHandCursor }
+                                            TapHandler { onTapped: { app.uiSound("desk:select"); app.applyPack(packTile.modelData.name) } }
+                                            Accessible.role: Accessible.Button
+                                            Accessible.name: packTile.modelData.name
+                                        }
+                                    }
+                                }
+                            }
+                            Row2 {
                                 label: qsTr("Theme")
                                 hint: qsTr("Follow wallpaper picks Cornerplay's colours from your desktop wallpaper and changes with it. Works with Ryoku, GNOME, KDE, Xfce, Cinnamon, MATE, Hyprland (hyprpaper, swww) and Sway.")
                                 Flow {
@@ -7463,7 +7576,7 @@ ApplicationWindow {
                                     onPicked: colour => app.setCustomColor("theme_bg", colour)
                                 }
                             }
-                            Toggle { label: qsTr("Seasonal touches: snow in winter, leaves in autumn, petals in spring, fireflies on summer evenings"); settingKey: "seasonal" }
+                            Toggle { label: qsTr("Seasonal touches: snow in winter, leaves in autumn and Halloween, petals in spring, fireflies on summer evenings, and the accent leaning toward the season"); settingKey: "seasonal" }
                             Row2 {
                                 label: qsTr("Spacing")
                                 Flow {
@@ -7673,6 +7786,9 @@ ApplicationWindow {
                             Toggle { label: qsTr("Covers shimmer while their art loads"); settingKey: "look_skeleton" }
                             Toggle { label: qsTr("Play turns into a ring while the game starts"); settingKey: "look_playring" }
                             Toggle { label: qsTr("Aurora: three colours from the game's cover drift behind the library"); settingKey: "look_aurora" }
+                            Toggle { label: qsTr("Cover glow: the cover you point at glows in its own colours"); settingKey: "look_coverglow" }
+                            Toggle { label: qsTr("Fireflies: in the evening, a few specks of light drift behind the library"); settingKey: "look_fireflies" }
+                            Toggle { label: qsTr("Welcome back: Home says which game you were in, when and how far"); settingKey: "look_welcome" }
                             Toggle { label: qsTr("Game page: section tabs, a header that stays, achievements as a ring"); settingKey: "look_pagetabs" }
                             Toggle { label: qsTr("The window as art: the game under the pointer fills the whole window"); settingKey: "look_fullart" }
                             Toggle { label: qsTr("Island: a pill at the top for the download, the game running, or the time"); settingKey: "look_island" }
@@ -7698,6 +7814,19 @@ ApplicationWindow {
                             Toggle { label: qsTr("Dim games that are not installed"); settingKey: "dim_uninstalled" }
                         Toggle { visible: typeof canPlayVideo !== "undefined" && canPlayVideo; label: qsTr("TV mode: play the focused game's trailer (muted)"); settingKey: "tv_trailers" }
                         Toggle { label: qsTr("TV mode: animated covers and banners (SteamGridDB key needed; only when plugged in)"); settingKey: "tv_animated" }
+                        Toggle { label: qsTr("Soft sounds when opening a game and pressing Play"); settingKey: "desk_sounds" }
+                        Row2 {
+                            visible: typeof canPlayVideo !== "undefined" && canPlayVideo
+                            label: qsTr("Background sound")
+                            hint: qsTr("Quietly, while you browse. It fades out when a game starts or Cornerplay goes to the background.")
+                            KCombo {
+                                theme: win.theme; Layout.fillWidth: true
+                                model: [{ label: qsTr("None"), value: "" }, { label: qsTr("Rain on the window"), value: "rain" },
+                                        { label: qsTr("A crackling fire"), value: "fire" }, { label: qsTr("Calm music"), value: "music" }]
+                                Component.onCompleted: select(app.settingsMap.desk_ambience || "")
+                                onActivated: app.setSetting("desk_ambience", currentValue)
+                            }
+                        }
                         Toggle { label: qsTr("TV mode: soft sounds when moving and choosing"); settingKey: "tv_sounds" }
                         Toggle { label: qsTr("TV mode: the controller buzzes lightly when moving and choosing"); settingKey: "tv_rumble" }
                         Toggle { visible: typeof canPlayVideo !== "undefined" && canPlayVideo; label: qsTr("TV mode: calm background music (quiet during trailers and games)"); settingKey: "tv_music" }

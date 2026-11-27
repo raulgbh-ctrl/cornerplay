@@ -111,6 +111,11 @@ DEFAULTS = {
     "look_expand": False,    # resting on a cover opens it into a wide card with art, trailer and Play
     "look_skeleton": True,   # covers shimmer while their art loads (on by default: screens keep their shape)
     "look_playring": False,  # Play turns into a ring while the game starts, then a tick
+    "look_coverglow": True,  # the cover under the pointer (or the controller) glows in its own colours
+    "look_fireflies": False, # in the evening, a few specks of light drift slowly behind the library
+    "look_welcome": True,    # Home: "Good evening, welcome back" with the game you were last in, when and how far
+    "desk_sounds": False,    # the desktop makes soft clicks when opening games and pressing Play
+    "desk_ambience": "",     # quiet background sound while browsing: "", "rain", "fire", "music" (stops for games)
     "look_aurora": False,    # three colours from the game's cover drift behind the library like an aurora
     "look_pagetabs": True,   # a game's page: section tabs, a slim header that stays when you scroll, a playtime chart
     "home_layout": "",       # Home's shape: "" (covers), "bento", "console", "magazine", "coverflow" (DeskHome.qml)
@@ -174,7 +179,8 @@ DEFAULTS = {
     "theme_bg": "#141218",
     "theme_accent": "#d2bcfd",
     "card_size": 196,
-    "seasonal": False,         # a small seasonal touch on empty screens and the splash (Seasonal.qml)
+    "seasonal": False,         # a seasonal touch: empty screens, the splash, behind the library, a hint in the accent (Seasonal.qml)
+    "theme_pack": "",          # the last theme pack picked (theme.PACKS): colours, font, corners and spacing together
     "density": "comfortable",  # space between covers: "compact", "comfortable", "roomy"
     "title_font": "",          # game titles: "" (rounded, Nunito), "condensed", "serif", "pixel"
     "card_radius": 14,

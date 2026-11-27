@@ -69,8 +69,12 @@ Item {
     property string captionSub: ""
     property bool greyWhenOff: false
     property bool glow: false
-    property string glowColour: glow ? app.gameColour(key) : ""
-    Connections { target: app; enabled: card.glow && card.glowColour === ""
+    // Look > Cover glow: only the cover under the pointer or the controller glows, in its own
+    // colours (its colour is worked out then, not for the whole library).
+    property bool glowOnFocus: false
+    readonly property bool glowing: glow || (glowOnFocus && lit)
+    property string glowColour: glowing ? app.gameColour(key) : ""
+    Connections { target: app; enabled: card.glowing && card.glowColour === ""
                   function onGameColourReady(k, c) { if (k === card.key) card.glowColour = c } }
     property real enterY: 0   // Look > Motion: where it comes in from
     transform: Translate { y: card.enterY }
@@ -82,7 +86,7 @@ Item {
     // The cover's own colour, glowing softly under it (brighter when pointed at).
     RectangularShadow {
         anchors.fill: frame
-        visible: card.glow && card.glowColour !== "" && !app.light
+        visible: card.glowing && card.glowColour !== "" && !app.light
         radius: frame.radius
         scale: frame.scale
         blur: card.lit ? 36 : 24

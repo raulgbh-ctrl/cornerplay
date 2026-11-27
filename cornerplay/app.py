@@ -830,11 +830,7 @@ class AioLaunch(QObject):
             QTimer.singleShot(1500, lambda: self._sys(
                 lambda: syscontrol.gs_restore({k: settings.get(k) for k in syscontrol.GS_SETTINGS})))
 
-        self._theme = themes.current(self._dark_now())
-        if settings.get("evening_warmth") is not False:  # the same as _load_theme, from the first frame
-            _now = time.localtime()
-            self._theme = themes.warmed(self._theme, themes.evening_amount(_now.tm_hour + _now.tm_min / 60))
-        self._theme = themes.accessible(self._theme, bool(settings.get("a11y_contrast")), settings.get("a11y_colours") or "")
+        self._theme = self._compose_theme()  # the same as _load_theme, from the first frame
         self._shortcut = {"accounts": 0, "added": 0, "steam": False, "running": False, "gameMode": False,
                           "busy": False, "games": 0, "gamesInSteam": 0, "inSync": False, "progress": ""}
         self._ge = {"latest": "", "installed": (proton.installed_ge() or [""])[0], "busy": False,
@@ -925,6 +921,16 @@ class AioLaunch(QObject):
             self._rewatch(self._wall_watch, f)
         self._wall_pending.start()
 
+    def _compose_theme(self):
+        """The chosen palette, then the evening's warmth, the season's hint and accessibility."""
+        new = themes.current(self._dark_now())
+        now = time.localtime()
+        if settings.get("evening_warmth") is not False:
+            new = themes.warmed(new, themes.evening_amount(now.tm_hour + now.tm_min / 60))
+        if settings.get("seasonal"):
+            new = themes.seasonal(new, themes.season(now.tm_mon, now.tm_mday, now.tm_hour))
+        return themes.accessible(new, bool(settings.get("a11y_contrast")), settings.get("a11y_colours") or "")
+
     def _load_theme(self):
         # Caught Ryoku's palette half-written: try again shortly instead of flashing other colours.
         if (settings.get("theme_mode") == "ryoku" and PALETTE.exists() and not read_json(PALETTE)
@@ -932,11 +938,7 @@ class AioLaunch(QObject):
             self._palette_tries += 1
             self._palette_timer.start()
             return
-        new = themes.current(self._dark_now())
-        if settings.get("evening_warmth") is not False:
-            now = time.localtime()
-            new = themes.warmed(new, themes.evening_amount(now.tm_hour + now.tm_min / 60))
-        new = themes.accessible(new, bool(settings.get("a11y_contrast")), settings.get("a11y_colours") or "")
+        new = self._compose_theme()
         if new != self._theme:
             self._theme = new
             self.themeChanged.emit()
@@ -1112,11 +1114,14 @@ class AioLaunch(QObject):
     @Slot(str)
     def uiSound(self, name):
         """A soft click in TV mode ("move", "select" or "back"), when turned on in Settings;
-        "intro" is the TV intro's chime (its own setting). With rumble on, the pad buzzes too."""
+        "intro" is the TV intro's chime (its own setting). With rumble on, the pad buzzes too.
+        "desk:select" and the like are the desktop's own clicks (Settings > Sound)."""
+        desk = name.startswith("desk:")
+        name = name.removeprefix("desk:")
         pad = getattr(self, "gamepad", None)
-        if pad is not None and settings.get("tv_rumble") and name in self.RUMBLE:
+        if not desk and pad is not None and settings.get("tv_rumble") and name in self.RUMBLE:
             pad.rumble(*self.RUMBLE[name])
-        if not settings.get("tv_intro" if name == "intro" else "tv_sounds"):
+        if not settings.get("tv_intro" if name == "intro" else "desk_sounds" if desk else "tv_sounds"):
             return
         if self._sounds is None:
             self._sounds = {}
@@ -8507,6 +8512,22 @@ class AioLaunch(QObject):
             settings.set("bg_mode", "picture")
             self.settingsChanged.emit()
 
+    themePacks = Property("QVariantList", lambda s: [
+        {"name": n, "settings": p, "colours": themes.PRESETS.get(p.get("theme_mode"), ("", "")),
+         "font": s.TITLE_FONTS.get(p.get("title_font") or "", "Nunito"),
+         "ink": "#1b1b1f" if themes.luminance(themes.PRESETS[p["theme_mode"]][0]) > 0.5 else "#f4efe8"}
+        for n, p in themes.PACKS.items()], constant=True)
+
+    @Slot(str)
+    def applyPack(self, name):
+        """A theme pack (theme.PACKS): its colours, font, corners, spacing and touches at once."""
+        pack = themes.PACKS.get(name)
+        if not pack:
+            return
+        for key, value in pack.items():
+            self.setSetting(key, value)
+        self.setSetting("theme_pack", name)
+
     @Slot(str, "QVariant")
     def setSetting(self, key, value):
         if key not in DEFAULTS:
@@ -8522,7 +8543,7 @@ class AioLaunch(QObject):
             if key.startswith("theme_"):
                 self._scheme_dark = None
                 self._load_theme()
-            if key in ("evening_warmth", "a11y_contrast", "a11y_colours"):
+            if key in ("evening_warmth", "a11y_contrast", "a11y_colours", "seasonal"):
                 self._load_theme()
             if key == "wallpaper_backdrop":
                 self._find_wallpaper()
