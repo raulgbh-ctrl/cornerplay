@@ -49,6 +49,26 @@ def luminance(h):
     return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
 
 
+def contrast(a, b):
+    """WCAG 2 contrast ratio between two colours (1 to 21); 4.5 is the floor for body text."""
+    def rel(h):
+        c = [x / 255 for x in _rgb(h)]
+        c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+    hi, lo = sorted((rel(a), rel(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def readable(colour, against, toward, floor=4.5):
+    """colour nudged toward `toward` in small steps until it reads at `floor` on `against`."""
+    out = colour
+    for i in range(1, 11):
+        if contrast(out, against) >= floor:
+            break
+        out = mix(colour, toward, 0.06 * i)
+    return out
+
+
 def valid(h):
     if not isinstance(h, str) or len(h) != 7 or h[0] != "#":
         return False
@@ -65,6 +85,14 @@ def build(bg, accent):
     fg = "#ffffff" if dark else "#000000"
     back = "#000000" if dark else "#ffffff"
     on_surface = mix(bg, fg, 0.90)
+    # Secondary labels sit on cards (up to surfaceContainerHigh) and must still read there;
+    # light themes need them darker than the plain mix gives.
+    card = mix(bg, fg, 0.10)
+    outline = readable(mix(bg, fg, 0.52), card, fg)
+    # Accent text (links, selected tabs) on the page background; a pale accent on a light page
+    # is deepened a little, a dark one on a dark page lifted.
+    accent = readable(accent, bg, fg)
+    on_primary = max(("#1b1b1f", "#ffffff"), key=lambda c: contrast(c, accent))
     return {
         "background": bg, "surface": bg,
         "surfaceContainerLowest": mix(bg, back, 0.25),
@@ -72,11 +100,11 @@ def build(bg, accent):
         "surfaceContainer": mix(bg, fg, 0.06),
         "surfaceContainerHigh": mix(bg, fg, 0.10),
         "surfaceContainerHighest": mix(bg, fg, 0.15),
-        "outlineVariant": mix(bg, fg, 0.22), "outline": mix(bg, fg, 0.52),
+        "outlineVariant": mix(bg, fg, 0.22), "outline": outline,
         "onSurfaceVariant": mix(bg, fg, 0.76), "onSurface": on_surface,
         "inverseSurface": on_surface, "inverseOnSurface": mix(bg, fg, 0.12),
         "primary": accent,
-        "onPrimary": "#1b1b1f" if luminance(accent) > 0.5 else "#ffffff",
+        "onPrimary": on_primary,
         "primaryContainer": mix(bg, accent, 0.32),
         "onPrimaryContainer": mix(accent, fg, 0.55),
         "error": "#ffb4ab" if dark else "#ba1a1a",
