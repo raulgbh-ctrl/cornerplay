@@ -84,6 +84,23 @@ ApplicationWindow {
     }
     Component.onCompleted: if (tv) placeForTv()   // started straight in TV mode (--tv)
     property string selectedKey: ""
+    // Dialogs built on first use (see their Loaders): null until then. win.need(loader) builds
+    // one (synchronously) and returns it; reads elsewhere check for null first.
+    function need(loader) { loader.active = true; return loader.item }
+    property var gameOpts: null
+    property var statsBox: null
+    property var addBox: null
+    property var downloadsBox: null
+    property var problemBox: null
+    property var shotsPage: null
+    property var streamBox: null
+    property var storage: null
+    property var tvPlayBox: null
+    property var picker: null
+    property var logBox: null
+    property var friendsPage: null
+    property var dlc: null
+    property var pairBox: null
     property var selected: ({})
     // Settings > Sound: a soft click opening a game's page, a softer one closing it.
     property string soundKey: ""
@@ -229,16 +246,16 @@ ApplicationWindow {
     // --smoke-test (CI): open what start-up alone never builds, so its QML errors show too.
     function smokeStep(step, key) {
         if (step < 5) { prefs.tab = step; if (!prefs.visible) prefs.open() }
-        else if (step === 5) { prefs.close(); if (key) gameOpts.show(key) }
-        else gameOpts.close()
-        return "settings " + (prefs.opened || prefs.visible) + " tab " + prefs.tab + ", options " + (gameOpts.opened || gameOpts.visible) + " " + gameOpts.key
+        else if (step === 5) { prefs.close(); if (key) win.need(gameOptsLoader).show(key) }
+        else (win.gameOpts && win.gameOpts.close())
+        return "settings " + (prefs.opened || prefs.visible) + " tab " + prefs.tab + ", options " + (!!win.gameOpts && (win.gameOpts.opened || win.gameOpts.visible)) + " " + (win.gameOpts ? win.gameOpts.key : "")
     }
-    Shortcut { sequence: "Ctrl+P"; enabled: !win.tv; onActivated: picker.show() }
-    Shortcut { sequence: "Ctrl+I"; enabled: !win.tv; onActivated: statsBox.show() }
-    Shortcut { sequence: "Ctrl+N"; enabled: !win.tv; onActivated: addBox.show() }
+    Shortcut { sequence: "Ctrl+P"; enabled: !win.tv; onActivated: win.need(pickerLoader).show() }
+    Shortcut { sequence: "Ctrl+I"; enabled: !win.tv; onActivated: win.need(statsBoxLoader).show() }
+    Shortcut { sequence: "Ctrl+N"; enabled: !win.tv; onActivated: win.need(addBoxLoader).show() }
     Shortcut { sequence: "F1"; enabled: !win.tv; onActivated: keysBox.open() }
     Shortcut { sequences: ["Ctrl+K", "Ctrl+G"]; enabled: !win.tv; onActivated: jump.show() }
-    Shortcut { sequence: "Ctrl+Shift+S"; enabled: !win.tv; onActivated: shotsPage.show() }
+    Shortcut { sequence: "Ctrl+Shift+S"; enabled: !win.tv; onActivated: win.need(shotsPageLoader).show() }
     // The in-game panel: Guide + Y on a controller, `cornerplay --overlay`, or Ctrl+Shift+G here.
     GamePanel {
         id: gamePanel
@@ -625,7 +642,7 @@ ApplicationWindow {
                                         NumberAnimation { to: 0.35; duration: 900 } NumberAnimation { to: 1; duration: 900 } } }
                     }
                     HoverHandler { cursorShape: Qt.PointingHandCursor }
-                    TapHandler { onTapped: footCard.playing ? win.select(footCard.g.key) : downloadsBox.open() }
+                    TapHandler { onTapped: footCard.playing ? win.select(footCard.g.key) : win.need(downloadsBoxLoader).open() }
                 }
                 Rectangle { Layout.fillWidth: true; height: 1; color: theme.outlineVariant; opacity: sideFlick.contentHeight > sideFlick.height + 1 ? 1 : 0 }
                 NavItem { Layout.fillWidth: true; label: qsTr("TV mode"); icon: "tv"; count: "F11"; onPicked: win.tv = true }
@@ -668,12 +685,12 @@ ApplicationWindow {
                                 spacing: 0
                                 Repeater {
                                     model: [
-                                        { i: "gamepad-2", t: qsTr("What should I play?"), k: "Ctrl+P", run: () => picker.show() },
-                                        { i: "trophy", t: qsTr("Stats and journal"), k: "Ctrl+I", run: () => statsBox.show() },
-                                        { i: "images", t: qsTr("Screenshots"), k: "Ctrl+Shift+S", run: () => shotsPage.show() },
-                                        { i: "user-round", t: qsTr("Play with friends"), k: "", run: () => friendsPage.show() },
-                                        { i: "folder-open", t: qsTr("Storage"), k: "", run: () => storage.show() },
-                                        { i: "tv", t: qsTr("Play on another screen"), k: "", run: () => streamBox.show() },
+                                        { i: "gamepad-2", t: qsTr("What should I play?"), k: "Ctrl+P", run: () => win.need(pickerLoader).show() },
+                                        { i: "trophy", t: qsTr("Stats and journal"), k: "Ctrl+I", run: () => win.need(statsBoxLoader).show() },
+                                        { i: "images", t: qsTr("Screenshots"), k: "Ctrl+Shift+S", run: () => win.need(shotsPageLoader).show() },
+                                        { i: "user-round", t: qsTr("Play with friends"), k: "", run: () => win.need(friendsPageLoader).show() },
+                                        { i: "folder-open", t: qsTr("Storage"), k: "", run: () => win.need(storageLoader).show() },
+                                        { i: "tv", t: qsTr("Play on another screen"), k: "", run: () => win.need(streamBoxLoader).show() },
                                         { i: "check", t: qsTr("Health check"), k: "", alert: true, run: () => healthBox.show() },
                                         { i: "eye-off", t: qsTr("Hidden games"), k: "", hidden: true,
                                           run: () => { library.storeFilter = ""; library.shelf = ""; library.showHidden = !library.showHidden } },
@@ -894,7 +911,7 @@ ApplicationWindow {
                 NavItem {
                     label: qsTr("Play with friends")
                     icon: "user-round"
-                    onPicked: friendsPage.show()
+                    onPicked: win.need(friendsPageLoader).show()
                 }
 
                 // Your lists: favourites, collections, and backlog statuses that have games.
@@ -1120,7 +1137,7 @@ ApplicationWindow {
                         }
                     }
                 }
-                TopButton { icon: "plus"; tip: qsTr("Add a game"); label: win.topLabels ? qsTr("Add") : ""; onPicked: addBox.show() }
+                TopButton { icon: "plus"; tip: qsTr("Add a game"); label: win.topLabels ? qsTr("Add") : ""; onPicked: win.need(addBoxLoader).show() }
                 // Downloads: only while something downloads, waits or is paused.
                 // While one runs it shows how far it is, with a thin bar along the bottom (as Heroic does).
                 Rectangle {
@@ -1130,7 +1147,7 @@ ApplicationWindow {
                     readonly property real pct: running && running.progress >= 0 ? running.progress : -1
                     width: pct >= 0 ? dlPct.implicitWidth + 52 : 38; height: 38; radius: 19
                     Behavior on width { enabled: !app.still; NumberAnimation { duration: 160 } }
-                    color: dlHover.hovered || downloadsBox.opened ? theme.surfaceContainerHigh
+                    color: dlHover.hovered || (!!win.downloadsBox && win.downloadsBox.opened) ? theme.surfaceContainerHigh
                            : dlButton.pct >= 0 ? Qt.alpha(theme.surfaceContainerHigh, 0.6) : "transparent"
                     clip: true
                     Icon { x: dlButton.pct >= 0 ? 12 : (parent.width - width) / 2; anchors.verticalCenter: parent.verticalCenter
@@ -1163,7 +1180,7 @@ ApplicationWindow {
                                font.pixelSize: 10; font.weight: Font.Bold }
                     }
                     HoverHandler { id: dlHover; cursorShape: Qt.PointingHandCursor }
-                    TapHandler { onTapped: downloadsBox.open() }
+                    TapHandler { onTapped: win.need(downloadsBoxLoader).open() }
                     ToolTip.visible: dlHover.hovered; ToolTip.text: qsTr("Downloads"); ToolTip.delay: 300
                 }
                 // Refresh: Cornerplay refreshes on its own at start and when you come back to it.
@@ -2335,7 +2352,7 @@ ApplicationWindow {
                         spacing: 8
                         visible: !app.refreshing && !library.showHidden
                         KButton { theme: win.theme; primary: true; visible: app.totalCount === 0; text: qsTr("Connect stores"); onClicked: accounts.open() }
-                        KButton { theme: win.theme; visible: app.totalCount === 0; text: qsTr("Add a game"); iconName: "plus"; onClicked: addBox.show() }
+                        KButton { theme: win.theme; visible: app.totalCount === 0; text: qsTr("Add a game"); iconName: "plus"; onClicked: win.need(addBoxLoader).show() }
                         KButton { theme: win.theme; visible: !!library.search; text: qsTr("Clear search"); iconName: "x"; onClicked: search.text = "" }
                         KButton { theme: win.theme; visible: ((library && library.tags) || []).length > 0; text: qsTr("Clear filters"); onClicked: library.tags = [] }
                         KButton { theme: win.theme; visible: library.installedOnly; text: qsTr("Show all games"); onClicked: library.installedOnly = false }
@@ -2350,103 +2367,112 @@ ApplicationWindow {
     // -------------------------------------------------------------------- game detail
     // Screenshots: every game's, newest game first (Steam's F12 ones, and any picture taken
     // while a game ran). A thumbnail opens the viewer on that game's screenshots.
-    KDialog {
-        id: shotsPage
-        theme: win.theme
-        heading: qsTr("Screenshots")
-        headingIcon: "images"
-        width: Math.min(win.width - 60, 1200)
-        height: win.height - 60
-        property var games: []
-        property bool loading: false
-        property var expanded: ({})   // titles shown in full ("Show all")
-        function show() { loading = true; expanded = ({}); open(); app.loadAllScreenshots() }
-        Connections { target: app; function onAllScreenshotsReady(list) { shotsPage.games = list; shotsPage.loading = false } }
-        readonly property int total: games.reduce((n, g) => n + g.count, 0)
-        contentItem: Item {
-            Text {
-                visible: shotsPage.games.length > 0
-                anchors { right: parent.right; top: parent.top; topMargin: -44; rightMargin: 40 }
-                text: shotsPage.total + qsTr(" screenshots of ") + shotsPage.games.length + qsTr(" games")
-                color: theme.outline; font.pixelSize: 12
-            }
-            Column {
-                visible: !shotsPage.loading && shotsPage.games.length === 0
-                anchors.centerIn: parent
-                width: Math.min(parent.width - 40, 460)
-                spacing: 12
-                EmptyScene { anchors.horizontalCenter: parent.horizontalCenter; width: 240; height: 160; theme: win.theme; kind: "lamp" }
-                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: qsTr("No screenshots yet")
-                       color: theme.onSurface; font.pixelSize: 20; font.weight: Font.DemiBold }
-                Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
-                       color: theme.onSurfaceVariant; font.pixelSize: 13
-                       text: qsTr("Take one in a game with F12 (Steam) or your desktop's screenshot key: pictures in ~/Pictures and ~/Pictures/Screenshots taken while a game ran show up here under that game.") }
-            }
-            BusyIndicator { anchors.centerIn: parent; running: shotsPage.loading; visible: running }
-            ListView {
-                id: shotsList
-                anchors.fill: parent
-                visible: shotsPage.games.length > 0
-                clip: true
-                spacing: 26
-                model: shotsPage.games
-                ScrollBar.vertical: KScrollBar { }
-                delegate: Column {
-                    id: shotGame
-                    required property var modelData
-                    readonly property bool full: !!shotsPage.expanded[modelData.title]
-                    readonly property int cols: Math.max(2, Math.floor((shotsList.width - 12) / 236))
-                    readonly property int tileW: Math.floor((shotsList.width - 12 - (cols - 1) * 10) / cols)
-                    width: shotsList.width - 12
-                    spacing: 10
-                    Row {
-                        spacing: 10
-                        Text { text: shotGame.modelData.title; color: theme.onSurface; font.pixelSize: 17; font.weight: Font.DemiBold
-                               font.family: app.titleFamily }
-                        Text { anchors.baseline: parent.children[0].baseline; color: theme.outline; font.pixelSize: 12
-                               text: shotGame.modelData.count + "  \u00B7  " + shotGame.modelData.when }
-                        Text {
-                            anchors.baseline: parent.children[0].baseline
-                            text: qsTr("Game page"); color: theme.primary; font.pixelSize: 12
-                            font.underline: gpHover.hovered
-                            HoverHandler { id: gpHover; cursorShape: Qt.PointingHandCursor }
-                            TapHandler { onTapped: { shotsPage.close(); win.select(shotGame.modelData.key) } }
-                        }
+    // Built the first time it is needed (win.need), then kept: most people never open it,
+    // and every dialog built at start costs memory for the whole session.
+    Loader {
+        id: shotsPageLoader
+        active: false
+        onLoaded: win.shotsPage = item
+        sourceComponent: Component {
+            KDialog {
+                id: shotsPage
+                theme: win.theme
+                heading: qsTr("Screenshots")
+                headingIcon: "images"
+                width: Math.min(win.width - 60, 1200)
+                height: win.height - 60
+                property var games: []
+                property bool loading: false
+                property var expanded: ({})   // titles shown in full ("Show all")
+                function show() { loading = true; expanded = ({}); open(); app.loadAllScreenshots() }
+                Connections { target: app; function onAllScreenshotsReady(list) { shotsPage.games = list; shotsPage.loading = false } }
+                readonly property int total: games.reduce((n, g) => n + g.count, 0)
+                contentItem: Item {
+                    Text {
+                        visible: shotsPage.games.length > 0
+                        anchors { right: parent.right; top: parent.top; topMargin: -44; rightMargin: 40 }
+                        text: shotsPage.total + qsTr(" screenshots of ") + shotsPage.games.length + qsTr(" games")
+                        color: theme.outline; font.pixelSize: 12
                     }
-                    Flow {
-                        width: parent.width
-                        spacing: 10
-                        Repeater {
-                            model: shotGame.full ? shotGame.modelData.shots : shotGame.modelData.shots.slice(0, shotGame.cols * 2)
-                            Item {
-                                id: shotTile
-                                required property var modelData
-                                required property int index
-                                width: shotGame.tileW; height: Math.round(width * 9 / 16)
-                                RoundedArt {
-                                    anchors.fill: parent; radius: 10
-                                    scale: tileHover.hovered && !app.still ? 1.03 : 1
-                                    Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-                                    Rectangle { anchors.fill: parent; color: theme.surfaceContainerHigh }
-                                    Image { anchors.fill: parent; source: shotTile.modelData.thumb; fillMode: Image.PreserveAspectCrop
-                                            asynchronous: true; sourceSize.width: 480 }
-                                    Rectangle {
-                                        anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-                                        height: 26; visible: tileHover.hovered
-                                        gradient: Gradient { GradientStop { position: 0; color: "transparent" } GradientStop { position: 1; color: Qt.alpha("black", 0.7) } }
-                                        Text { x: 10; anchors.verticalCenter: parent.verticalCenter; text: shotTile.modelData.when || ""; color: "white"; font.pixelSize: 11 }
+                    Column {
+                        visible: !shotsPage.loading && shotsPage.games.length === 0
+                        anchors.centerIn: parent
+                        width: Math.min(parent.width - 40, 460)
+                        spacing: 12
+                        EmptyScene { anchors.horizontalCenter: parent.horizontalCenter; width: 240; height: 160; theme: win.theme; kind: "lamp" }
+                        Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: qsTr("No screenshots yet")
+                               color: theme.onSurface; font.pixelSize: 20; font.weight: Font.DemiBold }
+                        Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
+                               color: theme.onSurfaceVariant; font.pixelSize: 13
+                               text: qsTr("Take one in a game with F12 (Steam) or your desktop's screenshot key: pictures in ~/Pictures and ~/Pictures/Screenshots taken while a game ran show up here under that game.") }
+                    }
+                    BusyIndicator { anchors.centerIn: parent; running: shotsPage.loading; visible: running }
+                    ListView {
+                        id: shotsList
+                        anchors.fill: parent
+                        visible: shotsPage.games.length > 0
+                        clip: true
+                        spacing: 26
+                        model: shotsPage.games
+                        ScrollBar.vertical: KScrollBar { }
+                        delegate: Column {
+                            id: shotGame
+                            required property var modelData
+                            readonly property bool full: !!shotsPage.expanded[modelData.title]
+                            readonly property int cols: Math.max(2, Math.floor((shotsList.width - 12) / 236))
+                            readonly property int tileW: Math.floor((shotsList.width - 12 - (cols - 1) * 10) / cols)
+                            width: shotsList.width - 12
+                            spacing: 10
+                            Row {
+                                spacing: 10
+                                Text { text: shotGame.modelData.title; color: theme.onSurface; font.pixelSize: 17; font.weight: Font.DemiBold
+                                       font.family: app.titleFamily }
+                                Text { anchors.baseline: parent.children[0].baseline; color: theme.outline; font.pixelSize: 12
+                                       text: shotGame.modelData.count + "  \u00B7  " + shotGame.modelData.when }
+                                Text {
+                                    anchors.baseline: parent.children[0].baseline
+                                    text: qsTr("Game page"); color: theme.primary; font.pixelSize: 12
+                                    font.underline: gpHover.hovered
+                                    HoverHandler { id: gpHover; cursorShape: Qt.PointingHandCursor }
+                                    TapHandler { onTapped: { shotsPage.close(); win.select(shotGame.modelData.key) } }
+                                }
+                            }
+                            Flow {
+                                width: parent.width
+                                spacing: 10
+                                Repeater {
+                                    model: shotGame.full ? shotGame.modelData.shots : shotGame.modelData.shots.slice(0, shotGame.cols * 2)
+                                    Item {
+                                        id: shotTile
+                                        required property var modelData
+                                        required property int index
+                                        width: shotGame.tileW; height: Math.round(width * 9 / 16)
+                                        RoundedArt {
+                                            anchors.fill: parent; radius: 10
+                                            scale: tileHover.hovered && !app.still ? 1.03 : 1
+                                            Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+                                            Rectangle { anchors.fill: parent; color: theme.surfaceContainerHigh }
+                                            Image { anchors.fill: parent; source: shotTile.modelData.thumb; fillMode: Image.PreserveAspectCrop
+                                                    asynchronous: true; sourceSize.width: 480 }
+                                            Rectangle {
+                                                anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                                                height: 26; visible: tileHover.hovered
+                                                gradient: Gradient { GradientStop { position: 0; color: "transparent" } GradientStop { position: 1; color: Qt.alpha("black", 0.7) } }
+                                                Text { x: 10; anchors.verticalCenter: parent.verticalCenter; text: shotTile.modelData.when || ""; color: "white"; font.pixelSize: 11 }
+                                            }
+                                        }
+                                        HoverHandler { id: tileHover; cursorShape: Qt.PointingHandCursor }
+                                        TapHandler { onTapped: viewer.show(shotGame.modelData.shots, shotTile.index) }
                                     }
                                 }
-                                HoverHandler { id: tileHover; cursorShape: Qt.PointingHandCursor }
-                                TapHandler { onTapped: viewer.show(shotGame.modelData.shots, shotTile.index) }
+                            }
+                            KButton {
+                                visible: !shotGame.full && shotGame.modelData.shots.length > shotGame.cols * 2
+                                theme: win.theme; implicitHeight: 32; iconName: "chevron-down"
+                                text: qsTr("Show all ") + shotGame.modelData.count
+                                onClicked: { const o = Object.assign({}, shotsPage.expanded); o[shotGame.modelData.title] = true; shotsPage.expanded = o }
                             }
                         }
-                    }
-                    KButton {
-                        visible: !shotGame.full && shotGame.modelData.shots.length > shotGame.cols * 2
-                        theme: win.theme; implicitHeight: 32; iconName: "chevron-down"
-                        text: qsTr("Show all ") + shotGame.modelData.count
-                        onClicked: { const o = Object.assign({}, shotsPage.expanded); o[shotGame.modelData.title] = true; shotsPage.expanded = o }
                     }
                 }
             }
@@ -2508,142 +2534,151 @@ ApplicationWindow {
     }
 
     // Play with friends: Steam friends (online first), pick who is in, see the games you share.
-    KDialog {
-        id: friendsPage
-        theme: win.theme
-        heading: qsTr("Play with friends")
-        headingIcon: "user-round"
-        width: Math.min(win.width - 60, 1000)
-        height: Math.min(win.height - 60, 720)
-        property var list: []
-        property string problem: ""
-        property bool loading: false
-        property var picked: ({})
-        property var games: []
-        property bool gamesLoading: false
-        function show() { loading = true; problem = ""; picked = ({}); games = []; open(); app.loadFriends() }
-        function toggle(id) {
-            const p = Object.assign({}, picked)
-            if (p[id]) delete p[id]; else p[id] = true
-            picked = p
-            gamesLoading = true
-            app.loadShared(Object.keys(p))
-        }
-        function nameOf(id) { const f = list.find(x => x.id === id); return f ? f.name : "" }
-        Connections {
-            target: app
-            function onFriendsReady(list, problem) {
-                friendsPage.list = list; friendsPage.problem = problem; friendsPage.loading = false
-                const online = list.filter(f => f.state !== "offline").slice(0, 2)
-                if (online.length) { const p = {}; online.forEach(f => p[f.id] = true); friendsPage.picked = p; friendsPage.gamesLoading = true; app.loadShared(Object.keys(p)) }
-            }
-            function onSharedReady(rows) { friendsPage.games = rows; friendsPage.gamesLoading = false }
-        }
-        contentItem: RowLayout {
-            spacing: 18
-            // Friends
-            ColumnLayout {
-                Layout.preferredWidth: 250
-                Layout.maximumWidth: 250
-                Layout.fillWidth: false
-                Layout.fillHeight: true
-                spacing: 8
-                Text { text: qsTr("Who's in?"); color: theme.outline; font.pixelSize: 11; font.weight: Font.DemiBold
-                       font.letterSpacing: 1.1; font.capitalization: Font.AllUppercase }
-                Text { visible: friendsPage.problem !== ""; Layout.fillWidth: true; wrapMode: Text.WordWrap
-                       text: friendsPage.problem; color: theme.onSurfaceVariant; font.pixelSize: 13 }
-                BusyIndicator { visible: friendsPage.loading; running: visible; Layout.alignment: Qt.AlignHCenter }
-                ListView {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-                    spacing: 4
-                    model: friendsPage.list
-                    ScrollBar.vertical: KScrollBar { }
-                    delegate: Rectangle {
-                        id: fr
-                        required property var modelData
-                        readonly property bool on: !!friendsPage.picked[modelData.id]
-                        width: ListView.view.width - 8; height: 52; radius: 12
-                        color: on ? Qt.alpha(theme.primary, 0.16) : frHover.hovered ? theme.surfaceContainerHigh : "transparent"
-                        border.width: on ? 1 : 0; border.color: Qt.alpha(theme.primary, 0.35)
-                        Rectangle {
-                            id: av
-                            x: 8; anchors.verticalCenter: parent.verticalCenter
-                            width: 36; height: 36; radius: 18; clip: true
-                            color: theme.surfaceContainerHighest
-                            Text { anchors.centerIn: parent; text: (fr.modelData.name || "?").charAt(0).toUpperCase(); color: theme.onSurface; font.pixelSize: 15; font.weight: Font.Bold }
-                            Image { anchors.fill: parent; source: fr.modelData.avatar || ""; visible: status === Image.Ready; fillMode: Image.PreserveAspectCrop; sourceSize.width: 72 }
-                        }
-                        Rectangle { x: av.x + av.width - 10; y: av.y + av.height - 10; width: 11; height: 11; radius: 6
-                                    border.width: 2; border.color: theme.surfaceContainer
-                                    color: fr.modelData.playing ? "#7bd88f" : fr.modelData.state === "online" ? "#57b5ff" : fr.modelData.state === "offline" ? theme.outline : "#ffcc66" }
-                        Column {
-                            x: 54; width: parent.width - 54 - 34
-                            anchors.verticalCenter: parent.verticalCenter
-                            Text { width: parent.width; text: fr.modelData.name; color: theme.onSurface; font.pixelSize: 13; font.weight: Font.DemiBold; elide: Text.ElideRight }
-                            Text { width: parent.width; elide: Text.ElideRight; font.pixelSize: 11
-                                   text: fr.modelData.playing ? qsTr("Playing ") + fr.modelData.playing : qsTr(fr.modelData.state)
-                                   color: fr.modelData.playing ? "#7bd88f" : theme.onSurfaceVariant }
-                        }
-                        Icon { anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
-                               name: fr.on ? "check" : "plus"; size: 15; color: fr.on ? theme.primary : theme.outline }
-                        HoverHandler { id: frHover; cursorShape: Qt.PointingHandCursor }
-                        TapHandler { onTapped: friendsPage.toggle(fr.modelData.id) }
+    // Built the first time it is needed (win.need), then kept: most people never open it,
+    // and every dialog built at start costs memory for the whole session.
+    Loader {
+        id: friendsPageLoader
+        active: false
+        onLoaded: win.friendsPage = item
+        sourceComponent: Component {
+            KDialog {
+                id: friendsPage
+                theme: win.theme
+                heading: qsTr("Play with friends")
+                headingIcon: "user-round"
+                width: Math.min(win.width - 60, 1000)
+                height: Math.min(win.height - 60, 720)
+                property var list: []
+                property string problem: ""
+                property bool loading: false
+                property var picked: ({})
+                property var games: []
+                property bool gamesLoading: false
+                function show() { loading = true; problem = ""; picked = ({}); games = []; open(); app.loadFriends() }
+                function toggle(id) {
+                    const p = Object.assign({}, picked)
+                    if (p[id]) delete p[id]; else p[id] = true
+                    picked = p
+                    gamesLoading = true
+                    app.loadShared(Object.keys(p))
+                }
+                function nameOf(id) { const f = list.find(x => x.id === id); return f ? f.name : "" }
+                Connections {
+                    target: app
+                    function onFriendsReady(list, problem) {
+                        friendsPage.list = list; friendsPage.problem = problem; friendsPage.loading = false
+                        const online = list.filter(f => f.state !== "offline").slice(0, 2)
+                        if (online.length) { const p = {}; online.forEach(f => p[f.id] = true); friendsPage.picked = p; friendsPage.gamesLoading = true; app.loadShared(Object.keys(p)) }
                     }
+                    function onSharedReady(rows) { friendsPage.games = rows; friendsPage.gamesLoading = false }
                 }
-            }
-            Rectangle { Layout.fillHeight: true; width: 1; color: theme.outlineVariant }
-            // Games you share
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                spacing: 8
-                Text {
-                    text: Object.keys(friendsPage.picked).length ? qsTr("Multiplayer games you share") : qsTr("Pick who's in to see the games you share")
-                    color: theme.outline; font.pixelSize: 11; font.weight: Font.DemiBold; font.letterSpacing: 1.1; font.capitalization: Font.AllUppercase
-                }
-                Text { visible: Object.keys(friendsPage.picked).length > 0 && !friendsPage.gamesLoading && friendsPage.games.length === 0
-                       Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 13
-                       text: qsTr("No multiplayer game you all own (or their game details are private on Steam).") }
-                ListView {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-                    spacing: 8
-                    model: friendsPage.games
-                    ScrollBar.vertical: KScrollBar { }
-                    delegate: Rectangle {
-                        id: sg
-                        required property var modelData
-                        width: ListView.view.width - 10; height: 84; radius: 14
-                        color: theme.surfaceContainerHigh
-                        RoundedArt {
-                            x: 10; anchors.verticalCenter: parent.verticalCenter
-                            width: 46; height: 66; radius: 7
-                            Rectangle { anchors.fill: parent; color: theme.surfaceContainerHighest }
-                            ArtImage { anchors.fill: parent; sources: sg.modelData.covers || []; sourceSize.width: 92 }
+                contentItem: RowLayout {
+                    spacing: 18
+                    // Friends
+                    ColumnLayout {
+                        Layout.preferredWidth: 250
+                        Layout.maximumWidth: 250
+                        Layout.fillWidth: false
+                        Layout.fillHeight: true
+                        spacing: 8
+                        Text { text: qsTr("Who's in?"); color: theme.outline; font.pixelSize: 11; font.weight: Font.DemiBold
+                               font.letterSpacing: 1.1; font.capitalization: Font.AllUppercase }
+                        Text { visible: friendsPage.problem !== ""; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                               text: friendsPage.problem; color: theme.onSurfaceVariant; font.pixelSize: 13 }
+                        BusyIndicator { visible: friendsPage.loading; running: visible; Layout.alignment: Qt.AlignHCenter }
+                        ListView {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            clip: true
+                            spacing: 4
+                            model: friendsPage.list
+                            ScrollBar.vertical: KScrollBar { }
+                            delegate: Rectangle {
+                                id: fr
+                                required property var modelData
+                                readonly property bool on: !!friendsPage.picked[modelData.id]
+                                width: ListView.view.width - 8; height: 52; radius: 12
+                                color: on ? Qt.alpha(theme.primary, 0.16) : frHover.hovered ? theme.surfaceContainerHigh : "transparent"
+                                border.width: on ? 1 : 0; border.color: Qt.alpha(theme.primary, 0.35)
+                                Rectangle {
+                                    id: av
+                                    x: 8; anchors.verticalCenter: parent.verticalCenter
+                                    width: 36; height: 36; radius: 18; clip: true
+                                    color: theme.surfaceContainerHighest
+                                    Text { anchors.centerIn: parent; text: (fr.modelData.name || "?").charAt(0).toUpperCase(); color: theme.onSurface; font.pixelSize: 15; font.weight: Font.Bold }
+                                    Image { anchors.fill: parent; source: fr.modelData.avatar || ""; visible: status === Image.Ready; fillMode: Image.PreserveAspectCrop; sourceSize.width: 72 }
+                                }
+                                Rectangle { x: av.x + av.width - 10; y: av.y + av.height - 10; width: 11; height: 11; radius: 6
+                                            border.width: 2; border.color: theme.surfaceContainer
+                                            color: fr.modelData.playing ? "#7bd88f" : fr.modelData.state === "online" ? "#57b5ff" : fr.modelData.state === "offline" ? theme.outline : "#ffcc66" }
+                                Column {
+                                    x: 54; width: parent.width - 54 - 34
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    Text { width: parent.width; text: fr.modelData.name; color: theme.onSurface; font.pixelSize: 13; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                                    Text { width: parent.width; elide: Text.ElideRight; font.pixelSize: 11
+                                           text: fr.modelData.playing ? qsTr("Playing ") + fr.modelData.playing : qsTr(fr.modelData.state)
+                                           color: fr.modelData.playing ? "#7bd88f" : theme.onSurfaceVariant }
+                                }
+                                Icon { anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+                                       name: fr.on ? "check" : "plus"; size: 15; color: fr.on ? theme.primary : theme.outline }
+                                HoverHandler { id: frHover; cursorShape: Qt.PointingHandCursor }
+                                TapHandler { onTapped: friendsPage.toggle(fr.modelData.id) }
+                            }
                         }
-                        Column {
-                            x: 68; width: parent.width - 68 - sgButtons.width - 20
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: 3
-                            Text { width: parent.width; text: sg.modelData.title; color: theme.onSurface; font.pixelSize: 15; font.weight: Font.DemiBold; elide: Text.ElideRight }
-                            Text { width: parent.width; elide: Text.ElideRight; font.pixelSize: 12
-                                   color: sg.modelData.all ? "#7bd88f" : theme.onSurfaceVariant
-                                   text: (sg.modelData.all ? qsTr("Everyone has it") : qsTr("Has it: ") + sg.modelData.owners.map(friendsPage.nameOf).join(", "))
-                                         + "  \u00B7  " + Math.round(sg.modelData.hours) + qsTr(" h between them") }
-                            Text { text: sg.modelData.installed ? qsTr("Installed") : qsTr("Not installed"); color: theme.outline; font.pixelSize: 11 }
+                    }
+                    Rectangle { Layout.fillHeight: true; width: 1; color: theme.outlineVariant }
+                    // Games you share
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        spacing: 8
+                        Text {
+                            text: Object.keys(friendsPage.picked).length ? qsTr("Multiplayer games you share") : qsTr("Pick who's in to see the games you share")
+                            color: theme.outline; font.pixelSize: 11; font.weight: Font.DemiBold; font.letterSpacing: 1.1; font.capitalization: Font.AllUppercase
                         }
-                        Row {
-                            id: sgButtons
-                            anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
-                            spacing: 6
-                            KButton { theme: win.theme; implicitHeight: 34; iconName: "external-link"; text: qsTr("Copy invite")
-                                      onClicked: app.copyInvite(sg.modelData.appid, sg.modelData.title) }
-                            KButton { theme: win.theme; implicitHeight: 34; primary: true; iconName: sg.modelData.installed ? "play" : "download"
-                                      text: sg.modelData.installed ? qsTr("Play") : qsTr("Install"); enabled: !!sg.modelData.key
-                                      onClicked: { const k = sg.modelData.key; friendsPage.close(); sg.modelData.installed ? win.activate(k) : win.install(k) } }
+                        Text { visible: Object.keys(friendsPage.picked).length > 0 && !friendsPage.gamesLoading && friendsPage.games.length === 0
+                               Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 13
+                               text: qsTr("No multiplayer game you all own (or their game details are private on Steam).") }
+                        ListView {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            clip: true
+                            spacing: 8
+                            model: friendsPage.games
+                            ScrollBar.vertical: KScrollBar { }
+                            delegate: Rectangle {
+                                id: sg
+                                required property var modelData
+                                width: ListView.view.width - 10; height: 84; radius: 14
+                                color: theme.surfaceContainerHigh
+                                RoundedArt {
+                                    x: 10; anchors.verticalCenter: parent.verticalCenter
+                                    width: 46; height: 66; radius: 7
+                                    Rectangle { anchors.fill: parent; color: theme.surfaceContainerHighest }
+                                    ArtImage { anchors.fill: parent; sources: sg.modelData.covers || []; sourceSize.width: 92 }
+                                }
+                                Column {
+                                    x: 68; width: parent.width - 68 - sgButtons.width - 20
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 3
+                                    Text { width: parent.width; text: sg.modelData.title; color: theme.onSurface; font.pixelSize: 15; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                                    Text { width: parent.width; elide: Text.ElideRight; font.pixelSize: 12
+                                           color: sg.modelData.all ? "#7bd88f" : theme.onSurfaceVariant
+                                           text: (sg.modelData.all ? qsTr("Everyone has it") : qsTr("Has it: ") + sg.modelData.owners.map(friendsPage.nameOf).join(", "))
+                                                 + "  \u00B7  " + Math.round(sg.modelData.hours) + qsTr(" h between them") }
+                                    Text { text: sg.modelData.installed ? qsTr("Installed") : qsTr("Not installed"); color: theme.outline; font.pixelSize: 11 }
+                                }
+                                Row {
+                                    id: sgButtons
+                                    anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
+                                    spacing: 6
+                                    KButton { theme: win.theme; implicitHeight: 34; iconName: "external-link"; text: qsTr("Copy invite")
+                                              onClicked: app.copyInvite(sg.modelData.appid, sg.modelData.title) }
+                                    KButton { theme: win.theme; implicitHeight: 34; primary: true; iconName: sg.modelData.installed ? "play" : "download"
+                                              text: sg.modelData.installed ? qsTr("Play") : qsTr("Install"); enabled: !!sg.modelData.key
+                                              onClicked: { const k = sg.modelData.key; friendsPage.close(); sg.modelData.installed ? win.activate(k) : win.install(k) } }
+                                }
+                            }
                         }
                     }
                 }
@@ -2693,12 +2728,12 @@ ApplicationWindow {
         property string q: ""
         readonly property var actions: [
             { t: qsTr("Settings"), i: "sliders-horizontal", k: "Ctrl+,", run: () => prefs.open() },
-            { t: qsTr("Stats"), i: "trophy", k: "Ctrl+I", run: () => statsBox.show() },
-            { t: qsTr("What should I play?"), i: "gamepad-2", k: "Ctrl+P", run: () => picker.show() },
-            { t: qsTr("Add a game"), i: "plus", k: "Ctrl+N", run: () => addBox.show() },
-            { t: qsTr("Storage"), i: "folder-open", k: "", run: () => storage.show() },
-            { t: qsTr("Screenshots"), i: "images", k: "Ctrl+Shift+S", run: () => shotsPage.show() },
-            { t: qsTr("Play with friends"), i: "user-round", k: "", run: () => friendsPage.show() },
+            { t: qsTr("Stats"), i: "trophy", k: "Ctrl+I", run: () => win.need(statsBoxLoader).show() },
+            { t: qsTr("What should I play?"), i: "gamepad-2", k: "Ctrl+P", run: () => win.need(pickerLoader).show() },
+            { t: qsTr("Add a game"), i: "plus", k: "Ctrl+N", run: () => win.need(addBoxLoader).show() },
+            { t: qsTr("Storage"), i: "folder-open", k: "", run: () => win.need(storageLoader).show() },
+            { t: qsTr("Screenshots"), i: "images", k: "Ctrl+Shift+S", run: () => win.need(shotsPageLoader).show() },
+            { t: qsTr("Play with friends"), i: "user-round", k: "", run: () => win.need(friendsPageLoader).show() },
             { t: qsTr("Health check"), i: "check", k: "", run: () => healthBox.show() },
             { t: qsTr("Accounts"), i: "user-round", k: "", run: () => accounts.open() },
             { t: qsTr("TV mode"), i: "tv", k: "F11", run: () => { win.tv = true } },
@@ -3325,7 +3360,7 @@ ApplicationWindow {
                         visible: !win.selected.job && !!win.selected.installed
                         text: qsTr("Play on TV")
                         iconName: "tv"
-                        onClicked: { app.playOnTv(win.selectedKey); tvPlayBox.open() }
+                        onClicked: { app.playOnTv(win.selectedKey); win.need(tvPlayBoxLoader).open() }
                     }
                     KButton {
                         theme: detail.tint
@@ -3346,7 +3381,7 @@ ApplicationWindow {
                         visible: !!win.selected.hasDlc && detail.dlcCount !== 0
                         text: detail.dlcCount > 0 ? qsTr("DLC · ") + detail.dlcCount : qsTr("DLC")
                         iconName: "puzzle"
-                        onClicked: dlc.show(win.selectedKey, win.selected.title)
+                        onClicked: win.need(dlcLoader).show(win.selectedKey, win.selected.title)
                     }
                     // Mods, for the games Cornerplay can mod (mods.py): how many are switched on.
                     KButton {
@@ -3382,7 +3417,7 @@ ApplicationWindow {
                                 spacing: 2
                                 MenuRow { icon: "bookmark"; text: (win.selected.collections || []).length ? qsTr("Collections · ") + win.selected.collections.length : qsTr("Add to a collection")
                                           onPicked: { moreMenu.close(); collPick.show(win.selectedKey, win.selected.title) } }
-                                MenuRow { icon: "settings-2"; text: qsTr("Options"); onPicked: { moreMenu.close(); gameOpts.show(win.selectedKey) } }
+                                MenuRow { icon: "settings-2"; text: qsTr("Options"); onPicked: { moreMenu.close(); win.need(gameOptsLoader).show(win.selectedKey) } }
                                 MenuRow { icon: "cloud"; text: qsTr("Save backups"); onPicked: { moreMenu.close(); savesBox.show(win.selectedKey, win.selected.title) } }
                                 MenuRow { icon: win.selected.hidden ? "eye" : "eye-off"; text: win.selected.hidden ? qsTr("Unhide") : qsTr("Hide")
                                           onPicked: { moreMenu.close(); app.setHidden(win.selectedKey, !win.selected.hidden); detail.close() } }
@@ -4324,269 +4359,278 @@ ApplicationWindow {
 
     // -------------------------------------------------------------------- storage
     // Every installed game by size, how full each drive is, and Move / Uninstall.
-    KDialog {
-        id: storage
-        objectName: "storageBox"
-        theme: win.theme
-        heading: qsTr("Storage")
-        headingIcon: "folder-open"
-        property var d: ({ games: [], drives: [] })
-        property bool loading: false
-        property bool tidy: false   // "Free up space": big games not played for three months
-        property string moveKey: ""
-        function show() { loading = true; clean = ({}); app.loadStorage(); app.loadPrefixes(); app.loadCleanup(); open() }
-        // What games leave behind (cleanup.py): {groups: [{id, count, size, items}], size}
-        property var clean: ({})
-        Connections { target: app; function onCleanupReady(found) { storage.clean = found } }
-        Connections { target: app; function onStorageReady(info) { storage.d = info; storage.loading = false } }
-        property var prefixes: []
-        Connections { target: app; function onPrefixesReady(rows) { storage.prefixes = rows } }
-        Connections { target: app; function onGameChanged(key) { if (storage.opened && key && storage.loading === false && !app.game(key).job) app.loadStorage() } }
-        width: Math.min(win.width - 60, 820)
-        // As tall as what it holds, up to the window: few games make a short dialog.
-        height: Math.min(win.height - 60, 760, implicitHeight)
-        readonly property var shown: (d.games || []).filter(g => !tidy || (g.bytes > 2 * 1024 * 1024 * 1024
-                                       && (!g.last || g.last < Date.now() / 1000 - 90 * 86400)))
-        contentItem: ColumnLayout {
-            spacing: 14
-            // Drives
-            Repeater {
-                model: storage.d.drives || []
-                ColumnLayout {
-                    required property var modelData
-                    Layout.fillWidth: true
-                    spacing: 6
+    // Built the first time it is needed (win.need), then kept: most people never open it,
+    // and every dialog built at start costs memory for the whole session.
+    Loader {
+        id: storageLoader
+        active: false
+        onLoaded: win.storage = item
+        sourceComponent: Component {
+            KDialog {
+                id: storage
+                objectName: "storageBox"
+                theme: win.theme
+                heading: qsTr("Storage")
+                headingIcon: "folder-open"
+                property var d: ({ games: [], drives: [] })
+                property bool loading: false
+                property bool tidy: false   // "Free up space": big games not played for three months
+                property string moveKey: ""
+                function show() { loading = true; clean = ({}); app.loadStorage(); app.loadPrefixes(); app.loadCleanup(); open() }
+                // What games leave behind (cleanup.py): {groups: [{id, count, size, items}], size}
+                property var clean: ({})
+                Connections { target: app; function onCleanupReady(found) { storage.clean = found } }
+                Connections { target: app; function onStorageReady(info) { storage.d = info; storage.loading = false } }
+                property var prefixes: []
+                Connections { target: app; function onPrefixesReady(rows) { storage.prefixes = rows } }
+                Connections { target: app; function onGameChanged(key) { if (storage.opened && key && storage.loading === false && !app.game(key).job) app.loadStorage() } }
+                width: Math.min(win.width - 60, 820)
+                // As tall as what it holds, up to the window: few games make a short dialog.
+                height: Math.min(win.height - 60, 760, implicitHeight)
+                readonly property var shown: (d.games || []).filter(g => !tidy || (g.bytes > 2 * 1024 * 1024 * 1024
+                                               && (!g.last || g.last < Date.now() / 1000 - 90 * 86400)))
+                contentItem: ColumnLayout {
+                    spacing: 14
+                    // Drives
+                    Repeater {
+                        model: storage.d.drives || []
+                        ColumnLayout {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            spacing: 6
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Text { text: modelData.label + "  (" + modelData.mount + ")"; color: theme.onSurface; font.pixelSize: 14; font.weight: Font.DemiBold; Layout.fillWidth: true; elide: Text.ElideMiddle }
+                                Text { text: modelData.freeText + qsTr(" free of ") + modelData.totalText; color: theme.onSurfaceVariant; font.pixelSize: 12 }
+                                KButton { theme: win.theme; text: qsTr("Test speed"); iconName: "gauge"; onClicked: app.testDriveSpeed(modelData.mount) }
+                            }
+                            Rectangle {
+                                Layout.fillWidth: true
+                                implicitHeight: 10; radius: 5
+                                color: theme.surfaceContainerHighest
+                                Rectangle {  // everything used
+                                    height: parent.height; radius: 5
+                                    width: parent.width * modelData.used / Math.max(1, modelData.total)
+                                    color: Qt.alpha(theme.onSurfaceVariant, 0.45)
+                                }
+                                Rectangle {  // the games' share
+                                    height: parent.height; radius: 5
+                                    width: parent.width * modelData.gameBytes / Math.max(1, modelData.total)
+                                    color: modelData.free / Math.max(1, modelData.total) < 0.1 ? theme.error : theme.primary
+                                }
+                            }
+                            Text { text: modelData.games + (modelData.games === 1 ? qsTr(" game, ") : qsTr(" games, ")) + modelData.gamesText; color: theme.outline; font.pixelSize: 12 }
+                        }
+                    }
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: modelData.label + "  (" + modelData.mount + ")"; color: theme.onSurface; font.pixelSize: 14; font.weight: Font.DemiBold; Layout.fillWidth: true; elide: Text.ElideMiddle }
-                        Text { text: modelData.freeText + qsTr(" free of ") + modelData.totalText; color: theme.onSurfaceVariant; font.pixelSize: 12 }
-                        KButton { theme: win.theme; text: qsTr("Test speed"); iconName: "gauge"; onClicked: app.testDriveSpeed(modelData.mount) }
-                    }
-                    Rectangle {
-                        Layout.fillWidth: true
-                        implicitHeight: 10; radius: 5
-                        color: theme.surfaceContainerHighest
-                        Rectangle {  // everything used
-                            height: parent.height; radius: 5
-                            width: parent.width * modelData.used / Math.max(1, modelData.total)
-                            color: Qt.alpha(theme.onSurfaceVariant, 0.45)
-                        }
-                        Rectangle {  // the games' share
-                            height: parent.height; radius: 5
-                            width: parent.width * modelData.gameBytes / Math.max(1, modelData.total)
-                            color: modelData.free / Math.max(1, modelData.total) < 0.1 ? theme.error : theme.primary
-                        }
-                    }
-                    Text { text: modelData.games + (modelData.games === 1 ? qsTr(" game, ") : qsTr(" games, ")) + modelData.gamesText; color: theme.outline; font.pixelSize: 12 }
-                }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                // The total, when it says more than the one drive above does.
-                Text { text: storage.loading ? qsTr("Measuring your games…")
-                             : ((storage.d.drives || []).length > 1 || storage.tidy) ? (storage.shown.length + qsTr(" games · ") + (storage.d.total || "")) : ""
-                       color: theme.onSurfaceVariant; font.pixelSize: 13; Layout.fillWidth: true }
-                // Free up space: all of them at once, saves kept (the Put away shelf brings them back).
-                KButton {
-                    id: awayAll
-                    property bool armed: false
-                    theme: win.theme
-                    primary: true
-                    visible: storage.tidy && storage.shown.some(g => g.store !== "steam" && g.store !== "battlenet")
-                    readonly property var keys: storage.shown.filter(g => g.store !== "steam" && g.store !== "battlenet").map(g => g.key)
-                    readonly property real bytes: storage.shown.filter(g => g.store !== "steam" && g.store !== "battlenet").reduce((a, g) => a + g.bytes, 0)
-                    text: armed ? qsTr("Sure? %1 games").arg(keys.length) : qsTr("Put away all (%1)").arg((bytes / 1073741824).toFixed(bytes > 10737418240 ? 0 : 1) + " GB")
-                    iconName: "download"
-                    onClicked: { if (!armed) { armed = true; return } armed = false; app.putAway(keys); storage.tidy = false }
-                }
-                // btrfs: identical Windows files shared between Proton prefixes (safety.py).
-                KButton {
-                    theme: win.theme
-                    visible: app.canCompress && !storage.tidy
-                    text: qsTr("Share prefix files")
-                    iconName: "copy"
-                    ToolTip.visible: hovered; ToolTip.delay: 400
-                    ToolTip.text: qsTr("Every Windows game has its own Proton prefix, mostly the same Windows files. Files that are exactly the same share their data on btrfs: the games see no change, the disk keeps one copy.")
-                    onClicked: app.sharePrefixFiles()
-                }
-                // btrfs: compress every installed game not played for a month (compress.py).
-                KButton {
-                    theme: win.theme
-                    visible: app.canCompress && !storage.tidy
-                    text: qsTr("Compress unplayed games")
-                    iconName: "hard-drive"
-                    ToolTip.visible: hovered; ToolTip.delay: 400
-                    ToolTip.text: qsTr("Rewrites the files of games you have not played for a month with btrfs compression: often 20–40% less space, the games run as before. With btrfs snapshots of your games folder it uses more space until those go.")
-                    onClicked: app.compressIdle()
-                }
-                KButton {
-                    theme: win.theme
-                    text: storage.tidy ? qsTr("Show all") : qsTr("Free up space")
-                    iconName: storage.tidy ? "library" : "trash-2"
-                    onClicked: storage.tidy = !storage.tidy
-                }
-            }
-            // Clean up: shader caches of uninstalled Steam games, old crash dumps, redist installers.
-            Rectangle {
-                Layout.fillWidth: true
-                readonly property var groups: (storage.clean.groups || []).filter(g => g.count > 0)
-                visible: groups.length > 0
-                implicitHeight: cleanCol.implicitHeight + 20
-                radius: 12
-                color: theme.surfaceContainerHigh
-                ColumnLayout {
-                    id: cleanCol
-                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 10 }
-                    spacing: 6
-                    Text {
-                        Layout.fillWidth: true; wrapMode: Text.WordWrap
-                        text: qsTr("Clean up: %1 that games left behind, safe to delete (saves and settings are never touched).").arg(storage.clean.size || "")
-                        color: theme.onSurfaceVariant; font.pixelSize: 12
-                    }
-                    Repeater {
-                        model: parent.parent.groups
-                        RowLayout {
-                            id: cleanRow
-                            required property var modelData
-                            Layout.fillWidth: true
-                            spacing: 8
-                            readonly property var names: ({
-                                shaders: [qsTr("Shader caches of uninstalled Steam games"), qsTr("Steam builds them again if you reinstall")],
-                                crashes: [qsTr("Crash dumps"), qsTr("Over a day old, from game folders and their Proton prefixes")],
-                                redist: [qsTr("DirectX and Visual C++ installers"), qsTr("Only needed the first time a game starts; Steam may fetch them again if it verifies a game")] })
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 1
-                                Text { text: cleanRow.names[cleanRow.modelData.id][0] + "  \u00B7  " + cleanRow.modelData.count
-                                       color: theme.onSurface; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight
-                                       ToolTip.visible: cleanTip.hovered; ToolTip.delay: 400
-                                       ToolTip.text: cleanRow.modelData.items.slice(0, 8).map(i => i.name + "  " + i.size).join("\n")
-                                       HoverHandler { id: cleanTip } }
-                                Text { text: cleanRow.names[cleanRow.modelData.id][1]; color: theme.outline; font.pixelSize: 11; Layout.fillWidth: true; elide: Text.ElideRight }
-                            }
-                            Text { text: cleanRow.modelData.size; color: theme.onSurfaceVariant; font.pixelSize: 12 }
-                            KButton { property bool armed: false; theme: win.theme; danger: true; iconName: "trash-2"
-                                      text: armed ? qsTr("Sure?") : qsTr("Clean up")
-                                      onClicked: { if (!armed) { armed = true; return } armed = false; app.cleanUp(cleanRow.modelData.id) } }
-                        }
-                    }
-                }
-            }
-            // Proton prefixes no installed game uses (and old ones put aside by Reset).
-            Rectangle {
-                Layout.fillWidth: true
-                visible: storage.prefixes.length > 0
-                implicitHeight: pfx.implicitHeight + 20
-                radius: 12
-                color: theme.surfaceContainerHigh
-                ColumnLayout {
-                    id: pfx
-                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 10 }
-                    spacing: 6
-                    Text {
-                        Layout.fillWidth: true; wrapMode: Text.WordWrap
-                        text: qsTr("Leftover Proton prefixes (Windows settings of games no longer installed). They can hold saves from games without cloud saves: delete only what you are sure about.")
-                        color: theme.onSurfaceVariant; font.pixelSize: 12
-                    }
-                    Repeater {
-                        model: storage.prefixes
-                        RowLayout {
-                            required property var modelData
-                            Layout.fillWidth: true
-                            Text { Layout.fillWidth: true; text: modelData.name + (modelData.reset ? qsTr("  (put aside by Reset)") : ""); color: theme.onSurface; font.pixelSize: 13; elide: Text.ElideMiddle }
-                            Text { text: modelData.size; color: theme.onSurfaceVariant; font.pixelSize: 12 }
-                            KButton { property bool armed: false; theme: win.theme; danger: true; iconName: "trash-2"
-                                      text: armed ? qsTr("Sure?") : qsTr("Delete")
-                                      onClicked: { if (!armed) { armed = true; return } app.deletePrefix(modelData.path) } }
-                        }
-                    }
-                }
-            }
-            Text {
-                Layout.fillWidth: true
-                visible: storage.tidy
-                wrapMode: Text.WordWrap
-                text: storage.shown.length ? qsTr("Games over 2 GB you haven't played for three months, biggest first. Put away uninstalls a game and keeps its saves; it waits on the Put away shelf, one Install from coming back.")
-                                           : qsTr("Nothing to clear: every big game was played lately.")
-                color: theme.outline; font.pixelSize: 12
-            }
-            Text {
-                visible: !storage.loading && !storage.tidy && storage.shown.length === 0
-                Layout.fillWidth: true; wrapMode: Text.WordWrap
-                text: qsTr("No games installed yet: what you install shows here by size.")
-                color: theme.outline; font.pixelSize: 12
-            }
-            ListView {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.preferredHeight: contentHeight
-                clip: true
-                spacing: 6
-                model: storage.shown
-                ScrollBar.vertical: KScrollBar { }
-                delegate: Rectangle {
-                    required property var modelData
-                    readonly property var live: app.game(modelData.key)
-                    width: ListView.view.width
-                    height: 62; radius: 12
-                    color: theme.surfaceContainerHigh
-                    RoundedArt {
-                        x: 8; anchors.verticalCenter: parent.verticalCenter
-                        width: 34; height: 48; radius: 6
-                        ArtImage { anchors.fill: parent; sources: modelData.covers || []; sourceSize.width: 68 }
-                    }
-                    Column {
-                        x: 54; anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - 54 - actions.width - 20
-                        spacing: 3
-                        Text { width: parent.width; text: modelData.title; color: theme.onSurface; font.pixelSize: 14; font.weight: Font.DemiBold; elide: Text.ElideRight }
-                        Row {
-                            spacing: 6
-                            StoreIcon { size: 12; store: modelData.store; color: modelData.storeColor; anchors.verticalCenter: parent.verticalCenter }
-                            Text { text: live.job === "move" ? qsTr("Moving ") + Math.max(0, Math.floor(live.progress)) + "%"
-                                         : modelData.size + "  ·  " + qsTr("played ") + modelData.lastText
-                                   color: live.job ? theme.primary : theme.onSurfaceVariant; font.pixelSize: 12 }
-                        }
-                    }
-                    Row {
-                        id: actions
-                        anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
-                        spacing: 6
+                        spacing: 8
+                        // The total, when it says more than the one drive above does.
+                        Text { text: storage.loading ? qsTr("Measuring your games…")
+                                     : ((storage.d.drives || []).length > 1 || storage.tidy) ? (storage.shown.length + qsTr(" games · ") + (storage.d.total || "")) : ""
+                               color: theme.onSurfaceVariant; font.pixelSize: 13; Layout.fillWidth: true }
+                        // Free up space: all of them at once, saves kept (the Put away shelf brings them back).
                         KButton {
-                            theme: win.theme
-                            visible: !live.job && modelData.store !== "battlenet"
-                            text: qsTr("Move")
-                            iconName: "folder-open"
-                            onClicked: {
-                                if (!modelData.movable) { app.moveGame(modelData.key, ""); return }
-                                storage.moveKey = modelData.key
-                                moveDest.open()
-                            }
-                        }
-                        KButton {
-                            theme: win.theme
-                            visible: !!live.job
-                            text: qsTr("Cancel")
-                            iconName: "x"
-                            onClicked: app.cancel(modelData.key)
-                        }
-                        KButton {
-                            theme: win.theme
-                            visible: storage.tidy && !live.job && modelData.store !== "battlenet" && modelData.store !== "steam"
-                            text: qsTr("Put away")
-                            iconName: "download"
-                            onClicked: app.putAway([modelData.key])
-                        }
-                        KButton {
-                            id: rmBtn
+                            id: awayAll
                             property bool armed: false
                             theme: win.theme
-                            danger: true
-                            visible: !live.job && modelData.store !== "battlenet"
-                            text: armed ? qsTr("Sure?") : qsTr("Uninstall")
-                            iconName: "trash-2"
-                            onClicked: { if (!armed) { armed = true; return } armed = false; app.uninstall(modelData.key) }
+                            primary: true
+                            visible: storage.tidy && storage.shown.some(g => g.store !== "steam" && g.store !== "battlenet")
+                            readonly property var keys: storage.shown.filter(g => g.store !== "steam" && g.store !== "battlenet").map(g => g.key)
+                            readonly property real bytes: storage.shown.filter(g => g.store !== "steam" && g.store !== "battlenet").reduce((a, g) => a + g.bytes, 0)
+                            text: armed ? qsTr("Sure? %1 games").arg(keys.length) : qsTr("Put away all (%1)").arg((bytes / 1073741824).toFixed(bytes > 10737418240 ? 0 : 1) + " GB")
+                            iconName: "download"
+                            onClicked: { if (!armed) { armed = true; return } armed = false; app.putAway(keys); storage.tidy = false }
+                        }
+                        // btrfs: identical Windows files shared between Proton prefixes (safety.py).
+                        KButton {
+                            theme: win.theme
+                            visible: app.canCompress && !storage.tidy
+                            text: qsTr("Share prefix files")
+                            iconName: "copy"
+                            ToolTip.visible: hovered; ToolTip.delay: 400
+                            ToolTip.text: qsTr("Every Windows game has its own Proton prefix, mostly the same Windows files. Files that are exactly the same share their data on btrfs: the games see no change, the disk keeps one copy.")
+                            onClicked: app.sharePrefixFiles()
+                        }
+                        // btrfs: compress every installed game not played for a month (compress.py).
+                        KButton {
+                            theme: win.theme
+                            visible: app.canCompress && !storage.tidy
+                            text: qsTr("Compress unplayed games")
+                            iconName: "hard-drive"
+                            ToolTip.visible: hovered; ToolTip.delay: 400
+                            ToolTip.text: qsTr("Rewrites the files of games you have not played for a month with btrfs compression: often 20–40% less space, the games run as before. With btrfs snapshots of your games folder it uses more space until those go.")
+                            onClicked: app.compressIdle()
+                        }
+                        KButton {
+                            theme: win.theme
+                            text: storage.tidy ? qsTr("Show all") : qsTr("Free up space")
+                            iconName: storage.tidy ? "library" : "trash-2"
+                            onClicked: storage.tidy = !storage.tidy
+                        }
+                    }
+                    // Clean up: shader caches of uninstalled Steam games, old crash dumps, redist installers.
+                    Rectangle {
+                        Layout.fillWidth: true
+                        readonly property var groups: (storage.clean.groups || []).filter(g => g.count > 0)
+                        visible: groups.length > 0
+                        implicitHeight: cleanCol.implicitHeight + 20
+                        radius: 12
+                        color: theme.surfaceContainerHigh
+                        ColumnLayout {
+                            id: cleanCol
+                            anchors { left: parent.left; right: parent.right; top: parent.top; margins: 10 }
+                            spacing: 6
+                            Text {
+                                Layout.fillWidth: true; wrapMode: Text.WordWrap
+                                text: qsTr("Clean up: %1 that games left behind, safe to delete (saves and settings are never touched).").arg(storage.clean.size || "")
+                                color: theme.onSurfaceVariant; font.pixelSize: 12
+                            }
+                            Repeater {
+                                model: parent.parent.groups
+                                RowLayout {
+                                    id: cleanRow
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    readonly property var names: ({
+                                        shaders: [qsTr("Shader caches of uninstalled Steam games"), qsTr("Steam builds them again if you reinstall")],
+                                        crashes: [qsTr("Crash dumps"), qsTr("Over a day old, from game folders and their Proton prefixes")],
+                                        redist: [qsTr("DirectX and Visual C++ installers"), qsTr("Only needed the first time a game starts; Steam may fetch them again if it verifies a game")] })
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 1
+                                        Text { text: cleanRow.names[cleanRow.modelData.id][0] + "  \u00B7  " + cleanRow.modelData.count
+                                               color: theme.onSurface; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight
+                                               ToolTip.visible: cleanTip.hovered; ToolTip.delay: 400
+                                               ToolTip.text: cleanRow.modelData.items.slice(0, 8).map(i => i.name + "  " + i.size).join("\n")
+                                               HoverHandler { id: cleanTip } }
+                                        Text { text: cleanRow.names[cleanRow.modelData.id][1]; color: theme.outline; font.pixelSize: 11; Layout.fillWidth: true; elide: Text.ElideRight }
+                                    }
+                                    Text { text: cleanRow.modelData.size; color: theme.onSurfaceVariant; font.pixelSize: 12 }
+                                    KButton { property bool armed: false; theme: win.theme; danger: true; iconName: "trash-2"
+                                              text: armed ? qsTr("Sure?") : qsTr("Clean up")
+                                              onClicked: { if (!armed) { armed = true; return } armed = false; app.cleanUp(cleanRow.modelData.id) } }
+                                }
+                            }
+                        }
+                    }
+                    // Proton prefixes no installed game uses (and old ones put aside by Reset).
+                    Rectangle {
+                        Layout.fillWidth: true
+                        visible: storage.prefixes.length > 0
+                        implicitHeight: pfx.implicitHeight + 20
+                        radius: 12
+                        color: theme.surfaceContainerHigh
+                        ColumnLayout {
+                            id: pfx
+                            anchors { left: parent.left; right: parent.right; top: parent.top; margins: 10 }
+                            spacing: 6
+                            Text {
+                                Layout.fillWidth: true; wrapMode: Text.WordWrap
+                                text: qsTr("Leftover Proton prefixes (Windows settings of games no longer installed). They can hold saves from games without cloud saves: delete only what you are sure about.")
+                                color: theme.onSurfaceVariant; font.pixelSize: 12
+                            }
+                            Repeater {
+                                model: storage.prefixes
+                                RowLayout {
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    Text { Layout.fillWidth: true; text: modelData.name + (modelData.reset ? qsTr("  (put aside by Reset)") : ""); color: theme.onSurface; font.pixelSize: 13; elide: Text.ElideMiddle }
+                                    Text { text: modelData.size; color: theme.onSurfaceVariant; font.pixelSize: 12 }
+                                    KButton { property bool armed: false; theme: win.theme; danger: true; iconName: "trash-2"
+                                              text: armed ? qsTr("Sure?") : qsTr("Delete")
+                                              onClicked: { if (!armed) { armed = true; return } app.deletePrefix(modelData.path) } }
+                                }
+                            }
+                        }
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        visible: storage.tidy
+                        wrapMode: Text.WordWrap
+                        text: storage.shown.length ? qsTr("Games over 2 GB you haven't played for three months, biggest first. Put away uninstalls a game and keeps its saves; it waits on the Put away shelf, one Install from coming back.")
+                                                   : qsTr("Nothing to clear: every big game was played lately.")
+                        color: theme.outline; font.pixelSize: 12
+                    }
+                    Text {
+                        visible: !storage.loading && !storage.tidy && storage.shown.length === 0
+                        Layout.fillWidth: true; wrapMode: Text.WordWrap
+                        text: qsTr("No games installed yet: what you install shows here by size.")
+                        color: theme.outline; font.pixelSize: 12
+                    }
+                    ListView {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.preferredHeight: contentHeight
+                        clip: true
+                        spacing: 6
+                        model: storage.shown
+                        ScrollBar.vertical: KScrollBar { }
+                        delegate: Rectangle {
+                            required property var modelData
+                            readonly property var live: app.game(modelData.key)
+                            width: ListView.view.width
+                            height: 62; radius: 12
+                            color: theme.surfaceContainerHigh
+                            RoundedArt {
+                                x: 8; anchors.verticalCenter: parent.verticalCenter
+                                width: 34; height: 48; radius: 6
+                                ArtImage { anchors.fill: parent; sources: modelData.covers || []; sourceSize.width: 68 }
+                            }
+                            Column {
+                                x: 54; anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width - 54 - actions.width - 20
+                                spacing: 3
+                                Text { width: parent.width; text: modelData.title; color: theme.onSurface; font.pixelSize: 14; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                                Row {
+                                    spacing: 6
+                                    StoreIcon { size: 12; store: modelData.store; color: modelData.storeColor; anchors.verticalCenter: parent.verticalCenter }
+                                    Text { text: live.job === "move" ? qsTr("Moving ") + Math.max(0, Math.floor(live.progress)) + "%"
+                                                 : modelData.size + "  ·  " + qsTr("played ") + modelData.lastText
+                                           color: live.job ? theme.primary : theme.onSurfaceVariant; font.pixelSize: 12 }
+                                }
+                            }
+                            Row {
+                                id: actions
+                                anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+                                spacing: 6
+                                KButton {
+                                    theme: win.theme
+                                    visible: !live.job && modelData.store !== "battlenet"
+                                    text: qsTr("Move")
+                                    iconName: "folder-open"
+                                    onClicked: {
+                                        if (!modelData.movable) { app.moveGame(modelData.key, ""); return }
+                                        storage.moveKey = modelData.key
+                                        moveDest.open()
+                                    }
+                                }
+                                KButton {
+                                    theme: win.theme
+                                    visible: !!live.job
+                                    text: qsTr("Cancel")
+                                    iconName: "x"
+                                    onClicked: app.cancel(modelData.key)
+                                }
+                                KButton {
+                                    theme: win.theme
+                                    visible: storage.tidy && !live.job && modelData.store !== "battlenet" && modelData.store !== "steam"
+                                    text: qsTr("Put away")
+                                    iconName: "download"
+                                    onClicked: app.putAway([modelData.key])
+                                }
+                                KButton {
+                                    id: rmBtn
+                                    property bool armed: false
+                                    theme: win.theme
+                                    danger: true
+                                    visible: !live.job && modelData.store !== "battlenet"
+                                    text: armed ? qsTr("Sure?") : qsTr("Uninstall")
+                                    iconName: "trash-2"
+                                    onClicked: { if (!armed) { armed = true; return } armed = false; app.uninstall(modelData.key) }
+                                }
+                            }
                         }
                     }
                 }
@@ -4624,7 +4668,7 @@ ApplicationWindow {
     FolderDialog {
         id: moveDest
         title: qsTr("Move to which folder?")
-        onAccepted: app.moveGame(storage.moveKey, selectedFolder.toString())
+        onAccepted: app.moveGame(win.storage.moveKey, selectedFolder.toString())
     }
 
     // Picking several games: Ctrl+click one, Shift+click a range, Ctrl+A all; Esc lets go.
@@ -4767,7 +4811,7 @@ ApplicationWindow {
                       onPicked: { const k = gameMenu.key, t = gameMenu.g.title; gameMenu.close(); collPick.show(k, t) } }
             MenuRow { visible: gameMenu.g.store === "prism"; icon: "folder-open"; text: qsTr("Open in Prism Launcher (mods, worlds)")
                       onPicked: { const k = gameMenu.key; gameMenu.close(); app.openInPrism(k) } }
-            MenuRow { icon: "settings-2"; text: qsTr("Options"); onPicked: { const k = gameMenu.key; gameMenu.close(); gameOpts.show(k) } }
+            MenuRow { icon: "settings-2"; text: qsTr("Options"); onPicked: { const k = gameMenu.key; gameMenu.close(); win.need(gameOptsLoader).show(k) } }
             MenuRow { icon: "cloud"; text: qsTr("Save backups")
                       onPicked: { const k = gameMenu.key, t = gameMenu.g.title; gameMenu.close(); savesBox.show(k, t) } }
             MenuRow {
@@ -4786,7 +4830,7 @@ ApplicationWindow {
                 readonly property string log: gameMenu.opened ? app.protonLog(gameMenu.key) : ""
                 visible: log !== ""
                 icon: "search"; text: qsTr("What the Proton log says")
-                onPicked: { const k = gameMenu.key, t = gameMenu.g.title; gameMenu.close(); logBox.show(k, t) }
+                onPicked: { const k = gameMenu.key, t = gameMenu.g.title; gameMenu.close(); win.need(logBoxLoader).show(k, t) }
             }
             MenuRow {
                 readonly property string log: gameMenu.opened ? app.protonLog(gameMenu.key) : ""
@@ -4834,232 +4878,250 @@ ApplicationWindow {
     }
 
     // -------------------------------------------------------------------- what should I play?
-    KDialog {
-        id: picker
-        objectName: "picker"
-        theme: win.theme
-        heading: qsTr("What should I play?")
-        headingIcon: "gamepad-2"
-        property string length: ""
-        property string company: ""
-        property bool installedOnly: true
-        property var picks: []
-        readonly property var g: picks.length ? picks[0] : ({})
-        property var seen: []
-        function show() { seen = []; roll(); open() }
-        function roll() {
-            picks = app.pickGames(length, installedOnly, seen.join(","), company)
-            seen = seen.concat(picks.map(p => p.key)).slice(-18)
-        }
-        function again() { seen = []; roll() }
-        width: Math.min(win.width - 60, 620)
-        component Choice: Rectangle {
-            property string label
-            property bool on: false
-            signal picked()
-            height: 32; radius: 16
-            width: chText.implicitWidth + 28
-            color: on ? theme.primary : chHover.hovered ? theme.surfaceContainerHigh : "transparent"
-            border.width: on ? 0 : 1; border.color: theme.outlineVariant
-            Text { id: chText; anchors.centerIn: parent; text: parent.label; font.pixelSize: 13
-                   color: parent.on ? theme.onPrimary : theme.onSurfaceVariant }
-            HoverHandler { id: chHover; cursorShape: Qt.PointingHandCursor }
-            TapHandler { onTapped: parent.picked() }
-        }
-        contentItem: ColumnLayout {
-            spacing: 14
-            Flow {
-                Layout.fillWidth: true
-                spacing: 6
-                Repeater {
-                    model: [{ id: "", name: qsTr("Any length") }, { id: "quick", name: qsTr("Half an hour") },
-                            { id: "short", name: qsTr("About an hour") }, { id: "long", name: qsTr("A long evening") }]
-                    Choice { required property var modelData; label: modelData.name; on: picker.length === modelData.id
-                             onPicked: { picker.length = modelData.id; picker.again() } }
+    // Built the first time it is needed (win.need), then kept: most people never open it,
+    // and every dialog built at start costs memory for the whole session.
+    Loader {
+        id: pickerLoader
+        active: false
+        onLoaded: win.picker = item
+        sourceComponent: Component {
+            KDialog {
+                id: picker
+                objectName: "picker"
+                theme: win.theme
+                heading: qsTr("What should I play?")
+                headingIcon: "gamepad-2"
+                property string length: ""
+                property string company: ""
+                property bool installedOnly: true
+                property var picks: []
+                readonly property var g: picks.length ? picks[0] : ({})
+                property var seen: []
+                function show() { seen = []; roll(); open() }
+                function roll() {
+                    picks = app.pickGames(length, installedOnly, seen.join(","), company)
+                    seen = seen.concat(picks.map(p => p.key)).slice(-18)
                 }
-            }
-            RowLayout {
-                spacing: 6
-                Choice { label: qsTr("Just me"); on: picker.company === ""; onPicked: { picker.company = ""; picker.again() } }
-                Choice { label: qsTr("Together, one screen"); on: picker.company === "together"; onPicked: { picker.company = "together"; picker.again() } }
-                Item { Layout.fillWidth: true }
-                Text { text: qsTr("Installed only"); color: theme.onSurfaceVariant; font.pixelSize: 13 }
-                Switch {
-                    id: pickInst
-                    checked: picker.installedOnly
-                    onToggled: { picker.installedOnly = checked; picker.again() }
+                function again() { seen = []; roll() }
+                width: Math.min(win.width - 60, 620)
+                component Choice: Rectangle {
+                    property string label
+                    property bool on: false
+                    signal picked()
+                    height: 32; radius: 16
+                    width: chText.implicitWidth + 28
+                    color: on ? theme.primary : chHover.hovered ? theme.surfaceContainerHigh : "transparent"
+                    border.width: on ? 0 : 1; border.color: theme.outlineVariant
+                    Text { id: chText; anchors.centerIn: parent; text: parent.label; font.pixelSize: 13
+                           color: parent.on ? theme.onPrimary : theme.onSurfaceVariant }
+                    HoverHandler { id: chHover; cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: parent.picked() }
                 }
-            }
-            RowLayout {
-                visible: !!picker.g.key
-                spacing: 18
-                RoundedArt {
-                    Layout.preferredWidth: 150; Layout.preferredHeight: 219
-                    radius: 14
-                    ArtImage { anchors.fill: parent; sources: picker.g.covers || []; sourceSize.width: 300 }
-                }
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 10
-                    Text { Layout.fillWidth: true; text: picker.g.title || ""; color: theme.onSurface; font.pixelSize: 22; font.weight: Font.Bold; wrapMode: Text.WordWrap
-                           font.family: app.titleFamily }
-                    Text { Layout.fillWidth: true; text: picker.g.why || ""; color: theme.onSurfaceVariant; font.pixelSize: 14; wrapMode: Text.WordWrap }
-                    Text { text: (picker.g.storeName || "") + (picker.g.installed ? "" : qsTr("  ·  not installed")); color: theme.outline; font.pixelSize: 12 }
-                    Item { Layout.fillHeight: true }
+                contentItem: ColumnLayout {
+                    spacing: 14
                     Flow {
                         Layout.fillWidth: true
-                        spacing: 8
-                        KButton { theme: win.theme; primary: true; text: picker.g.installed ? qsTr("Play") : qsTr("Install"); iconName: picker.g.installed ? "play" : "download"
-                                  onClicked: { const k = picker.g.key; const inst = picker.g.installed; picker.close(); inst ? win.activate(k) : win.install(k) } }
-                        KButton { theme: win.theme; text: qsTr("Three more"); iconName: "refresh-cw"; onClicked: picker.roll() }
-                        KButton { theme: win.theme; text: qsTr("Details"); onClicked: { const k = picker.g.key; picker.close(); win.select(k) } }
+                        spacing: 6
+                        Repeater {
+                            model: [{ id: "", name: qsTr("Any length") }, { id: "quick", name: qsTr("Half an hour") },
+                                    { id: "short", name: qsTr("About an hour") }, { id: "long", name: qsTr("A long evening") }]
+                            Choice { required property var modelData; label: modelData.name; on: picker.length === modelData.id
+                                     onPicked: { picker.length = modelData.id; picker.again() } }
+                        }
                     }
-                }
-            }
-            // The other two: a click makes one the main pick.
-            Text { visible: picker.picks.length > 1; text: qsTr("Or maybe"); color: theme.outline; font.pixelSize: 11; font.weight: Font.DemiBold
-                   font.letterSpacing: 1.1; font.capitalization: Font.AllUppercase }
-            RowLayout {
-                visible: picker.picks.length > 1
-                Layout.fillWidth: true
-                spacing: 10
-                Repeater {
-                    model: picker.picks.slice(1)
-                    Rectangle {
-                        id: alt
-                        required property var modelData
-                        required property int index
-                        Layout.fillWidth: true
-                        Layout.preferredWidth: 1
-                        height: 74; radius: 12
-                        color: altHover.hovered ? theme.surfaceContainerHighest : theme.surfaceContainerHigh
+                    RowLayout {
+                        spacing: 6
+                        Choice { label: qsTr("Just me"); on: picker.company === ""; onPicked: { picker.company = ""; picker.again() } }
+                        Choice { label: qsTr("Together, one screen"); on: picker.company === "together"; onPicked: { picker.company = "together"; picker.again() } }
+                        Item { Layout.fillWidth: true }
+                        Text { text: qsTr("Installed only"); color: theme.onSurfaceVariant; font.pixelSize: 13 }
+                        Switch {
+                            id: pickInst
+                            checked: picker.installedOnly
+                            onToggled: { picker.installedOnly = checked; picker.again() }
+                        }
+                    }
+                    RowLayout {
+                        visible: !!picker.g.key
+                        spacing: 18
                         RoundedArt {
-                            x: 10; anchors.verticalCenter: parent.verticalCenter
-                            width: 38; height: 54; radius: 6
-                            Rectangle { anchors.fill: parent; color: theme.surfaceContainerHighest }
-                            ArtImage { anchors.fill: parent; sources: alt.modelData.covers || []; sourceSize.width: 76 }
+                            Layout.preferredWidth: 150; Layout.preferredHeight: 219
+                            radius: 14
+                            ArtImage { anchors.fill: parent; sources: picker.g.covers || []; sourceSize.width: 300 }
                         }
-                        Column {
-                            x: 58; width: parent.width - 66
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: 3
-                            Text { width: parent.width; text: alt.modelData.title; color: theme.onSurface; font.pixelSize: 13
-                                   font.weight: Font.DemiBold; elide: Text.ElideRight }
-                            Text { width: parent.width; text: alt.modelData.why; color: theme.onSurfaceVariant; font.pixelSize: 11
-                                   wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 10
+                            Text { Layout.fillWidth: true; text: picker.g.title || ""; color: theme.onSurface; font.pixelSize: 22; font.weight: Font.Bold; wrapMode: Text.WordWrap
+                                   font.family: app.titleFamily }
+                            Text { Layout.fillWidth: true; text: picker.g.why || ""; color: theme.onSurfaceVariant; font.pixelSize: 14; wrapMode: Text.WordWrap }
+                            Text { text: (picker.g.storeName || "") + (picker.g.installed ? "" : qsTr("  ·  not installed")); color: theme.outline; font.pixelSize: 12 }
+                            Item { Layout.fillHeight: true }
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                KButton { theme: win.theme; primary: true; text: picker.g.installed ? qsTr("Play") : qsTr("Install"); iconName: picker.g.installed ? "play" : "download"
+                                          onClicked: { const k = picker.g.key; const inst = picker.g.installed; picker.close(); inst ? win.activate(k) : win.install(k) } }
+                                KButton { theme: win.theme; text: qsTr("Three more"); iconName: "refresh-cw"; onClicked: picker.roll() }
+                                KButton { theme: win.theme; text: qsTr("Details"); onClicked: { const k = picker.g.key; picker.close(); win.select(k) } }
+                            }
                         }
-                        HoverHandler { id: altHover; cursorShape: Qt.PointingHandCursor }
-                        TapHandler { onTapped: { const p = picker.picks.slice(); const x = p.splice(alt.index + 1, 1)[0]; p.unshift(x); picker.picks = p } }
+                    }
+                    // The other two: a click makes one the main pick.
+                    Text { visible: picker.picks.length > 1; text: qsTr("Or maybe"); color: theme.outline; font.pixelSize: 11; font.weight: Font.DemiBold
+                           font.letterSpacing: 1.1; font.capitalization: Font.AllUppercase }
+                    RowLayout {
+                        visible: picker.picks.length > 1
+                        Layout.fillWidth: true
+                        spacing: 10
+                        Repeater {
+                            model: picker.picks.slice(1)
+                            Rectangle {
+                                id: alt
+                                required property var modelData
+                                required property int index
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: 1
+                                height: 74; radius: 12
+                                color: altHover.hovered ? theme.surfaceContainerHighest : theme.surfaceContainerHigh
+                                RoundedArt {
+                                    x: 10; anchors.verticalCenter: parent.verticalCenter
+                                    width: 38; height: 54; radius: 6
+                                    Rectangle { anchors.fill: parent; color: theme.surfaceContainerHighest }
+                                    ArtImage { anchors.fill: parent; sources: alt.modelData.covers || []; sourceSize.width: 76 }
+                                }
+                                Column {
+                                    x: 58; width: parent.width - 66
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 3
+                                    Text { width: parent.width; text: alt.modelData.title; color: theme.onSurface; font.pixelSize: 13
+                                           font.weight: Font.DemiBold; elide: Text.ElideRight }
+                                    Text { width: parent.width; text: alt.modelData.why; color: theme.onSurfaceVariant; font.pixelSize: 11
+                                           wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight }
+                                }
+                                HoverHandler { id: altHover; cursorShape: Qt.PointingHandCursor }
+                                TapHandler { onTapped: { const p = picker.picks.slice(); const x = p.splice(alt.index + 1, 1)[0]; p.unshift(x); picker.picks = p } }
+                            }
+                        }
+                    }
+                    Text {
+                        visible: !picker.g.key
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: theme.onSurfaceVariant; font.pixelSize: 14
+                        text: picker.company === "together" ? qsTr("No game for one screen together matches. Try Any length, or turn off Installed only.")
+                              : qsTr("Nothing matches: try Any length, or turn off Installed only.")
                     }
                 }
             }
-            Text {
-                visible: !picker.g.key
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                color: theme.onSurfaceVariant; font.pixelSize: 14
-                text: picker.company === "together" ? qsTr("No game for one screen together matches. Try Any length, or turn off Installed only.")
-                      : qsTr("Nothing matches: try Any length, or turn off Installed only.")
+        }
+    }
+    // Built the first time it is needed (win.need), then kept: most people never open it,
+    // and every dialog built at start costs memory for the whole session.
+    Loader {
+        id: addBoxLoader
+        active: false
+        onLoaded: win.addBox = item
+        sourceComponent: Component {
+            KDialog {
+                id: addBox
+                objectName: "addBox"
+                theme: win.theme
+                heading: qsTr("Add games")
+                headingIcon: "plus"
+                property string exe: ""
+                property string importStore: "epic"
+                property int heroic: 0
+                property int lutris: 0
+                property int bottles: 0
+                function show() { exe = ""; addName.text = ""; addArgs.text = ""; heroic = app.heroicCount(); lutris = app.lutrisCount(); bottles = app.bottlesCount(); open() }
+                width: Math.min(win.width - 60, 620)
+                contentItem: ColumnLayout {
+                    spacing: 16
+                    // 1. any program
+                    Text { text: qsTr("A game or app on this PC"); color: theme.onSurface; font.pixelSize: 14; font.weight: Font.DemiBold }
+                    Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
+                           text: qsTr("A Windows program (.exe) runs through Proton in its own prefix; a Linux program runs as it is. It gets covers, playtime, Options and TV mode like any other game.") }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        KField { Layout.fillWidth: true; theme: win.theme; readOnly: true; placeholderText: qsTr("No program chosen")
+                                 text: addBox.exe ? decodeURIComponent(addBox.exe.replace("file://", "")) : "" }
+                        KButton { theme: win.theme; text: qsTr("Choose…"); iconName: "folder-open"; onClicked: addExe.open() }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        KField { id: addName; Layout.fillWidth: true; theme: win.theme; placeholderText: qsTr("Name (optional: taken from the file)") }
+                        KField { id: addArgs; Layout.preferredWidth: 180; theme: win.theme; placeholderText: qsTr("Arguments") }
+                        KButton { theme: win.theme; primary: true; text: qsTr("Add"); enabled: addBox.exe !== ""
+                                  onClicked: { app.addGame(addBox.exe, addName.text, addArgs.text); addBox.close() } }
+                    }
+                    Rectangle { Layout.fillWidth: true; height: 1; color: theme.outlineVariant }
+                    // 2. already installed
+                    Text { text: qsTr("Games you already installed"); color: theme.onSurface; font.pixelSize: 14; font.weight: Font.DemiBold }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
+                               text: qsTr("GOG games: pick the folder they are in (or one game's folder); every GOG game there is found.") }
+                        KButton { theme: win.theme; text: qsTr("Choose folder…"); iconName: "folder-open"; onClicked: importDir.open() }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        KCombo { id: impStore; theme: win.theme; Layout.preferredWidth: 130
+                                 model: [{ label: qsTr("Epic"), value: "epic" }, { label: qsTr("Amazon"), value: "amazon" }]
+                                 onActivated: addBox.importStore = currentValue }
+                        KCombo { id: impGame; theme: win.theme; Layout.fillWidth: true
+                                 model: app.ownedNotInstalled(addBox.importStore).map(g => ({ label: g.title, value: g.id })) }
+                        KButton { theme: win.theme; text: qsTr("Its folder…"); iconName: "folder-open"; enabled: impGame.count > 0; onClicked: importGameDir.open() }
+                    }
+                    // 3. Heroic
+                    RowLayout {
+                        visible: addBox.heroic > 0
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
+                               text: qsTr("Heroic has ") + addBox.heroic + qsTr(" installed game") + (addBox.heroic === 1 ? "" : "s") + qsTr(". Bring them in (nothing is copied or downloaded).") }
+                        KButton { theme: win.theme; primary: true; text: qsTr("Import from Heroic"); onClicked: { app.importHeroic(); addBox.close() } }
+                    }
+                    // 4. Lutris: its games start through Lutris (its runners and wine builds stay in charge)
+                    RowLayout {
+                        visible: addBox.lutris > 0
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
+                               text: qsTr("Lutris has %1 installed games that are not here yet. Add them: they start through Lutris, with its own settings.").arg(addBox.lutris) }
+                        KButton { theme: win.theme; primary: true; text: qsTr("Import from Lutris"); onClicked: { app.importLutris(); addBox.close() } }
+                    }
+                    // 5. Bottles: its programs start through bottles-cli (the bottle keeps its runner and DLLs)
+                    RowLayout {
+                        visible: addBox.bottles > 0
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
+                               text: qsTr("Bottles has %1 programs that are not here yet. Add them: they start in their bottle, with its own settings.").arg(addBox.bottles) }
+                        KButton { theme: win.theme; primary: true; text: qsTr("Import from Bottles"); onClicked: { app.importBottles(); addBox.close() } }
+                    }
+                }
+            FileDialog {
+                id: addExe
+                title: qsTr("Which program?")
+                onAccepted: { addBox.exe = selectedFile.toString(); if (!addName.text) addName.text = "" }
+            FolderDialog {
+                id: importDir
+                title: qsTr("Which folder are the GOG games in?")
+                onAccepted: { app.importFolder(selectedFolder.toString()); addBox.close() }
+            FolderDialog {
+                id: importGameDir
+                title: qsTr("Where is the game installed?")
+                onAccepted: { app.importGame(addBox.importStore, impGame.currentValue, selectedFolder.toString()); addBox.close() }
             }
         }
     }
-    KDialog {
-        id: addBox
-        objectName: "addBox"
-        theme: win.theme
-        heading: qsTr("Add games")
-        headingIcon: "plus"
-        property string exe: ""
-        property string importStore: "epic"
-        property int heroic: 0
-        property int lutris: 0
-        property int bottles: 0
-        function show() { exe = ""; addName.text = ""; addArgs.text = ""; heroic = app.heroicCount(); lutris = app.lutrisCount(); bottles = app.bottlesCount(); open() }
-        width: Math.min(win.width - 60, 620)
-        contentItem: ColumnLayout {
-            spacing: 16
-            // 1. any program
-            Text { text: qsTr("A game or app on this PC"); color: theme.onSurface; font.pixelSize: 14; font.weight: Font.DemiBold }
-            Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
-                   text: qsTr("A Windows program (.exe) runs through Proton in its own prefix; a Linux program runs as it is. It gets covers, playtime, Options and TV mode like any other game.") }
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                KField { Layout.fillWidth: true; theme: win.theme; readOnly: true; placeholderText: qsTr("No program chosen")
-                         text: addBox.exe ? decodeURIComponent(addBox.exe.replace("file://", "")) : "" }
-                KButton { theme: win.theme; text: qsTr("Choose…"); iconName: "folder-open"; onClicked: addExe.open() }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                KField { id: addName; Layout.fillWidth: true; theme: win.theme; placeholderText: qsTr("Name (optional: taken from the file)") }
-                KField { id: addArgs; Layout.preferredWidth: 180; theme: win.theme; placeholderText: qsTr("Arguments") }
-                KButton { theme: win.theme; primary: true; text: qsTr("Add"); enabled: addBox.exe !== ""
-                          onClicked: { app.addGame(addBox.exe, addName.text, addArgs.text); addBox.close() } }
-            }
-            Rectangle { Layout.fillWidth: true; height: 1; color: theme.outlineVariant }
-            // 2. already installed
-            Text { text: qsTr("Games you already installed"); color: theme.onSurface; font.pixelSize: 14; font.weight: Font.DemiBold }
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
-                       text: qsTr("GOG games: pick the folder they are in (or one game's folder); every GOG game there is found.") }
-                KButton { theme: win.theme; text: qsTr("Choose folder…"); iconName: "folder-open"; onClicked: importDir.open() }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                KCombo { id: impStore; theme: win.theme; Layout.preferredWidth: 130
-                         model: [{ label: qsTr("Epic"), value: "epic" }, { label: qsTr("Amazon"), value: "amazon" }]
-                         onActivated: addBox.importStore = currentValue }
-                KCombo { id: impGame; theme: win.theme; Layout.fillWidth: true
-                         model: app.ownedNotInstalled(addBox.importStore).map(g => ({ label: g.title, value: g.id })) }
-                KButton { theme: win.theme; text: qsTr("Its folder…"); iconName: "folder-open"; enabled: impGame.count > 0; onClicked: importGameDir.open() }
-            }
-            // 3. Heroic
-            RowLayout {
-                visible: addBox.heroic > 0
-                Layout.fillWidth: true
-                spacing: 8
-                Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
-                       text: qsTr("Heroic has ") + addBox.heroic + qsTr(" installed game") + (addBox.heroic === 1 ? "" : "s") + qsTr(". Bring them in (nothing is copied or downloaded).") }
-                KButton { theme: win.theme; primary: true; text: qsTr("Import from Heroic"); onClicked: { app.importHeroic(); addBox.close() } }
-            }
-            // 4. Lutris: its games start through Lutris (its runners and wine builds stay in charge)
-            RowLayout {
-                visible: addBox.lutris > 0
-                Layout.fillWidth: true
-                spacing: 8
-                Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
-                       text: qsTr("Lutris has %1 installed games that are not here yet. Add them: they start through Lutris, with its own settings.").arg(addBox.lutris) }
-                KButton { theme: win.theme; primary: true; text: qsTr("Import from Lutris"); onClicked: { app.importLutris(); addBox.close() } }
-            }
-            // 5. Bottles: its programs start through bottles-cli (the bottle keeps its runner and DLLs)
-            RowLayout {
-                visible: addBox.bottles > 0
-                Layout.fillWidth: true
-                spacing: 8
-                Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 12
-                       text: qsTr("Bottles has %1 programs that are not here yet. Add them: they start in their bottle, with its own settings.").arg(addBox.bottles) }
-                KButton { theme: win.theme; primary: true; text: qsTr("Import from Bottles"); onClicked: { app.importBottles(); addBox.close() } }
-            }
-        }
     }
-    FileDialog {
-        id: addExe
-        title: qsTr("Which program?")
-        onAccepted: { addBox.exe = selectedFile.toString(); if (!addName.text) addName.text = "" }
     }
-    FolderDialog {
-        id: importDir
-        title: qsTr("Which folder are the GOG games in?")
-        onAccepted: { app.importFolder(selectedFolder.toString()); addBox.close() }
-    }
-    FolderDialog {
-        id: importGameDir
-        title: qsTr("Where is the game installed?")
-        onAccepted: { app.importGame(addBox.importStore, impGame.currentValue, selectedFolder.toString()); addBox.close() }
     }
 
     // -------------------------------------------------------------------- save backups
@@ -5197,77 +5259,86 @@ ApplicationWindow {
     }
 
     // A Proton log, read (logreader.py): what went wrong in a few lines.
-    KDialog {
-        id: logBox
-        objectName: "logBox"
-        theme: win.theme
-        headingIcon: "search"
-        property string key: ""
-        property var r: ({})
-        function show(k, title) { key = k; heading = qsTr("Proton log · ") + (title || app.game(k).title || ""); r = app.readProtonLog(k); open() }
-        function showKey(k) { show(k, "") }
-        width: Math.min(win.width - 60, 680)
-        height: Math.min(win.height - 60, 640)
-        contentItem: Flickable {
-            clip: true
-            contentHeight: logCol.implicitHeight
-            ScrollBar.vertical: KScrollBar { }
-            ColumnLayout {
-                id: logCol
-                width: parent.width
-                spacing: 12
-                Text { Layout.fillWidth: true; color: theme.outline; font.pixelSize: 12
-                       text: qsTr("From %1 · %2 lines").replace("%1", logBox.r.when || "").replace("%2", logBox.r.lines || 0) }
-                // The verdict, with its fix
-                Rectangle {
-                    visible: !!logBox.r.cause
-                    Layout.fillWidth: true; radius: 12; color: Qt.alpha(theme.error, 0.12)
-                    implicitHeight: verdictCol.implicitHeight + 24
+    // Built the first time it is needed (win.need), then kept: most people never open it,
+    // and every dialog built at start costs memory for the whole session.
+    Loader {
+        id: logBoxLoader
+        active: false
+        onLoaded: win.logBox = item
+        sourceComponent: Component {
+            KDialog {
+                id: logBox
+                objectName: "logBox"
+                theme: win.theme
+                headingIcon: "search"
+                property string key: ""
+                property var r: ({})
+                function show(k, title) { key = k; heading = qsTr("Proton log · ") + (title || app.game(k).title || ""); r = app.readProtonLog(k); open() }
+                function showKey(k) { show(k, "") }
+                width: Math.min(win.width - 60, 680)
+                height: Math.min(win.height - 60, 640)
+                contentItem: Flickable {
+                    clip: true
+                    contentHeight: logCol.implicitHeight
+                    ScrollBar.vertical: KScrollBar { }
                     ColumnLayout {
-                        id: verdictCol
-                        x: 14; y: 12; width: parent.width - 28
-                        spacing: 6
-                        Text { Layout.fillWidth: true; text: logBox.r.cause || ""; color: theme.onSurface; font.pixelSize: 15; font.weight: Font.DemiBold; wrapMode: Text.WordWrap }
-                        Text { Layout.fillWidth: true; text: logBox.r.detail || ""; color: theme.onSurfaceVariant; font.pixelSize: 13; wrapMode: Text.WordWrap }
-                        KButton { visible: !!logBox.r.fix && logBox.r.fix !== "proton"; theme: win.theme; primary: true
-                                  text: logBox.r.fixLabel || qsTr("Fix it"); onClicked: { app.fixProblem(logBox.key, logBox.r.fix); logBox.close() } }
+                        id: logCol
+                        width: parent.width
+                        spacing: 12
+                        Text { Layout.fillWidth: true; color: theme.outline; font.pixelSize: 12
+                               text: qsTr("From %1 · %2 lines").replace("%1", logBox.r.when || "").replace("%2", logBox.r.lines || 0) }
+                        // The verdict, with its fix
+                        Rectangle {
+                            visible: !!logBox.r.cause
+                            Layout.fillWidth: true; radius: 12; color: Qt.alpha(theme.error, 0.12)
+                            implicitHeight: verdictCol.implicitHeight + 24
+                            ColumnLayout {
+                                id: verdictCol
+                                x: 14; y: 12; width: parent.width - 28
+                                spacing: 6
+                                Text { Layout.fillWidth: true; text: logBox.r.cause || ""; color: theme.onSurface; font.pixelSize: 15; font.weight: Font.DemiBold; wrapMode: Text.WordWrap }
+                                Text { Layout.fillWidth: true; text: logBox.r.detail || ""; color: theme.onSurfaceVariant; font.pixelSize: 13; wrapMode: Text.WordWrap }
+                                KButton { visible: !!logBox.r.fix && logBox.r.fix !== "proton"; theme: win.theme; primary: true
+                                          text: logBox.r.fixLabel || qsTr("Fix it"); onClicked: { app.fixProblem(logBox.key, logBox.r.fix); logBox.close() } }
+                            }
+                        }
+                        Text { visible: !logBox.r.cause && !(logBox.r.errors || []).length && !(logBox.r.crash || {}).what; Layout.fillWidth: true
+                               text: qsTr("Nothing in this log looks wrong."); color: theme.onSurfaceVariant; font.pixelSize: 14 }
+                        // Where it crashed
+                        Text { visible: !!(logBox.r.crash && logBox.r.crash.what); Layout.fillWidth: true; wrapMode: Text.WordWrap
+                               color: theme.onSurface; font.pixelSize: 13
+                               text: qsTr("Crashed: %1").replace("%1", (logBox.r.crash || {}).what || "")
+                                     + ((logBox.r.crash || {}).where ? qsTr(" in %1").replace("%1", logBox.r.crash.where + ((logBox.r.crash.offset) ? " +0x" + logBox.r.crash.offset : "")) : "") }
+                        // Libraries it could not find
+                        Repeater {
+                            model: logBox.r.missing || []
+                            delegate: RowLayout {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                Text { Layout.fillWidth: true; color: theme.onSurface; font.pixelSize: 13; wrapMode: Text.WordWrap
+                                       text: qsTr("Missing %1 (wanted by %2)").replace("%1", modelData.dll).replace("%2", modelData.by) }
+                                KButton { visible: !!modelData.fix && modelData.fix !== logBox.r.fix; theme: win.theme; text: qsTr("Install it")
+                                          onClicked: app.fixProblem(logBox.key, modelData.fix) }
+                            }
+                        }
+                        Text { visible: (logBox.r.errors || []).length > 0; text: qsTr("First errors"); color: theme.onSurface; font.pixelSize: 13; font.weight: Font.DemiBold }
+                        Repeater {
+                            model: logBox.r.errors || []
+                            delegate: Text { required property var modelData; Layout.fillWidth: true; text: modelData; wrapMode: Text.WrapAnywhere
+                                             color: theme.onSurfaceVariant; font.family: "monospace"; font.pixelSize: 11 }
+                        }
+                        Text { visible: (logBox.r.graphics || []).length > 0; text: qsTr("Graphics"); color: theme.onSurface; font.pixelSize: 13; font.weight: Font.DemiBold }
+                        Repeater {
+                            model: logBox.r.graphics || []
+                            delegate: Text { required property var modelData; Layout.fillWidth: true; text: modelData; wrapMode: Text.WrapAnywhere
+                                             color: theme.onSurfaceVariant; font.family: "monospace"; font.pixelSize: 11 }
+                        }
+                        RowLayout {
+                            spacing: 8
+                            KButton { theme: win.theme; text: qsTr("Open the whole log"); iconName: "folder-open"; onClicked: app.openProtonLog(logBox.key) }
+                            KButton { theme: win.theme; text: qsTr("Copy its path"); onClicked: app.copyText(logBox.r.path || "") }
+                        }
                     }
-                }
-                Text { visible: !logBox.r.cause && !(logBox.r.errors || []).length && !(logBox.r.crash || {}).what; Layout.fillWidth: true
-                       text: qsTr("Nothing in this log looks wrong."); color: theme.onSurfaceVariant; font.pixelSize: 14 }
-                // Where it crashed
-                Text { visible: !!(logBox.r.crash && logBox.r.crash.what); Layout.fillWidth: true; wrapMode: Text.WordWrap
-                       color: theme.onSurface; font.pixelSize: 13
-                       text: qsTr("Crashed: %1").replace("%1", (logBox.r.crash || {}).what || "")
-                             + ((logBox.r.crash || {}).where ? qsTr(" in %1").replace("%1", logBox.r.crash.where + ((logBox.r.crash.offset) ? " +0x" + logBox.r.crash.offset : "")) : "") }
-                // Libraries it could not find
-                Repeater {
-                    model: logBox.r.missing || []
-                    delegate: RowLayout {
-                        required property var modelData
-                        Layout.fillWidth: true
-                        Text { Layout.fillWidth: true; color: theme.onSurface; font.pixelSize: 13; wrapMode: Text.WordWrap
-                               text: qsTr("Missing %1 (wanted by %2)").replace("%1", modelData.dll).replace("%2", modelData.by) }
-                        KButton { visible: !!modelData.fix && modelData.fix !== logBox.r.fix; theme: win.theme; text: qsTr("Install it")
-                                  onClicked: app.fixProblem(logBox.key, modelData.fix) }
-                    }
-                }
-                Text { visible: (logBox.r.errors || []).length > 0; text: qsTr("First errors"); color: theme.onSurface; font.pixelSize: 13; font.weight: Font.DemiBold }
-                Repeater {
-                    model: logBox.r.errors || []
-                    delegate: Text { required property var modelData; Layout.fillWidth: true; text: modelData; wrapMode: Text.WrapAnywhere
-                                     color: theme.onSurfaceVariant; font.family: "monospace"; font.pixelSize: 11 }
-                }
-                Text { visible: (logBox.r.graphics || []).length > 0; text: qsTr("Graphics"); color: theme.onSurface; font.pixelSize: 13; font.weight: Font.DemiBold }
-                Repeater {
-                    model: logBox.r.graphics || []
-                    delegate: Text { required property var modelData; Layout.fillWidth: true; text: modelData; wrapMode: Text.WrapAnywhere
-                                     color: theme.onSurfaceVariant; font.family: "monospace"; font.pixelSize: 11 }
-                }
-                RowLayout {
-                    spacing: 8
-                    KButton { theme: win.theme; text: qsTr("Open the whole log"); iconName: "folder-open"; onClicked: app.openProtonLog(logBox.key) }
-                    KButton { theme: win.theme; text: qsTr("Copy its path"); onClicked: app.copyText(logBox.r.path || "") }
                 }
             }
         }
@@ -5334,7 +5405,7 @@ ApplicationWindow {
                         onClicked: {
                             const f = modelData.fix
                             if (f.kind === "command") app.copyText(f.command)
-                            else if (f.action === "openStorage") { healthBox.close(); storage.show() }
+                            else if (f.action === "openStorage") { healthBox.close(); win.need(storageLoader).show() }
                             else if (f.action === "loginBegin") { healthBox.close(); app.loginBegin(f.arg) }
                             else if (f.action === "fetchBackends") app.fetchBackends()
                             else if (f.action === "downloadGe") app.downloadGe()
@@ -5370,78 +5441,87 @@ ApplicationWindow {
             Repeater { model: diskBox.info.suggest || []; Text { required property string modelData; text: "\u2022  " + modelData; color: theme.onSurfaceVariant; font.pixelSize: 13 } }
             RowLayout {
                 spacing: 8
-                KButton { theme: win.theme; primary: true; text: qsTr("Free up space"); iconName: "trash-2"; onClicked: { diskBox.close(); storage.tidy = true; storage.show() } }
+                KButton { theme: win.theme; primary: true; text: qsTr("Free up space"); iconName: "trash-2"; onClicked: { diskBox.close(); win.need(storageLoader).tidy = true; win.need(storageLoader).show() } }
                 KButton { theme: win.theme; visible: !diskBox.info.full; text: qsTr("Install anyway"); onClicked: { diskBox.close(); app.installAnyway(diskBox.key) } }
             }
         }
     }
 
     // -------------------------------------------------------------------- a game closed right away
-    KDialog {
-        id: problemBox
-        theme: win.theme
-        property string key: ""
-        property var p: ({})
-        heading: (p.title || qsTr("The game")) + qsTr(" closed right away")
-        headingIcon: "x"
-        width: Math.min(win.width - 60, 540)
-        Connections { target: app; function onLaunchProblem(key, p) { problemBox.key = key; problemBox.p = p; problemBox.open() } }
-        contentItem: ColumnLayout {
-            spacing: 12
-            Text { Layout.fillWidth: true; text: problemBox.p.cause || ""; color: theme.onSurface; font.pixelSize: 16; font.weight: Font.DemiBold; wrapMode: Text.WordWrap }
-            Text { Layout.fillWidth: true; text: problemBox.p.detail || ""; color: theme.onSurfaceVariant; font.pixelSize: 13; wrapMode: Text.WordWrap }
-            // What the log said, word for word (as Lutris shows it), to search for or to share.
-            Rectangle {
-                Layout.fillWidth: true
-                visible: !!problemBox.p.line
-                implicitHeight: lineText.implicitHeight + 20
-                radius: 10
-                color: theme.surfaceContainerHighest
-                Text {
-                    id: lineText
-                    anchors { left: parent.left; right: copyLine.left; verticalCenter: parent.verticalCenter; leftMargin: 12; rightMargin: 8 }
-                    text: problemBox.p.line || ""; textFormat: Text.PlainText
-                    color: theme.onSurfaceVariant; font.family: "monospace"; font.pixelSize: 11
-                    wrapMode: Text.WrapAnywhere; maximumLineCount: 4; elide: Text.ElideRight
+    Connections { target: app; function onLaunchProblem(key, p) { const b = win.need(problemBoxLoader); b.key = key; b.p = p; b.open() } }
+    // Built the first time it is needed (win.need), then kept: most people never open it,
+    // and every dialog built at start costs memory for the whole session.
+    Loader {
+        id: problemBoxLoader
+        active: false
+        onLoaded: win.problemBox = item
+        sourceComponent: Component {
+            KDialog {
+                id: problemBox
+                theme: win.theme
+                property string key: ""
+                property var p: ({})
+                heading: (p.title || qsTr("The game")) + qsTr(" closed right away")
+                headingIcon: "x"
+                width: Math.min(win.width - 60, 540)
+                contentItem: ColumnLayout {
+                    spacing: 12
+                    Text { Layout.fillWidth: true; text: problemBox.p.cause || ""; color: theme.onSurface; font.pixelSize: 16; font.weight: Font.DemiBold; wrapMode: Text.WordWrap }
+                    Text { Layout.fillWidth: true; text: problemBox.p.detail || ""; color: theme.onSurfaceVariant; font.pixelSize: 13; wrapMode: Text.WordWrap }
+                    // What the log said, word for word (as Lutris shows it), to search for or to share.
+                    Rectangle {
+                        Layout.fillWidth: true
+                        visible: !!problemBox.p.line
+                        implicitHeight: lineText.implicitHeight + 20
+                        radius: 10
+                        color: theme.surfaceContainerHighest
+                        Text {
+                            id: lineText
+                            anchors { left: parent.left; right: copyLine.left; verticalCenter: parent.verticalCenter; leftMargin: 12; rightMargin: 8 }
+                            text: problemBox.p.line || ""; textFormat: Text.PlainText
+                            color: theme.onSurfaceVariant; font.family: "monospace"; font.pixelSize: 11
+                            wrapMode: Text.WrapAnywhere; maximumLineCount: 4; elide: Text.ElideRight
+                        }
+                        Rectangle {
+                            id: copyLine
+                            anchors { right: parent.right; rightMargin: 6; verticalCenter: parent.verticalCenter }
+                            width: 30; height: 30; radius: 15
+                            color: copyHover.hovered ? theme.surfaceContainerHigh : "transparent"
+                            Icon { anchors.centerIn: parent; name: "copy"; size: 15; color: theme.onSurfaceVariant }
+                            HoverHandler { id: copyHover; cursorShape: Qt.PointingHandCursor }
+                            TapHandler { onTapped: app.copy(problemBox.p.line) }
+                            ToolTip.visible: copyHover.hovered; ToolTip.text: qsTr("Copy"); ToolTip.delay: 400
+                        }
+                    }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "repair"; text: qsTr("Repair files"); iconName: "refresh-cw"
+                                  onClicked: { app.fixProblem(problemBox.key, "repair"); problemBox.close() } }
+                        KButton { theme: win.theme; primary: true; visible: String(problemBox.p.fix || "").startsWith("winetricks:")
+                                  text: problemBox.p.fixLabel || qsTr("Install it"); iconName: "download"
+                                  onClicked: { app.fixProblem(problemBox.key, problemBox.p.fix); problemBox.close() } }
+                        KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "userns"; text: qsTr("Allow it"); iconName: "check"
+                                  onClicked: { app.fixProblem(problemBox.key, "userns"); problemBox.close() } }
+                        KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "steam"; text: qsTr("Start Steam"); iconName: "play"
+                                  onClicked: { app.fixProblem(problemBox.key, "steam"); problemBox.close() } }
+                        KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "vcrun"; text: qsTr("Install Visual C++"); iconName: "download"
+                                  onClicked: { app.fixProblem(problemBox.key, "vcrun"); problemBox.close() } }
+                        KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "dotnet"; text: qsTr("Install .NET"); iconName: "download"
+                                  onClicked: { app.fixProblem(problemBox.key, "dotnet"); problemBox.close() } }
+                        KButton { theme: win.theme; primary: problemBox.p.fix === "proton"; visible: problemBox.p.fix === "proton" || problemBox.p.fix === "vcrun"
+                                  text: qsTr("Try another Proton"); iconName: "settings-2"; onClicked: { problemBox.close(); win.need(gameOptsLoader).show(problemBox.key) } }
+                        KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "native"; text: qsTr("Use the Windows version"); iconName: "settings-2"
+                                  onClicked: { problemBox.close(); win.need(gameOptsLoader).show(problemBox.key) } }
+                        KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "vulkan"; text: qsTr("Open Health check"); iconName: "check"
+                                  onClicked: { problemBox.close(); healthBox.show() } }
+                        KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "storage"; text: qsTr("Free up space"); iconName: "trash-2"
+                                  onClicked: { problemBox.close(); win.need(storageLoader).tidy = true; win.need(storageLoader).show() } }
+                        KButton { theme: win.theme; text: qsTr("Open log"); iconName: "folder-open"; onClicked: app.openLog(problemBox.key) }
+                        KButton { theme: win.theme; visible: !!win.selectedKey || true; text: qsTr("ProtonDB"); iconName: "external-link"
+                                  onClicked: { const id = app.game(problemBox.key).steamAppId; app.openUrl(id ? "https://www.protondb.com/app/" + id : "https://www.protondb.com") } }
+                    }
                 }
-                Rectangle {
-                    id: copyLine
-                    anchors { right: parent.right; rightMargin: 6; verticalCenter: parent.verticalCenter }
-                    width: 30; height: 30; radius: 15
-                    color: copyHover.hovered ? theme.surfaceContainerHigh : "transparent"
-                    Icon { anchors.centerIn: parent; name: "copy"; size: 15; color: theme.onSurfaceVariant }
-                    HoverHandler { id: copyHover; cursorShape: Qt.PointingHandCursor }
-                    TapHandler { onTapped: app.copy(problemBox.p.line) }
-                    ToolTip.visible: copyHover.hovered; ToolTip.text: qsTr("Copy"); ToolTip.delay: 400
-                }
-            }
-            Flow {
-                Layout.fillWidth: true
-                spacing: 8
-                KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "repair"; text: qsTr("Repair files"); iconName: "refresh-cw"
-                          onClicked: { app.fixProblem(problemBox.key, "repair"); problemBox.close() } }
-                KButton { theme: win.theme; primary: true; visible: String(problemBox.p.fix || "").startsWith("winetricks:")
-                          text: problemBox.p.fixLabel || qsTr("Install it"); iconName: "download"
-                          onClicked: { app.fixProblem(problemBox.key, problemBox.p.fix); problemBox.close() } }
-                KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "userns"; text: qsTr("Allow it"); iconName: "check"
-                          onClicked: { app.fixProblem(problemBox.key, "userns"); problemBox.close() } }
-                KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "steam"; text: qsTr("Start Steam"); iconName: "play"
-                          onClicked: { app.fixProblem(problemBox.key, "steam"); problemBox.close() } }
-                KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "vcrun"; text: qsTr("Install Visual C++"); iconName: "download"
-                          onClicked: { app.fixProblem(problemBox.key, "vcrun"); problemBox.close() } }
-                KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "dotnet"; text: qsTr("Install .NET"); iconName: "download"
-                          onClicked: { app.fixProblem(problemBox.key, "dotnet"); problemBox.close() } }
-                KButton { theme: win.theme; primary: problemBox.p.fix === "proton"; visible: problemBox.p.fix === "proton" || problemBox.p.fix === "vcrun"
-                          text: qsTr("Try another Proton"); iconName: "settings-2"; onClicked: { problemBox.close(); gameOpts.show(problemBox.key) } }
-                KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "native"; text: qsTr("Use the Windows version"); iconName: "settings-2"
-                          onClicked: { problemBox.close(); gameOpts.show(problemBox.key) } }
-                KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "vulkan"; text: qsTr("Open Health check"); iconName: "check"
-                          onClicked: { problemBox.close(); healthBox.show() } }
-                KButton { theme: win.theme; primary: true; visible: problemBox.p.fix === "storage"; text: qsTr("Free up space"); iconName: "trash-2"
-                          onClicked: { problemBox.close(); storage.tidy = true; storage.show() } }
-                KButton { theme: win.theme; text: qsTr("Open log"); iconName: "folder-open"; onClicked: app.openLog(problemBox.key) }
-                KButton { theme: win.theme; visible: !!win.selectedKey || true; text: qsTr("ProtonDB"); iconName: "external-link"
-                          onClicked: { const id = app.game(problemBox.key).steamAppId; app.openUrl(id ? "https://www.protondb.com/app/" + id : "https://www.protondb.com") } }
             }
         }
     }
@@ -5449,699 +5529,735 @@ ApplicationWindow {
     InstallBox { id: installBox; theme: win.theme }
 
     // This PC hosts: accept a Moonlight by the PIN it shows.
-    KDialog {
-        id: pairBox
-        objectName: "pairBox"
-        theme: win.theme
-        heading: qsTr("Pair a device")
-        headingIcon: "link"
-        width: Math.min(win.width - 60, 440)
-        onOpened: { pinField.text = ""; deviceField.text = ""; pinField.forceActiveFocus() }
-        function send() {
-            if (pinField.text.trim().length !== 4) return
-            app.pairDevice(pinField.text, deviceField.text)
-            close()
-        }
-        ColumnLayout {
-            width: parent.width
-            spacing: 12
-            Text {
-                Layout.fillWidth: true; wrapMode: Text.WordWrap
-                color: theme.onSurfaceVariant; font.pixelSize: 13
-                text: qsTr("In Moonlight on the other device, pick this PC (or add it by its address). Moonlight shows a 4-digit PIN: type it here.")
-            }
-            KField {
-                id: pinField
-                theme: win.theme; Layout.fillWidth: true
-                placeholderText: qsTr("PIN")
-                inputMethodHints: Qt.ImhDigitsOnly
-                validator: RegularExpressionValidator { regularExpression: /\d{0,4}/ }
-                font.pixelSize: 22; font.letterSpacing: 6
-                onAccepted: pairBox.send()
-            }
-            KField {
-                id: deviceField
-                theme: win.theme; Layout.fillWidth: true
-                placeholderText: qsTr("Its name (Living room TV, Steam Deck...)")
-                onAccepted: pairBox.send()
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                Item { Layout.fillWidth: true }
-                KButton { theme: win.theme; text: qsTr("Cancel"); onClicked: pairBox.close() }
-                KButton { theme: win.theme; primary: true; enabled: pinField.text.length === 4; text: qsTr("Pair"); iconName: "link"; onClicked: pairBox.send() }
+    // Built the first time it is needed (win.need), then kept: most people never open it,
+    // and every dialog built at start costs memory for the whole session.
+    Loader {
+        id: pairBoxLoader
+        active: false
+        onLoaded: win.pairBox = item
+        sourceComponent: Component {
+            KDialog {
+                id: pairBox
+                objectName: "pairBox"
+                theme: win.theme
+                heading: qsTr("Pair a device")
+                headingIcon: "link"
+                width: Math.min(win.width - 60, 440)
+                onOpened: { pinField.text = ""; deviceField.text = ""; pinField.forceActiveFocus() }
+                function send() {
+                    if (pinField.text.trim().length !== 4) return
+                    app.pairDevice(pinField.text, deviceField.text)
+                    close()
+                }
+                ColumnLayout {
+                    width: parent.width
+                    spacing: 12
+                    Text {
+                        Layout.fillWidth: true; wrapMode: Text.WordWrap
+                        color: theme.onSurfaceVariant; font.pixelSize: 13
+                        text: qsTr("In Moonlight on the other device, pick this PC (or add it by its address). Moonlight shows a 4-digit PIN: type it here.")
+                    }
+                    KField {
+                        id: pinField
+                        theme: win.theme; Layout.fillWidth: true
+                        placeholderText: qsTr("PIN")
+                        inputMethodHints: Qt.ImhDigitsOnly
+                        validator: RegularExpressionValidator { regularExpression: /\d{0,4}/ }
+                        font.pixelSize: 22; font.letterSpacing: 6
+                        onAccepted: pairBox.send()
+                    }
+                    KField {
+                        id: deviceField
+                        theme: win.theme; Layout.fillWidth: true
+                        placeholderText: qsTr("Its name (Living room TV, Steam Deck...)")
+                        onAccepted: pairBox.send()
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Item { Layout.fillWidth: true }
+                        KButton { theme: win.theme; text: qsTr("Cancel"); onClicked: pairBox.close() }
+                        KButton { theme: win.theme; primary: true; enabled: pinField.text.length === 4; text: qsTr("Pair"); iconName: "link"; onClicked: pairBox.send() }
+                    }
+                }
             }
         }
     }
 
     // Play on TV: this PC streams one game (Sunshine), Moonlight on the TV, phone or tablet plays it.
-    KDialog {
-        id: tvPlayBox
-        objectName: "tvPlayBox"
-        theme: win.theme
-        readonly property var t: app.tvPlay
-        readonly property var devices: t.devices || []
-        heading: qsTr("Play %1 on the TV").arg(t.title || "")
-        headingIcon: "tv"
-        width: Math.min(win.width - 60, 560)
-        onClosed: app.closeTvPlay()
-        ColumnLayout {
-            width: parent.width
-            spacing: 12
-            RowLayout {
-                visible: tvPlayBox.t.phase === "working"
-                spacing: 12
-                BusyIndicator { running: parent.visible; Layout.preferredWidth: 32; Layout.preferredHeight: 32 }
-                Text { color: theme.onSurfaceVariant; font.pixelSize: 13; text: qsTr("Getting it ready to stream…") }
-            }
-            // Sunshine is what streams; without it there is nothing to connect to.
-            ColumnLayout {
-                visible: tvPlayBox.t.phase === "install"
-                spacing: 8
-                Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 13
-                       text: qsTr("This PC needs Sunshine to stream games. Install it, then press Play on TV again.") }
-                Text { visible: !!tvPlayBox.t.installCmd; Layout.fillWidth: true; wrapMode: Text.WrapAnywhere
-                       font.family: "monospace"; font.pixelSize: 12; color: theme.primary; text: tvPlayBox.t.installCmd || "" }
-                Text { visible: !!tvPlayBox.t.installNote; Layout.fillWidth: true; wrapMode: Text.WordWrap
-                       font.pixelSize: 12; color: theme.outline; text: tvPlayBox.t.installNote || "" }
-                RowLayout {
-                    spacing: 8
-                    KButton { visible: !!tvPlayBox.t.installCmd; theme: win.theme; text: qsTr("Copy the command"); iconName: "copy"
-                              onClicked: app.copyText(tvPlayBox.t.installCmd) }
-                    KButton { theme: win.theme; text: qsTr("Try again"); iconName: "refresh-cw"; onClicked: app.playOnTv(tvPlayBox.t.key) }
-                }
-            }
-            ColumnLayout {
-                visible: tvPlayBox.t.phase === "error"
-                spacing: 8
-                Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.error; font.pixelSize: 13
-                       text: qsTr("It could not be set up: %1").arg(tvPlayBox.t.message || "") }
-                KButton { theme: win.theme; text: qsTr("Try again"); iconName: "refresh-cw"; onClicked: app.playOnTv(tvPlayBox.t.key) }
-            }
-            // Ready: the game is in Moonlight's list. How to get there from the TV.
-            ColumnLayout {
-                visible: tvPlayBox.t.phase === "ready"
-                spacing: 10
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 16
+    // Built the first time it is needed (win.need), then kept: most people never open it,
+    // and every dialog built at start costs memory for the whole session.
+    Loader {
+        id: tvPlayBoxLoader
+        active: false
+        onLoaded: win.tvPlayBox = item
+        sourceComponent: Component {
+            KDialog {
+                id: tvPlayBox
+                objectName: "tvPlayBox"
+                theme: win.theme
+                readonly property var t: app.tvPlay
+                readonly property var devices: t.devices || []
+                heading: qsTr("Play %1 on the TV").arg(t.title || "")
+                headingIcon: "tv"
+                width: Math.min(win.width - 60, 560)
+                onClosed: app.closeTvPlay()
+                ColumnLayout {
+                    width: parent.width
+                    spacing: 12
+                    RowLayout {
+                        visible: tvPlayBox.t.phase === "working"
+                        spacing: 12
+                        BusyIndicator { running: parent.visible; Layout.preferredWidth: 32; Layout.preferredHeight: 32 }
+                        Text { color: theme.onSurfaceVariant; font.pixelSize: 13; text: qsTr("Getting it ready to stream…") }
+                    }
+                    // Sunshine is what streams; without it there is nothing to connect to.
                     ColumnLayout {
-                        Layout.fillWidth: true
+                        visible: tvPlayBox.t.phase === "install"
                         spacing: 8
                         Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 13
-                               text: qsTr("1. On the TV, phone or tablet, open Moonlight.") }
-                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 13
-                               text: qsTr("2. Pick %1. On the same network it shows up by itself; if it does not, add it by this address:").arg(tvPlayBox.t.host || qsTr("this PC")) }
-                        Text { visible: (tvPlayBox.t.addresses || []).length > 0; color: theme.primary; font.pixelSize: 22; font.weight: Font.DemiBold
-                               text: (tvPlayBox.t.addresses || []).join("   ") }
-                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 13
-                               text: tvPlayBox.devices.length
-                                     ? qsTr("3. Pick %1 in its list. Paired already: %2.").arg(tvPlayBox.t.title || "").arg(tvPlayBox.devices.map(d => d.name).join(", "))
-                                     : qsTr("3. The first time, Moonlight shows a 4-digit PIN: type it below. Then pick %1 in its list.").arg(tvPlayBox.t.title || "") }
-                    }
-                    // A QR code to get Moonlight (phones and tablets), when qrencode is there to draw it.
-                    ColumnLayout {
-                        visible: !!tvPlayBox.t.qr
-                        spacing: 4
-                        Rectangle {
-                            Layout.preferredWidth: 132; Layout.preferredHeight: 132; radius: 10; color: "white"
-                            Image { anchors.fill: parent; anchors.margins: 6; source: tvPlayBox.t.qr || ""; fillMode: Image.PreserveAspectFit; smooth: false }
+                               text: qsTr("This PC needs Sunshine to stream games. Install it, then press Play on TV again.") }
+                        Text { visible: !!tvPlayBox.t.installCmd; Layout.fillWidth: true; wrapMode: Text.WrapAnywhere
+                               font.family: "monospace"; font.pixelSize: 12; color: theme.primary; text: tvPlayBox.t.installCmd || "" }
+                        Text { visible: !!tvPlayBox.t.installNote; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                               font.pixelSize: 12; color: theme.outline; text: tvPlayBox.t.installNote || "" }
+                        RowLayout {
+                            spacing: 8
+                            KButton { visible: !!tvPlayBox.t.installCmd; theme: win.theme; text: qsTr("Copy the command"); iconName: "copy"
+                                      onClicked: app.copyText(tvPlayBox.t.installCmd) }
+                            KButton { theme: win.theme; text: qsTr("Try again"); iconName: "refresh-cw"; onClicked: app.playOnTv(tvPlayBox.t.key) }
                         }
-                        Text { Layout.preferredWidth: 132; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter
-                               color: theme.outline; font.pixelSize: 11; text: qsTr("No Moonlight yet? Scan to get it.") }
+                    }
+                    ColumnLayout {
+                        visible: tvPlayBox.t.phase === "error"
+                        spacing: 8
+                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.error; font.pixelSize: 13
+                               text: qsTr("It could not be set up: %1").arg(tvPlayBox.t.message || "") }
+                        KButton { theme: win.theme; text: qsTr("Try again"); iconName: "refresh-cw"; onClicked: app.playOnTv(tvPlayBox.t.key) }
+                    }
+                    // Ready: the game is in Moonlight's list. How to get there from the TV.
+                    ColumnLayout {
+                        visible: tvPlayBox.t.phase === "ready"
+                        spacing: 10
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 16
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 13
+                                       text: qsTr("1. On the TV, phone or tablet, open Moonlight.") }
+                                Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 13
+                                       text: qsTr("2. Pick %1. On the same network it shows up by itself; if it does not, add it by this address:").arg(tvPlayBox.t.host || qsTr("this PC")) }
+                                Text { visible: (tvPlayBox.t.addresses || []).length > 0; color: theme.primary; font.pixelSize: 22; font.weight: Font.DemiBold
+                                       text: (tvPlayBox.t.addresses || []).join("   ") }
+                                Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 13
+                                       text: tvPlayBox.devices.length
+                                             ? qsTr("3. Pick %1 in its list. Paired already: %2.").arg(tvPlayBox.t.title || "").arg(tvPlayBox.devices.map(d => d.name).join(", "))
+                                             : qsTr("3. The first time, Moonlight shows a 4-digit PIN: type it below. Then pick %1 in its list.").arg(tvPlayBox.t.title || "") }
+                            }
+                            // A QR code to get Moonlight (phones and tablets), when qrencode is there to draw it.
+                            ColumnLayout {
+                                visible: !!tvPlayBox.t.qr
+                                spacing: 4
+                                Rectangle {
+                                    Layout.preferredWidth: 132; Layout.preferredHeight: 132; radius: 10; color: "white"
+                                    Image { anchors.fill: parent; anchors.margins: 6; source: tvPlayBox.t.qr || ""; fillMode: Image.PreserveAspectFit; smooth: false }
+                                }
+                                Text { Layout.preferredWidth: 132; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter
+                                       color: theme.outline; font.pixelSize: 11; text: qsTr("No Moonlight yet? Scan to get it.") }
+                            }
+                        }
+                        RowLayout {
+                            spacing: 8
+                            KField { id: tvPin; theme: win.theme; Layout.preferredWidth: 110; placeholderText: qsTr("PIN"); inputMethodHints: Qt.ImhDigitsOnly
+                                     onAccepted: app.tvPair(tvPin.text, tvName.text) }
+                            KField { id: tvName; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("Name it (Living room TV)") }
+                            KButton { theme: win.theme; primary: tvPlayBox.devices.length === 0; text: qsTr("Pair"); iconName: "link"
+                                      enabled: tvPin.text.length === 4; onClicked: { app.tvPair(tvPin.text, tvName.text); tvPin.text = "" } }
+                        }
+                        Text { visible: !tvPlayBox.t.qr; Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.outline; font.pixelSize: 12
+                               text: qsTr("No Moonlight yet? Get it for the TV, phone or tablet at %1.").arg(tvPlayBox.t.moonlight || "moonlight-stream.org") }
                     }
                 }
-                RowLayout {
-                    spacing: 8
-                    KField { id: tvPin; theme: win.theme; Layout.preferredWidth: 110; placeholderText: qsTr("PIN"); inputMethodHints: Qt.ImhDigitsOnly
-                             onAccepted: app.tvPair(tvPin.text, tvName.text) }
-                    KField { id: tvName; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("Name it (Living room TV)") }
-                    KButton { theme: win.theme; primary: tvPlayBox.devices.length === 0; text: qsTr("Pair"); iconName: "link"
-                              enabled: tvPin.text.length === 4; onClicked: { app.tvPair(tvPin.text, tvName.text); tvPin.text = "" } }
-                }
-                Text { visible: !tvPlayBox.t.qr; Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.outline; font.pixelSize: 12
-                       text: qsTr("No Moonlight yet? Get it for the TV, phone or tablet at %1.").arg(tvPlayBox.t.moonlight || "moonlight-stream.org") }
             }
         }
     }
 
     // This PC is the screen: the gaming PC's games (Sunshine's list, through Moonlight).
-    KDialog {
-        id: streamBox
-        objectName: "streamBox"
-        theme: win.theme
-        readonly property var h: app.hostApps
-        readonly property string pc: app.settingsMap.stream_pc || ""
-        heading: pc ? qsTr("Play on %1").arg(pc) : qsTr("Play on another screen")
-        headingIcon: "tv"
-        width: Math.min(win.width - 60, 560)
-        function show() { open(); app.refreshSunshine(); if (pc) app.loadHostApps() }
-        readonly property bool noMoonlight: app.sunshine.moonlight === false
-        ColumnLayout {
-            width: parent.width
-            spacing: 12
-            Text {
-                visible: !streamBox.pc
-                Layout.fillWidth: true; wrapMode: Text.WordWrap
-                color: theme.onSurfaceVariant; font.pixelSize: 13
-                text: qsTr("Set the gaming PC first: Settings > Advanced > This PC is the screen.")
-            }
-            KButton {
-                visible: !streamBox.pc
-                theme: win.theme; primary: true; text: qsTr("Open Settings")
-                onClicked: { streamBox.close(); prefs.tab = 4; prefs.open() }
-            }
-            Text {
-                visible: !!streamBox.pc && !!streamBox.h.busy
-                color: theme.onSurfaceVariant; font.pixelSize: 13
-                text: qsTr("Asking %1 for its games…").arg(streamBox.pc)
-            }
-            ColumnLayout {
-                visible: !!streamBox.pc && !streamBox.h.busy && !!streamBox.h.error
-                Layout.fillWidth: true; spacing: 10
-                Text {
-                    Layout.fillWidth: true; wrapMode: Text.WordWrap
-                    color: theme.onSurface; font.pixelSize: 13
-                    text: qsTr("Could not get its games: %1").arg(streamBox.h.error || "")
-                }
-                RowLayout {
-                    visible: streamBox.noMoonlight && !!app.sunshine.moonlightCmd
-                    Layout.fillWidth: true; spacing: 8
-                    KField { theme: win.theme; Layout.fillWidth: true; readOnly: true; text: app.sunshine.moonlightCmd || "" }
-                    KButton { theme: win.theme; primary: true; text: qsTr("Copy"); iconName: "copy"
-                              onClicked: { app.copyText(app.sunshine.moonlightCmd || ""); toasts.append({ message: qsTr("Copied: paste it in a terminal") }) } }
-                }
-                Flow {
-                    Layout.fillWidth: true; spacing: 8
-                    KButton { visible: !streamBox.noMoonlight; theme: win.theme; primary: true; text: qsTr("Pair with it"); iconName: "link"; onClicked: app.pairWithPc() }
-                    KButton { visible: !!app.settingsMap.stream_mac; theme: win.theme; text: qsTr("Wake it"); onClicked: app.wakePc() }
-                    KButton { theme: win.theme; text: qsTr("Try again"); iconName: "refresh-cw"; onClicked: app.loadHostApps() }
-                }
-                Rectangle {
-                    visible: app.pairPin !== ""
-                    Layout.fillWidth: true
-                    implicitHeight: boxPin.implicitHeight + 24
-                    radius: 10; color: Qt.alpha(theme.primary, 0.12)
-                    ColumnLayout {
-                        id: boxPin
-                        anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 12 }
-                        Text { text: app.pairPin; color: theme.primary; font.pixelSize: 30; font.weight: Font.Bold; font.letterSpacing: 6 }
-                        Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 12
-                               text: qsTr("Type this PIN on %1: Cornerplay > Settings > Advanced > Pair a device, or Sunshine's page > PIN.").arg(streamBox.pc) }
-                    }
-                }
-            }
-            ListView {
-                id: hostList
-                visible: !!streamBox.pc && !streamBox.h.busy && !streamBox.h.error
-                Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(contentHeight, win.height * 0.55)
-                clip: true; spacing: 6
-                boundsBehavior: Flickable.StopAtBounds
-                ScrollBar.vertical: KScrollBar { }
-                model: streamBox.h.apps || []
-                delegate: Rectangle {
-                    id: hostRow
-                    required property var modelData
-                    width: hostList.width - 12; height: 52; radius: 10
-                    color: hostHover.hovered ? theme.surfaceContainerHigh : theme.surfaceContainer
-                    readonly property bool tvMode: modelData.name === "Cornerplay (TV mode)"
-                    Icon { x: 14; anchors.verticalCenter: parent.verticalCenter; name: hostRow.tvMode ? "tv" : "gamepad-2"; size: 18; color: theme.onSurfaceVariant }
+    // Built the first time it is needed (win.need), then kept: most people never open it,
+    // and every dialog built at start costs memory for the whole session.
+    Loader {
+        id: streamBoxLoader
+        active: false
+        onLoaded: win.streamBox = item
+        sourceComponent: Component {
+            KDialog {
+                id: streamBox
+                objectName: "streamBox"
+                theme: win.theme
+                readonly property var h: app.hostApps
+                readonly property string pc: app.settingsMap.stream_pc || ""
+                heading: pc ? qsTr("Play on %1").arg(pc) : qsTr("Play on another screen")
+                headingIcon: "tv"
+                width: Math.min(win.width - 60, 560)
+                function show() { open(); app.refreshSunshine(); if (pc) app.loadHostApps() }
+                readonly property bool noMoonlight: app.sunshine.moonlight === false
+                ColumnLayout {
+                    width: parent.width
+                    spacing: 12
                     Text {
-                        x: 44; anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - 44 - streamBtn.width - 24
-                        text: hostRow.tvMode ? qsTr("Cornerplay's TV mode (the whole library)") : hostRow.modelData.name
-                        color: theme.onSurface; font.pixelSize: 14; elide: Text.ElideRight
+                        visible: !streamBox.pc
+                        Layout.fillWidth: true; wrapMode: Text.WordWrap
+                        color: theme.onSurfaceVariant; font.pixelSize: 13
+                        text: qsTr("Set the gaming PC first: Settings > Advanced > This PC is the screen.")
                     }
                     KButton {
-                        id: streamBtn
-                        anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
-                        theme: win.theme; primary: hostRow.tvMode || hostHover.hovered; text: qsTr("Play"); iconName: "play"
-                        onClicked: { app.streamApp(hostRow.tvMode ? "" : hostRow.modelData.name); streamBox.close() }
+                        visible: !streamBox.pc
+                        theme: win.theme; primary: true; text: qsTr("Open Settings")
+                        onClicked: { streamBox.close(); prefs.tab = 4; prefs.open() }
                     }
-                    HoverHandler { id: hostHover }
+                    Text {
+                        visible: !!streamBox.pc && !!streamBox.h.busy
+                        color: theme.onSurfaceVariant; font.pixelSize: 13
+                        text: qsTr("Asking %1 for its games…").arg(streamBox.pc)
+                    }
+                    ColumnLayout {
+                        visible: !!streamBox.pc && !streamBox.h.busy && !!streamBox.h.error
+                        Layout.fillWidth: true; spacing: 10
+                        Text {
+                            Layout.fillWidth: true; wrapMode: Text.WordWrap
+                            color: theme.onSurface; font.pixelSize: 13
+                            text: qsTr("Could not get its games: %1").arg(streamBox.h.error || "")
+                        }
+                        RowLayout {
+                            visible: streamBox.noMoonlight && !!app.sunshine.moonlightCmd
+                            Layout.fillWidth: true; spacing: 8
+                            KField { theme: win.theme; Layout.fillWidth: true; readOnly: true; text: app.sunshine.moonlightCmd || "" }
+                            KButton { theme: win.theme; primary: true; text: qsTr("Copy"); iconName: "copy"
+                                      onClicked: { app.copyText(app.sunshine.moonlightCmd || ""); toasts.append({ message: qsTr("Copied: paste it in a terminal") }) } }
+                        }
+                        Flow {
+                            Layout.fillWidth: true; spacing: 8
+                            KButton { visible: !streamBox.noMoonlight; theme: win.theme; primary: true; text: qsTr("Pair with it"); iconName: "link"; onClicked: app.pairWithPc() }
+                            KButton { visible: !!app.settingsMap.stream_mac; theme: win.theme; text: qsTr("Wake it"); onClicked: app.wakePc() }
+                            KButton { theme: win.theme; text: qsTr("Try again"); iconName: "refresh-cw"; onClicked: app.loadHostApps() }
+                        }
+                        Rectangle {
+                            visible: app.pairPin !== ""
+                            Layout.fillWidth: true
+                            implicitHeight: boxPin.implicitHeight + 24
+                            radius: 10; color: Qt.alpha(theme.primary, 0.12)
+                            ColumnLayout {
+                                id: boxPin
+                                anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 12 }
+                                Text { text: app.pairPin; color: theme.primary; font.pixelSize: 30; font.weight: Font.Bold; font.letterSpacing: 6 }
+                                Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurface; font.pixelSize: 12
+                                       text: qsTr("Type this PIN on %1: Cornerplay > Settings > Advanced > Pair a device, or Sunshine's page > PIN.").arg(streamBox.pc) }
+                            }
+                        }
+                    }
+                    ListView {
+                        id: hostList
+                        visible: !!streamBox.pc && !streamBox.h.busy && !streamBox.h.error
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: Math.min(contentHeight, win.height * 0.55)
+                        clip: true; spacing: 6
+                        boundsBehavior: Flickable.StopAtBounds
+                        ScrollBar.vertical: KScrollBar { }
+                        model: streamBox.h.apps || []
+                        delegate: Rectangle {
+                            id: hostRow
+                            required property var modelData
+                            width: hostList.width - 12; height: 52; radius: 10
+                            color: hostHover.hovered ? theme.surfaceContainerHigh : theme.surfaceContainer
+                            readonly property bool tvMode: modelData.name === "Cornerplay (TV mode)"
+                            Icon { x: 14; anchors.verticalCenter: parent.verticalCenter; name: hostRow.tvMode ? "tv" : "gamepad-2"; size: 18; color: theme.onSurfaceVariant }
+                            Text {
+                                x: 44; anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width - 44 - streamBtn.width - 24
+                                text: hostRow.tvMode ? qsTr("Cornerplay's TV mode (the whole library)") : hostRow.modelData.name
+                                color: theme.onSurface; font.pixelSize: 14; elide: Text.ElideRight
+                            }
+                            KButton {
+                                id: streamBtn
+                                anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+                                theme: win.theme; primary: hostRow.tvMode || hostHover.hovered; text: qsTr("Play"); iconName: "play"
+                                onClicked: { app.streamApp(hostRow.tvMode ? "" : hostRow.modelData.name); streamBox.close() }
+                            }
+                            HoverHandler { id: hostHover }
+                        }
+                    }
+                    Text {
+                        visible: hostList.visible && hostList.count === 0
+                        Layout.fillWidth: true; wrapMode: Text.WordWrap
+                        color: theme.onSurfaceVariant; font.pixelSize: 13
+                        text: qsTr("It offers nothing yet. On %1: Settings > Advanced > Add Cornerplay to Sunshine.").arg(streamBox.pc)
+                    }
                 }
-            }
-            Text {
-                visible: hostList.visible && hostList.count === 0
-                Layout.fillWidth: true; wrapMode: Text.WordWrap
-                color: theme.onSurfaceVariant; font.pixelSize: 13
-                text: qsTr("It offers nothing yet. On %1: Settings > Advanced > Add Cornerplay to Sunshine.").arg(streamBox.pc)
             }
         }
     }
 
     // -------------------------------------------------------------------- stats
-    KDialog {
-        id: statsBox
-        objectName: "statsBox"
-        theme: win.theme
-        heading: qsTr("Your games in numbers")
-        headingIcon: "trophy"
-        property var d: ({})
-        property var yr: ({})
-        property int page: 0
-        property var journal: []
-        property var ch: ({})
-        function show() { d = app.stats(); yr = d.year || {}; journal = []; ch = app.challenges(); page = 0; open() }
-        function go(p) { if (p === 2 && !journal.length) journal = app.journal(); if (p === 3) ch = app.challenges(); page = p }
-        Shortcut { sequences: ["Ctrl+Tab", "Ctrl+PgDown"]; enabled: statsBox.visible; onActivated: statsBox.go((statsBox.page + 1) % 4) }
-        Shortcut { sequences: ["Ctrl+Shift+Tab", "Ctrl+Backtab", "Ctrl+PgUp"]; enabled: statsBox.visible; onActivated: statsBox.go((statsBox.page + 3) % 4) }
-        width: Math.min(win.width - 60, 760)
-        height: Math.min(win.height - 60, 720)
-        component Tile: Rectangle {
-            property string big: ""
-            property string small: ""
-            Layout.fillWidth: true
-            height: 78; radius: 14
-            color: theme.surfaceContainerHigh
-            Column {
-                anchors.centerIn: parent
-                spacing: 2
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: parent.parent.big; color: theme.onSurface; font.pixelSize: 26; font.weight: Font.Bold }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: parent.parent.small; color: theme.onSurfaceVariant; font.pixelSize: 12 }
-            }
-        }
-        contentItem: Flickable {
-            clip: true
-            contentHeight: statsCol.implicitHeight
-            boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: KScrollBar { }
-            ColumnLayout {
-                id: statsCol
-                width: parent.width - 14  // clear of the scroll bar
-                spacing: 16
-                Row {
-                    spacing: 8
-                    Chip { label: qsTr("Overview"); icon: "trophy"; active: statsBox.page === 0; onPicked: statsBox.page = 0 }
-                    Chip { label: qsTr("Your year"); icon: "sparkles"; active: statsBox.page === 1; onPicked: statsBox.page = 1 }
-                    Chip { label: qsTr("Journal"); icon: "history"; active: statsBox.page === 2; onPicked: statsBox.go(2) }
-                    Chip { label: qsTr("Challenges"); icon: "zap"; active: statsBox.page === 3; onPicked: statsBox.go(3) }
-                }
-                // Challenges: a goal for this month (each person their own, synced), and how far along.
-                ColumnLayout {
+    // Built the first time it is needed (win.need), then kept: most people never open it,
+    // and every dialog built at start costs memory for the whole session.
+    Loader {
+        id: statsBoxLoader
+        active: false
+        onLoaded: win.statsBox = item
+        sourceComponent: Component {
+            KDialog {
+                id: statsBox
+                objectName: "statsBox"
+                theme: win.theme
+                heading: qsTr("Your games in numbers")
+                headingIcon: "trophy"
+                property var d: ({})
+                property var yr: ({})
+                property int page: 0
+                property var journal: []
+                property var ch: ({})
+                function show() { d = app.stats(); yr = d.year || {}; journal = []; ch = app.challenges(); page = 0; open() }
+                function go(p) { if (p === 2 && !journal.length) journal = app.journal(); if (p === 3) ch = app.challenges(); page = p }
+                Shortcut { sequences: ["Ctrl+Tab", "Ctrl+PgDown"]; enabled: statsBox.visible; onActivated: statsBox.go((statsBox.page + 1) % 4) }
+                Shortcut { sequences: ["Ctrl+Shift+Tab", "Ctrl+Backtab", "Ctrl+PgUp"]; enabled: statsBox.visible; onActivated: statsBox.go((statsBox.page + 3) % 4) }
+                width: Math.min(win.width - 60, 760)
+                height: Math.min(win.height - 60, 720)
+                component Tile: Rectangle {
+                    property string big: ""
+                    property string small: ""
                     Layout.fillWidth: true
-                    visible: statsBox.page === 3
-                    spacing: 14
-                    Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 13
-                           text: qsTr("Set a goal for the month to chip away at the backlog. Cornerplay counts from your play sessions and the games you mark Finished, and cheers when you get there.") }
-                    Repeater {
-                        model: statsBox.ch.items || []
-                        Row2 {
-                            required property var modelData
-                            label: modelData.label
-                            KCombo {
-                                theme: win.theme; Layout.fillWidth: true
-                                model: (modelData.id === "hours" ? [0, 5, 10, 20, 30, 40, 60, 80, 100] : [0, 1, 2, 3, 4, 5, 6, 8, 10, 15, 20])
-                                       .map(v => ({ label: v ? (modelData.id === "hours" ? qsTr("%1 hours").arg(v) : qsTr("%1 games").arg(v)) : qsTr("Off"), value: v }))
-                                Component.onCompleted: select(modelData.goal)
-                                onActivated: { app.setGoal(modelData.id, currentValue); statsBox.ch = app.challenges() }
-                            }
+                    height: 78; radius: 14
+                    color: theme.surfaceContainerHigh
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 2
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: parent.parent.big; color: theme.onSurface; font.pixelSize: 26; font.weight: Font.Bold }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: parent.parent.small; color: theme.onSurfaceVariant; font.pixelSize: 12 }
+                    }
+                }
+                contentItem: Flickable {
+                    clip: true
+                    contentHeight: statsCol.implicitHeight
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: KScrollBar { }
+                    ColumnLayout {
+                        id: statsCol
+                        width: parent.width - 14  // clear of the scroll bar
+                        spacing: 16
+                        Row {
+                            spacing: 8
+                            Chip { label: qsTr("Overview"); icon: "trophy"; active: statsBox.page === 0; onPicked: statsBox.page = 0 }
+                            Chip { label: qsTr("Your year"); icon: "sparkles"; active: statsBox.page === 1; onPicked: statsBox.page = 1 }
+                            Chip { label: qsTr("Journal"); icon: "history"; active: statsBox.page === 2; onPicked: statsBox.go(2) }
+                            Chip { label: qsTr("Challenges"); icon: "zap"; active: statsBox.page === 3; onPicked: statsBox.go(3) }
                         }
-                    }
-                    ChallengeBars { Layout.fillWidth: true; Layout.topMargin: 6; theme: win.theme; info: statsBox.ch }
-                }
-                // Journal: month by month, what you played, started and finished.
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    visible: statsBox.page === 2
-                    spacing: 0
-                    Text {
-                        visible: statsBox.journal.length === 0
-                        Layout.fillWidth: true; Layout.topMargin: 20
-                        wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 13
-                        text: qsTr("Your journal fills in as you play: every session of the games Cornerplay starts, and of Steam games while it runs, lands in its month.")
-                    }
-                    Repeater {
-                        model: statsBox.journal
-                        RowLayout {
-                            id: jm
-                            required property var modelData
-                            required property int index
+                        // Challenges: a goal for this month (each person their own, synced), and how far along.
+                        ColumnLayout {
                             Layout.fillWidth: true
-                            spacing: 16
-                            // The month, its hours and what happened.
-                            Column {
-                                Layout.alignment: Qt.AlignTop
-                                Layout.topMargin: 6
-                                Layout.preferredWidth: 156
-                                spacing: 2
-                                Text { text: jm.modelData.label; color: theme.onSurface; font.pixelSize: 15; font.weight: Font.Bold
-                                       width: 156; elide: Text.ElideRight }
-                                Text { text: jm.modelData.hours + " h  \u00B7  " + jm.modelData.games.length + qsTr(" games"); color: theme.onSurfaceVariant; font.pixelSize: 12 }
-                                Text { visible: jm.modelData.started > 0; text: jm.modelData.started + qsTr(" started"); color: theme.primary; font.pixelSize: 12 }
-                                Text { visible: jm.modelData.finished > 0; text: jm.modelData.finished + qsTr(" finished"); color: "#7bd88f"; font.pixelSize: 12 }
+                            visible: statsBox.page === 3
+                            spacing: 14
+                            Text { Layout.fillWidth: true; wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 13
+                                   text: qsTr("Set a goal for the month to chip away at the backlog. Cornerplay counts from your play sessions and the games you mark Finished, and cheers when you get there.") }
+                            Repeater {
+                                model: statsBox.ch.items || []
+                                Row2 {
+                                    required property var modelData
+                                    label: modelData.label
+                                    KCombo {
+                                        theme: win.theme; Layout.fillWidth: true
+                                        model: (modelData.id === "hours" ? [0, 5, 10, 20, 30, 40, 60, 80, 100] : [0, 1, 2, 3, 4, 5, 6, 8, 10, 15, 20])
+                                               .map(v => ({ label: v ? (modelData.id === "hours" ? qsTr("%1 hours").arg(v) : qsTr("%1 games").arg(v)) : qsTr("Off"), value: v }))
+                                        Component.onCompleted: select(modelData.goal)
+                                        onActivated: { app.setGoal(modelData.id, currentValue); statsBox.ch = app.challenges() }
+                                    }
+                                }
                             }
-                            // The thread of the timeline, a dot per month.
-                            Item {
-                                Layout.fillHeight: true
-                                Layout.preferredWidth: 14
-                                Rectangle { x: 6; width: 2; height: parent.height; color: theme.outlineVariant
-                                            y: jm.index === 0 ? 14 : 0 }
-                                Rectangle { x: 1; y: 9; width: 12; height: 12; radius: 6; color: theme.primary
-                                            border.width: 3; border.color: theme.surfaceContainer }
+                            ChallengeBars { Layout.fillWidth: true; Layout.topMargin: 6; theme: win.theme; info: statsBox.ch }
+                        }
+                        // Journal: month by month, what you played, started and finished.
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            visible: statsBox.page === 2
+                            spacing: 0
+                            Text {
+                                visible: statsBox.journal.length === 0
+                                Layout.fillWidth: true; Layout.topMargin: 20
+                                wrapMode: Text.WordWrap; color: theme.onSurfaceVariant; font.pixelSize: 13
+                                text: qsTr("Your journal fills in as you play: every session of the games Cornerplay starts, and of Steam games while it runs, lands in its month.")
                             }
-                            Flow {
-                                Layout.fillWidth: true
-                                Layout.topMargin: 2; Layout.bottomMargin: 22
-                                spacing: 8
-                                Repeater {
-                                    model: jm.modelData.games
-                                    Rectangle {
-                                        id: jg
-                                        required property var modelData
-                                        width: Math.min(260, jgCol.implicitWidth + 58); height: 56; radius: 12
-                                        color: jgHover.hovered ? theme.surfaceContainerHighest : theme.surfaceContainerHigh
-                                        RoundedArt {
-                                            x: 8; anchors.verticalCenter: parent.verticalCenter
-                                            width: 30; height: 42; radius: 5
-                                            Rectangle { anchors.fill: parent; color: theme.surfaceContainerHighest }
-                                            ArtImage { anchors.fill: parent; sources: jg.modelData.covers || []; sourceSize.width: 60 }
-                                        }
-                                        Column {
-                                            id: jgCol
-                                            x: 48; anchors.verticalCenter: parent.verticalCenter
-                                            width: Math.min(implicitWidth, 200)
-                                            spacing: 2
-                                            Text { width: Math.min(implicitWidth, 200); text: jg.modelData.title; color: theme.onSurface
-                                                   font.pixelSize: 13; font.weight: Font.DemiBold; elide: Text.ElideRight }
-                                            Row {
-                                                spacing: 6
-                                                Text { text: (jg.modelData.hours > 0 ? jg.modelData.hours + " h" : "")
-                                                             + (jg.modelData.sessions > 1 ? "  \u00B7  " + jg.modelData.sessions + qsTr(" sessions") : "")
-                                                       color: theme.onSurfaceVariant; font.pixelSize: 11 }
-                                                Rectangle { visible: jg.modelData.first; height: 16; width: nt.implicitWidth + 10; radius: 8
-                                                            color: Qt.alpha(theme.primary, 0.18)
-                                                            Text { id: nt; anchors.centerIn: parent; text: qsTr("Started"); color: theme.primary; font.pixelSize: 10; font.weight: Font.DemiBold } }
-                                                Rectangle { visible: jg.modelData.finished; height: 16; width: ft.implicitWidth + 10; radius: 8
-                                                            color: Qt.alpha("#7bd88f", 0.18)
-                                                            Text { id: ft; anchors.centerIn: parent; text: qsTr("Finished"); color: "#7bd88f"; font.pixelSize: 10; font.weight: Font.DemiBold } }
+                            Repeater {
+                                model: statsBox.journal
+                                RowLayout {
+                                    id: jm
+                                    required property var modelData
+                                    required property int index
+                                    Layout.fillWidth: true
+                                    spacing: 16
+                                    // The month, its hours and what happened.
+                                    Column {
+                                        Layout.alignment: Qt.AlignTop
+                                        Layout.topMargin: 6
+                                        Layout.preferredWidth: 156
+                                        spacing: 2
+                                        Text { text: jm.modelData.label; color: theme.onSurface; font.pixelSize: 15; font.weight: Font.Bold
+                                               width: 156; elide: Text.ElideRight }
+                                        Text { text: jm.modelData.hours + " h  \u00B7  " + jm.modelData.games.length + qsTr(" games"); color: theme.onSurfaceVariant; font.pixelSize: 12 }
+                                        Text { visible: jm.modelData.started > 0; text: jm.modelData.started + qsTr(" started"); color: theme.primary; font.pixelSize: 12 }
+                                        Text { visible: jm.modelData.finished > 0; text: jm.modelData.finished + qsTr(" finished"); color: "#7bd88f"; font.pixelSize: 12 }
+                                    }
+                                    // The thread of the timeline, a dot per month.
+                                    Item {
+                                        Layout.fillHeight: true
+                                        Layout.preferredWidth: 14
+                                        Rectangle { x: 6; width: 2; height: parent.height; color: theme.outlineVariant
+                                                    y: jm.index === 0 ? 14 : 0 }
+                                        Rectangle { x: 1; y: 9; width: 12; height: 12; radius: 6; color: theme.primary
+                                                    border.width: 3; border.color: theme.surfaceContainer }
+                                    }
+                                    Flow {
+                                        Layout.fillWidth: true
+                                        Layout.topMargin: 2; Layout.bottomMargin: 22
+                                        spacing: 8
+                                        Repeater {
+                                            model: jm.modelData.games
+                                            Rectangle {
+                                                id: jg
+                                                required property var modelData
+                                                width: Math.min(260, jgCol.implicitWidth + 58); height: 56; radius: 12
+                                                color: jgHover.hovered ? theme.surfaceContainerHighest : theme.surfaceContainerHigh
+                                                RoundedArt {
+                                                    x: 8; anchors.verticalCenter: parent.verticalCenter
+                                                    width: 30; height: 42; radius: 5
+                                                    Rectangle { anchors.fill: parent; color: theme.surfaceContainerHighest }
+                                                    ArtImage { anchors.fill: parent; sources: jg.modelData.covers || []; sourceSize.width: 60 }
+                                                }
+                                                Column {
+                                                    id: jgCol
+                                                    x: 48; anchors.verticalCenter: parent.verticalCenter
+                                                    width: Math.min(implicitWidth, 200)
+                                                    spacing: 2
+                                                    Text { width: Math.min(implicitWidth, 200); text: jg.modelData.title; color: theme.onSurface
+                                                           font.pixelSize: 13; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                                                    Row {
+                                                        spacing: 6
+                                                        Text { text: (jg.modelData.hours > 0 ? jg.modelData.hours + " h" : "")
+                                                                     + (jg.modelData.sessions > 1 ? "  \u00B7  " + jg.modelData.sessions + qsTr(" sessions") : "")
+                                                               color: theme.onSurfaceVariant; font.pixelSize: 11 }
+                                                        Rectangle { visible: jg.modelData.first; height: 16; width: nt.implicitWidth + 10; radius: 8
+                                                                    color: Qt.alpha(theme.primary, 0.18)
+                                                                    Text { id: nt; anchors.centerIn: parent; text: qsTr("Started"); color: theme.primary; font.pixelSize: 10; font.weight: Font.DemiBold } }
+                                                        Rectangle { visible: jg.modelData.finished; height: 16; width: ft.implicitWidth + 10; radius: 8
+                                                                    color: Qt.alpha("#7bd88f", 0.18)
+                                                                    Text { id: ft; anchors.centerIn: parent; text: qsTr("Finished"); color: "#7bd88f"; font.pixelSize: 10; font.weight: Font.DemiBold } }
+                                                    }
+                                                }
+                                                HoverHandler { id: jgHover; cursorShape: Qt.PointingHandCursor }
+                                                TapHandler { onTapped: { statsBox.close(); win.select(jg.modelData.key) } }
                                             }
                                         }
-                                        HoverHandler { id: jgHover; cursorShape: Qt.PointingHandCursor }
-                                        TapHandler { onTapped: { statsBox.close(); win.select(jg.modelData.key) } }
                                     }
                                 }
                             }
                         }
-                    }
-                }
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    visible: statsBox.page === 0
-                    spacing: 16
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 10
-                        Tile { big: (statsBox.d.totalHours || 0) + " h"; small: qsTr("played in total") }
-                        Tile { big: String(statsBox.d.played || 0); small: qsTr("of %1 games played").arg(statsBox.d.games || 0) }
-                        Tile { big: String(statsBox.d.neverPlayed || 0); small: qsTr("never started") }
-                        Tile { big: String(statsBox.d.installed || 0); small: qsTr("installed") }
-                    }
-                    // Last 14 days (Cornerplay's own record of Epic, GOG and Amazon sessions).
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text { Layout.fillWidth: true; text: qsTr("Last two weeks  ·  ") + (statsBox.d.weekHours || 0) + qsTr(" h this week, ") + (statsBox.d.monthHours || 0) + qsTr(" h this month")
-                               color: theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold; elide: Text.ElideRight }
-                        // Days in a row with at least ten minutes played.
-                        Rectangle {
-                            readonly property var st: statsBox.d.streak || ({})
-                            visible: (st.longest || 0) > 1
-                            height: 26; radius: 13
-                            width: streakRow.implicitWidth + 20
-                            color: (st.current || 0) > 1 ? Qt.alpha(theme.primary, 0.16) : theme.surfaceContainerHigh
-                            Row {
-                                id: streakRow
-                                anchors.centerIn: parent
-                                spacing: 6
-                                Icon { anchors.verticalCenter: parent.verticalCenter; name: "sparkles"; size: 13
-                                       color: (parent.parent.st.current || 0) > 1 ? theme.primary : theme.outline }
-                                Text { anchors.verticalCenter: parent.verticalCenter; font.pixelSize: 12; color: theme.onSurface
-                                       text: ((parent.parent.st.current || 0) > 1 ? parent.parent.st.current + qsTr(" days in a row") + "  \u00B7  " : "")
-                                             + qsTr("best ") + (parent.parent.st.longest || 0) }
-                            }
-                        }
-                    }
-                    Item {
-                        id: days14
-                        Layout.fillWidth: true
-                        height: 128
-                        // Fourteen bars, today on the right; empty days still show as low stubs.
-                        readonly property var vals: (statsBox.d.days && statsBox.d.days.length) ? statsBox.d.days : Array(14).fill(0)
-                        readonly property real peak: Math.max(1, ...days14.vals)
-                        Row {
-                            anchors.fill: parent
-                            spacing: 6
-                            Repeater {
-                                model: days14.vals
-                                Item {
-                                    id: dayBar
-                                    required property real modelData
-                                    required property int index
-                                    readonly property bool today: index === days14.vals.length - 1
-                                    width: (parent.width - 13 * 6) / 14
-                                    height: parent.height
-                                    Rectangle {
-                                        id: dayFill
-                                        anchors.bottom: dayName.top; anchors.bottomMargin: 6
-                                        width: parent.width
-                                        height: Math.max(4, (parent.height - 40) * dayBar.modelData / days14.peak)
-                                        radius: 4
-                                        color: dayBar.modelData > 0 ? theme.primary : Qt.alpha(theme.onSurface, 0.08)
-                                        Behavior on height { enabled: !app.still; NumberAnimation { duration: 380; easing.type: Easing.OutCubic } }
-                                    }
-                                    Text {
-                                        visible: dayBar.modelData > 0
-                                        anchors { bottom: dayFill.top; bottomMargin: 3; horizontalCenter: parent.horizontalCenter }
-                                        text: dayBar.modelData >= 1 ? Math.round(dayBar.modelData * 10) / 10 + "h" : Math.round(dayBar.modelData * 60) + "m"
-                                        color: theme.onSurfaceVariant; font.pixelSize: 10
-                                    }
-                                    Text {
-                                        id: dayName
-                                        anchors { bottom: parent.bottom; horizontalCenter: parent.horizontalCenter }
-                                        text: new Date(Date.now() - (days14.vals.length - 1 - dayBar.index) * 86400000)
-                                              .toLocaleDateString(Qt.locale(app.uiLocale), "ddd").charAt(0).toUpperCase()
-                                        color: dayBar.today ? theme.primary : theme.outline
-                                        font.pixelSize: 11; font.weight: dayBar.today ? Font.Bold : Font.Normal
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Text {
-                        Layout.fillWidth: true
-                        visible: (statsBox.d.sessions || 0) === 0
-                        wrapMode: Text.WordWrap
-                        text: qsTr("Play sessions are logged from now on (games started from Cornerplay on Epic, GOG and Amazon); this chart fills in as you play. Steam only shares totals.")
-                        color: theme.outline; font.pixelSize: 12
-                    }
-                    // The last 12 weeks (sessions Cornerplay saw: its own games, and Steam's while it runs).
-                    Text { text: qsTr("Last 12 weeks"); color: theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold
-                           visible: (statsBox.d.sessions || 0) > 0 }
-                    Item {
-                        Layout.fillWidth: true
-                        visible: (statsBox.d.sessions || 0) > 0
-                        height: 130
-                        readonly property real peak: Math.max(1, ...((statsBox.d.weeks || []).map(w => w.hours)))
-                        Row {
-                            anchors.fill: parent
-                            spacing: 6
-                            Repeater {
-                                model: statsBox.d.weeks || []
-                                Item {
-                                    required property var modelData
-                                    width: (parent.width - 11 * 6) / 12
-                                    height: parent.height
-                                    Text { id: wkHours; anchors.horizontalCenter: parent.horizontalCenter; y: wkBar.y - height - 2
-                                           visible: modelData.hours > 0; color: theme.onSurfaceVariant; font.pixelSize: 10
-                                           text: modelData.hours >= 1 ? Math.round(modelData.hours * 10) / 10 + "h" : Math.max(1, Math.round(modelData.hours * 60)) + "m" }
-                                    Rectangle {
-                                        id: wkBar
-                                        anchors.bottom: wkLabel.top; anchors.bottomMargin: 4
-                                        width: parent.width
-                                        height: Math.max(3, (parent.height - 36) * modelData.hours / parent.parent.parent.peak)
-                                        radius: 4
-                                        color: modelData.hours > 0 ? theme.primary : Qt.alpha(theme.onSurface, 0.08)
-                                    }
-                                    Text { id: wkLabel; anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
-                                           text: modelData.label; color: theme.outline; font.pixelSize: 10 }
-                                }
-                            }
-                        }
-                    }
-                    // Backlog: of the games you meant to play (Playing, Want to play, Finished), how many are done.
-                    Text { text: qsTr("Backlog"); color: theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold }
-                    Text {
-                        Layout.fillWidth: true
-                        visible: !(statsBox.d.backlog || {}).total
-                        wrapMode: Text.WordWrap
-                        text: qsTr("Mark games as Playing, Want to play or Finished (a game's page, or right-click a cover) to see how far through your backlog you are.")
-                        color: theme.outline; font.pixelSize: 12
-                    }
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        visible: !!(statsBox.d.backlog || {}).total
-                        spacing: 6
-                        Text { text: (statsBox.d.backlog || {}).done + qsTr(" of ") + (statsBox.d.backlog || {}).total
-                                     + qsTr(" finished  ·  ") + (statsBox.d.backlog || {}).percent + "%"
-                               color: theme.onSurface; font.pixelSize: 14 }
-                        Rectangle {
+                        ColumnLayout {
                             Layout.fillWidth: true
-                            height: 10; radius: 5
-                            color: theme.surfaceContainerHighest
-                            Rectangle { height: parent.height; radius: 5; color: theme.primary
-                                        width: parent.width * ((statsBox.d.backlog || {}).percent || 0) / 100 }
-                        }
-                    }
-                    Text { text: qsTr("Most played"); color: theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold }
-                    Repeater {
-                        model: statsBox.d.top || []
-                        RowLayout {
-                            required property var modelData
-                            required property int index
-                            Layout.fillWidth: true
-                            spacing: 12
-                            RoundedArt {
-                                Layout.preferredWidth: 34; Layout.preferredHeight: 48
-                                radius: 6
-                                ArtImage { anchors.fill: parent; sources: modelData.covers || []; sourceSize.width: 68 }
+                            visible: statsBox.page === 0
+                            spacing: 16
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+                                Tile { big: (statsBox.d.totalHours || 0) + " h"; small: qsTr("played in total") }
+                                Tile { big: String(statsBox.d.played || 0); small: qsTr("of %1 games played").arg(statsBox.d.games || 0) }
+                                Tile { big: String(statsBox.d.neverPlayed || 0); small: qsTr("never started") }
+                                Tile { big: String(statsBox.d.installed || 0); small: qsTr("installed") }
+                            }
+                            // Last 14 days (Cornerplay's own record of Epic, GOG and Amazon sessions).
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Text { Layout.fillWidth: true; text: qsTr("Last two weeks  ·  ") + (statsBox.d.weekHours || 0) + qsTr(" h this week, ") + (statsBox.d.monthHours || 0) + qsTr(" h this month")
+                                       color: theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                                // Days in a row with at least ten minutes played.
+                                Rectangle {
+                                    readonly property var st: statsBox.d.streak || ({})
+                                    visible: (st.longest || 0) > 1
+                                    height: 26; radius: 13
+                                    width: streakRow.implicitWidth + 20
+                                    color: (st.current || 0) > 1 ? Qt.alpha(theme.primary, 0.16) : theme.surfaceContainerHigh
+                                    Row {
+                                        id: streakRow
+                                        anchors.centerIn: parent
+                                        spacing: 6
+                                        Icon { anchors.verticalCenter: parent.verticalCenter; name: "sparkles"; size: 13
+                                               color: (parent.parent.st.current || 0) > 1 ? theme.primary : theme.outline }
+                                        Text { anchors.verticalCenter: parent.verticalCenter; font.pixelSize: 12; color: theme.onSurface
+                                               text: ((parent.parent.st.current || 0) > 1 ? parent.parent.st.current + qsTr(" days in a row") + "  \u00B7  " : "")
+                                                     + qsTr("best ") + (parent.parent.st.longest || 0) }
+                                    }
+                                }
+                            }
+                            Item {
+                                id: days14
+                                Layout.fillWidth: true
+                                height: 128
+                                // Fourteen bars, today on the right; empty days still show as low stubs.
+                                readonly property var vals: (statsBox.d.days && statsBox.d.days.length) ? statsBox.d.days : Array(14).fill(0)
+                                readonly property real peak: Math.max(1, ...days14.vals)
+                                Row {
+                                    anchors.fill: parent
+                                    spacing: 6
+                                    Repeater {
+                                        model: days14.vals
+                                        Item {
+                                            id: dayBar
+                                            required property real modelData
+                                            required property int index
+                                            readonly property bool today: index === days14.vals.length - 1
+                                            width: (parent.width - 13 * 6) / 14
+                                            height: parent.height
+                                            Rectangle {
+                                                id: dayFill
+                                                anchors.bottom: dayName.top; anchors.bottomMargin: 6
+                                                width: parent.width
+                                                height: Math.max(4, (parent.height - 40) * dayBar.modelData / days14.peak)
+                                                radius: 4
+                                                color: dayBar.modelData > 0 ? theme.primary : Qt.alpha(theme.onSurface, 0.08)
+                                                Behavior on height { enabled: !app.still; NumberAnimation { duration: 380; easing.type: Easing.OutCubic } }
+                                            }
+                                            Text {
+                                                visible: dayBar.modelData > 0
+                                                anchors { bottom: dayFill.top; bottomMargin: 3; horizontalCenter: parent.horizontalCenter }
+                                                text: dayBar.modelData >= 1 ? Math.round(dayBar.modelData * 10) / 10 + "h" : Math.round(dayBar.modelData * 60) + "m"
+                                                color: theme.onSurfaceVariant; font.pixelSize: 10
+                                            }
+                                            Text {
+                                                id: dayName
+                                                anchors { bottom: parent.bottom; horizontalCenter: parent.horizontalCenter }
+                                                text: new Date(Date.now() - (days14.vals.length - 1 - dayBar.index) * 86400000)
+                                                      .toLocaleDateString(Qt.locale(app.uiLocale), "ddd").charAt(0).toUpperCase()
+                                                color: dayBar.today ? theme.primary : theme.outline
+                                                font.pixelSize: 11; font.weight: dayBar.today ? Font.Bold : Font.Normal
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                visible: (statsBox.d.sessions || 0) === 0
+                                wrapMode: Text.WordWrap
+                                text: qsTr("Play sessions are logged from now on (games started from Cornerplay on Epic, GOG and Amazon); this chart fills in as you play. Steam only shares totals.")
+                                color: theme.outline; font.pixelSize: 12
+                            }
+                            // The last 12 weeks (sessions Cornerplay saw: its own games, and Steam's while it runs).
+                            Text { text: qsTr("Last 12 weeks"); color: theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold
+                                   visible: (statsBox.d.sessions || 0) > 0 }
+                            Item {
+                                Layout.fillWidth: true
+                                visible: (statsBox.d.sessions || 0) > 0
+                                height: 130
+                                readonly property real peak: Math.max(1, ...((statsBox.d.weeks || []).map(w => w.hours)))
+                                Row {
+                                    anchors.fill: parent
+                                    spacing: 6
+                                    Repeater {
+                                        model: statsBox.d.weeks || []
+                                        Item {
+                                            required property var modelData
+                                            width: (parent.width - 11 * 6) / 12
+                                            height: parent.height
+                                            Text { id: wkHours; anchors.horizontalCenter: parent.horizontalCenter; y: wkBar.y - height - 2
+                                                   visible: modelData.hours > 0; color: theme.onSurfaceVariant; font.pixelSize: 10
+                                                   text: modelData.hours >= 1 ? Math.round(modelData.hours * 10) / 10 + "h" : Math.max(1, Math.round(modelData.hours * 60)) + "m" }
+                                            Rectangle {
+                                                id: wkBar
+                                                anchors.bottom: wkLabel.top; anchors.bottomMargin: 4
+                                                width: parent.width
+                                                height: Math.max(3, (parent.height - 36) * modelData.hours / parent.parent.parent.peak)
+                                                radius: 4
+                                                color: modelData.hours > 0 ? theme.primary : Qt.alpha(theme.onSurface, 0.08)
+                                            }
+                                            Text { id: wkLabel; anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
+                                                   text: modelData.label; color: theme.outline; font.pixelSize: 10 }
+                                        }
+                                    }
+                                }
+                            }
+                            // Backlog: of the games you meant to play (Playing, Want to play, Finished), how many are done.
+                            Text { text: qsTr("Backlog"); color: theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold }
+                            Text {
+                                Layout.fillWidth: true
+                                visible: !(statsBox.d.backlog || {}).total
+                                wrapMode: Text.WordWrap
+                                text: qsTr("Mark games as Playing, Want to play or Finished (a game's page, or right-click a cover) to see how far through your backlog you are.")
+                                color: theme.outline; font.pixelSize: 12
                             }
                             ColumnLayout {
                                 Layout.fillWidth: true
-                                spacing: 4
-                                RowLayout {
+                                visible: !!(statsBox.d.backlog || {}).total
+                                spacing: 6
+                                Text { text: (statsBox.d.backlog || {}).done + qsTr(" of ") + (statsBox.d.backlog || {}).total
+                                             + qsTr(" finished  ·  ") + (statsBox.d.backlog || {}).percent + "%"
+                                       color: theme.onSurface; font.pixelSize: 14 }
+                                Rectangle {
                                     Layout.fillWidth: true
+                                    height: 10; radius: 5
+                                    color: theme.surfaceContainerHighest
+                                    Rectangle { height: parent.height; radius: 5; color: theme.primary
+                                                width: parent.width * ((statsBox.d.backlog || {}).percent || 0) / 100 }
+                                }
+                            }
+                            Text { text: qsTr("Most played"); color: theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold }
+                            Repeater {
+                                model: statsBox.d.top || []
+                                RowLayout {
+                                    required property var modelData
+                                    required property int index
+                                    Layout.fillWidth: true
+                                    spacing: 12
+                                    RoundedArt {
+                                        Layout.preferredWidth: 34; Layout.preferredHeight: 48
+                                        radius: 6
+                                        ArtImage { anchors.fill: parent; sources: modelData.covers || []; sourceSize.width: 68 }
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 4
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Text { Layout.fillWidth: true; text: modelData.title; color: theme.onSurface; font.pixelSize: 14; elide: Text.ElideRight }
+                                            Text { text: modelData.hours + " h"; color: theme.onSurfaceVariant; font.pixelSize: 13 }
+                                        }
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            height: 6; radius: 3
+                                            color: theme.surfaceContainerHighest
+                                            Rectangle {
+                                                height: parent.height; radius: 3
+                                                width: parent.width * modelData.hours / Math.max(1, (statsBox.d.top[0] || {}).hours || 1)
+                                                color: theme.primary
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Text { text: qsTr("By store"); color: theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold; visible: (statsBox.d.perStore || []).length > 0 }
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Repeater {
+                                    model: statsBox.d.perStore || []
+                                    Pill { required property var modelData; label: modelData.name + "  ·  " + modelData.hours + " h" }
+                                }
+                                Repeater {
+                                    model: statsBox.d.statuses || []
+                                    Pill { required property var modelData; label: modelData.name + "  ·  " + modelData.count; accent: true }
+                                }
+                            }
+                        }
+                        // ---- Your year
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            visible: statsBox.page === 1
+                            spacing: 16
+                            readonly property var yr: statsBox.yr
+                            KButton { theme: win.theme; iconName: "play"; enabled: !app.videoBusy && (statsBox.yr.hours || 0) > 0
+                                      text: app.videoBusy ? qsTr("Making the video…") : qsTr("Make a video of this year")
+                                      onClicked: app.makeYearVideo(statsBox.yr.year) }
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                visible: (statsBox.d.years || []).length > 1
+                                Repeater {
+                                    model: statsBox.d.years || []
+                                    Chip { required property int modelData; label: String(modelData); active: statsBox.yr.year === modelData
+                                           onPicked: statsBox.yr = app.yearStats(modelData) }
+                                }
+                            }
+                            Text { text: qsTr("Your ") + (parent.yr.year || "") + qsTr(" in Cornerplay"); color: theme.onSurface
+                                   font.pixelSize: 22; font.weight: Font.Bold }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+                                Tile { big: (parent.parent.yr.hours || 0) + " h"; small: qsTr("played") }
+                                Tile { big: String(parent.parent.yr.games || 0); small: qsTr("games played") }
+                                Tile { big: String(parent.parent.yr.newCount || 0); small: qsTr("started for the first time") }
+                                Tile { big: String(parent.parent.yr.finishedCount || 0); small: qsTr("finished") }
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                visible: !(parent.yr.hours > 0)
+                                wrapMode: Text.WordWrap
+                                text: qsTr("Hours fill in from the play sessions Cornerplay sees: the games it starts, and Steam games while Cornerplay is running (start it with the PC in Settings > Advanced to catch them all).")
+                                color: theme.outline; font.pixelSize: 12
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                visible: !!parent.yr.busiestMonth
+                                wrapMode: Text.WordWrap
+                                text: qsTr("Busiest month: ") + parent.yr.busiestMonth + " (" + parent.yr.busiestHours + " h)"
+                                      + ((parent.yr.longest || {}).title ? qsTr("  ·  Longest session: ") + parent.yr.longest.title + ", "
+                                         + parent.yr.longest.hours + qsTr(" h on ") + parent.yr.longest.date : "")
+                                color: theme.onSurface; font.pixelSize: 14
+                            }
+                            // Hours per month
+                            Item {
+                                Layout.fillWidth: true
+                                visible: parent.yr.hours > 0
+                                height: 120
+                                readonly property real peak: Math.max(1, ...((statsBox.yr.months || [0])))
+                                Row {
+                                    anchors.fill: parent
+                                    spacing: 6
+                                    Repeater {
+                                        model: statsBox.yr.months || []
+                                        Item {
+                                            required property real modelData
+                                            required property int index
+                                            width: (parent.width - 11 * 6) / 12
+                                            height: parent.height
+                                            Rectangle {
+                                                anchors.bottom: mLabel.top; anchors.bottomMargin: 4
+                                                width: parent.width
+                                                height: Math.max(3, (parent.height - 22) * modelData / parent.parent.parent.peak)
+                                                radius: 4
+                                                color: modelData > 0 ? theme.primary : theme.surfaceContainerHighest
+                                            }
+                                            Text { id: mLabel; anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
+                                                   text: qsTr("JFMAMJJASOND")[index]; color: theme.outline; font.pixelSize: 10 }
+                                        }
+                                    }
+                                }
+                            }
+                            Text { text: qsTr("Most played"); color: theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold
+                                   visible: (parent.yr.top || []).length > 0 }
+                            Repeater {
+                                model: statsBox.yr.top || []
+                                RowLayout {
+                                    required property var modelData
+                                    required property int index
+                                    Layout.fillWidth: true
+                                    spacing: 12
+                                    Text { text: (index + 1) + "."; color: theme.outline; font.pixelSize: 14; Layout.preferredWidth: 22 }
                                     Text { Layout.fillWidth: true; text: modelData.title; color: theme.onSurface; font.pixelSize: 14; elide: Text.ElideRight }
                                     Text { text: modelData.hours + " h"; color: theme.onSurfaceVariant; font.pixelSize: 13 }
                                 }
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    height: 6; radius: 3
-                                    color: theme.surfaceContainerHighest
-                                    Rectangle {
-                                        height: parent.height; radius: 3
-                                        width: parent.width * modelData.hours / Math.max(1, (statsBox.d.top[0] || {}).hours || 1)
-                                        color: theme.primary
-                                    }
-                                }
+                            }
+                            Text { text: qsTr("Finished"); color: theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold
+                                   visible: (parent.yr.finished || []).length > 0 }
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Repeater { model: statsBox.yr.finished || []; Pill { required property string modelData; label: modelData; accent: true } }
+                            }
+                            Text { text: qsTr("Started for the first time"); color: theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold
+                                   visible: (parent.yr.newGames || []).length > 0 }
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Repeater { model: statsBox.yr.newGames || []; Pill { required property string modelData; label: modelData } }
                             }
                         }
-                    }
-                    Text { text: qsTr("By store"); color: theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold; visible: (statsBox.d.perStore || []).length > 0 }
-                    Flow {
-                        Layout.fillWidth: true
-                        spacing: 8
-                        Repeater {
-                            model: statsBox.d.perStore || []
-                            Pill { required property var modelData; label: modelData.name + "  ·  " + modelData.hours + " h" }
-                        }
-                        Repeater {
-                            model: statsBox.d.statuses || []
-                            Pill { required property var modelData; label: modelData.name + "  ·  " + modelData.count; accent: true }
-                        }
-                    }
-                }
-                // ---- Your year
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    visible: statsBox.page === 1
-                    spacing: 16
-                    readonly property var yr: statsBox.yr
-                    KButton { theme: win.theme; iconName: "play"; enabled: !app.videoBusy && (statsBox.yr.hours || 0) > 0
-                              text: app.videoBusy ? qsTr("Making the video…") : qsTr("Make a video of this year")
-                              onClicked: app.makeYearVideo(statsBox.yr.year) }
-                    Flow {
-                        Layout.fillWidth: true
-                        spacing: 8
-                        visible: (statsBox.d.years || []).length > 1
-                        Repeater {
-                            model: statsBox.d.years || []
-                            Chip { required property int modelData; label: String(modelData); active: statsBox.yr.year === modelData
-                                   onPicked: statsBox.yr = app.yearStats(modelData) }
-                        }
-                    }
-                    Text { text: qsTr("Your ") + (parent.yr.year || "") + qsTr(" in Cornerplay"); color: theme.onSurface
-                           font.pixelSize: 22; font.weight: Font.Bold }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 10
-                        Tile { big: (parent.parent.yr.hours || 0) + " h"; small: qsTr("played") }
-                        Tile { big: String(parent.parent.yr.games || 0); small: qsTr("games played") }
-                        Tile { big: String(parent.parent.yr.newCount || 0); small: qsTr("started for the first time") }
-                        Tile { big: String(parent.parent.yr.finishedCount || 0); small: qsTr("finished") }
-                    }
-                    Text {
-                        Layout.fillWidth: true
-                        visible: !(parent.yr.hours > 0)
-                        wrapMode: Text.WordWrap
-                        text: qsTr("Hours fill in from the play sessions Cornerplay sees: the games it starts, and Steam games while Cornerplay is running (start it with the PC in Settings > Advanced to catch them all).")
-                        color: theme.outline; font.pixelSize: 12
-                    }
-                    Text {
-                        Layout.fillWidth: true
-                        visible: !!parent.yr.busiestMonth
-                        wrapMode: Text.WordWrap
-                        text: qsTr("Busiest month: ") + parent.yr.busiestMonth + " (" + parent.yr.busiestHours + " h)"
-                              + ((parent.yr.longest || {}).title ? qsTr("  ·  Longest session: ") + parent.yr.longest.title + ", "
-                                 + parent.yr.longest.hours + qsTr(" h on ") + parent.yr.longest.date : "")
-                        color: theme.onSurface; font.pixelSize: 14
-                    }
-                    // Hours per month
-                    Item {
-                        Layout.fillWidth: true
-                        visible: parent.yr.hours > 0
-                        height: 120
-                        readonly property real peak: Math.max(1, ...((statsBox.yr.months || [0])))
-                        Row {
-                            anchors.fill: parent
-                            spacing: 6
-                            Repeater {
-                                model: statsBox.yr.months || []
-                                Item {
-                                    required property real modelData
-                                    required property int index
-                                    width: (parent.width - 11 * 6) / 12
-                                    height: parent.height
-                                    Rectangle {
-                                        anchors.bottom: mLabel.top; anchors.bottomMargin: 4
-                                        width: parent.width
-                                        height: Math.max(3, (parent.height - 22) * modelData / parent.parent.parent.peak)
-                                        radius: 4
-                                        color: modelData > 0 ? theme.primary : theme.surfaceContainerHighest
-                                    }
-                                    Text { id: mLabel; anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
-                                           text: qsTr("JFMAMJJASOND")[index]; color: theme.outline; font.pixelSize: 10 }
-                                }
-                            }
-                        }
-                    }
-                    Text { text: qsTr("Most played"); color: theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold
-                           visible: (parent.yr.top || []).length > 0 }
-                    Repeater {
-                        model: statsBox.yr.top || []
-                        RowLayout {
-                            required property var modelData
-                            required property int index
-                            Layout.fillWidth: true
-                            spacing: 12
-                            Text { text: (index + 1) + "."; color: theme.outline; font.pixelSize: 14; Layout.preferredWidth: 22 }
-                            Text { Layout.fillWidth: true; text: modelData.title; color: theme.onSurface; font.pixelSize: 14; elide: Text.ElideRight }
-                            Text { text: modelData.hours + " h"; color: theme.onSurfaceVariant; font.pixelSize: 13 }
-                        }
-                    }
-                    Text { text: qsTr("Finished"); color: theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold
-                           visible: (parent.yr.finished || []).length > 0 }
-                    Flow {
-                        Layout.fillWidth: true
-                        spacing: 8
-                        Repeater { model: statsBox.yr.finished || []; Pill { required property string modelData; label: modelData; accent: true } }
-                    }
-                    Text { text: qsTr("Started for the first time"); color: theme.onSurfaceVariant; font.pixelSize: 13; font.weight: Font.DemiBold
-                           visible: (parent.yr.newGames || []).length > 0 }
-                    Flow {
-                        Layout.fillWidth: true
-                        spacing: 8
-                        Repeater { model: statsBox.yr.newGames || []; Pill { required property string modelData; label: modelData } }
                     }
                 }
             }
@@ -6151,115 +6267,124 @@ ApplicationWindow {
     // -------------------------------------------------------------------- downloads
     // What is downloading, what waits its turn, and what is paused: reorder, pause, resume, cancel,
     // and a speed limit (throttle.py) so a big download leaves room for everything else.
-    KDialog {
-        id: downloadsBox
-        objectName: "downloadsBox"
-        theme: win.theme
-        heading: qsTr("Downloads")
-        headingIcon: "download"
-        width: Math.min(win.width - 60, 640)
-        height: Math.min(win.height - 60, 560)
-        function nice(secs) { return secs < 60 ? qsTr("under a minute left") : secs < 3600 ? Math.round(secs / 60) + qsTr(" min left")
-                                     : Math.floor(secs / 3600) + " h " + Math.round((secs % 3600) / 60) + qsTr(" min left") }
-        contentItem: ColumnLayout {
-            spacing: 12
-            EmptyScene {
-                Layout.alignment: Qt.AlignHCenter
-                Layout.preferredWidth: 240; Layout.preferredHeight: 160
-                visible: app.downloads.length === 0
-                theme: win.theme; kind: "cat"
-            }
-            Text {
-                Layout.fillWidth: true
-                visible: app.downloads.length === 0
-                wrapMode: Text.WordWrap
-                horizontalAlignment: Text.AlignHCenter
-                text: qsTr("Nothing is downloading.")
-                color: theme.onSurfaceVariant; font.pixelSize: 13
-            }
-            ListView {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                spacing: 8
-                model: app.downloads
-                ScrollBar.vertical: KScrollBar { }
-                delegate: Rectangle {
-                    required property var modelData
-                    required property int index
-                    width: ListView.view.width
-                    height: 76; radius: 12
-                    color: theme.surfaceContainerHigh
-                    border.width: modelData.state === "running" ? 1 : 0; border.color: theme.primary
-                    RowLayout {
-                        anchors { fill: parent; leftMargin: 10; rightMargin: 8 }
-                        spacing: 12
-                        RoundedArt {
-                            Layout.preferredWidth: 40; Layout.preferredHeight: 56
-                            radius: 6
-                            ArtImage { anchors.fill: parent; sources: modelData.covers || []; sourceSize.width: 80 }
-                        }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 5
-                            Text { Layout.fillWidth: true; text: modelData.title; color: theme.onSurface; font.pixelSize: 14
-                                   font.weight: Font.DemiBold; elide: Text.ElideRight }
-                            Text {
-                                Layout.fillWidth: true
-                                elide: Text.ElideRight
-                                color: theme.onSurfaceVariant; font.pixelSize: 12
-                                text: {
-                                    const d = modelData
-                                    const what = ({ install: qsTr("Installing"), update: qsTr("Updating"), dlc: qsTr("Installing DLC"),
-                                                    verify: qsTr("Checking files"), move: qsTr("Moving"), fix: qsTr("Fixing") })[d.kind] || d.kind
-                                    if (d.state === "queued") return qsTr("Waiting its turn  ·  ") + what
-                                    if (d.state === "tonight") return qsTr("Tonight, %1:00 to %2:00").arg(String(app.settingsMap.auto_update_from).padStart(2, "0")).arg(String(app.settingsMap.auto_update_to).padStart(2, "0"))
-                                    if (d.state === "paused") return qsTr("Paused") + (d.progress >= 0 ? "  ·  " + Math.floor(d.progress) + "%" : "")
-                                    const parts = [what + (d.progress >= 0 ? " " + Math.floor(d.progress) + "%" : "…")]
-                                    if (d.speed > 0) parts.push(d.speed >= 1e6 ? (d.speed / 1e6).toFixed(1) + " MB/s" : Math.round(d.speed / 1e3) + " kB/s")
-                                    if (d.eta >= 0) parts.push(downloadsBox.nice(d.eta))
-                                    return parts.join("  ·  ")
+    // Built the first time it is needed (win.need), then kept: most people never open it,
+    // and every dialog built at start costs memory for the whole session.
+    Loader {
+        id: downloadsBoxLoader
+        active: false
+        onLoaded: win.downloadsBox = item
+        sourceComponent: Component {
+            KDialog {
+                id: downloadsBox
+                objectName: "downloadsBox"
+                theme: win.theme
+                heading: qsTr("Downloads")
+                headingIcon: "download"
+                width: Math.min(win.width - 60, 640)
+                height: Math.min(win.height - 60, 560)
+                function nice(secs) { return secs < 60 ? qsTr("under a minute left") : secs < 3600 ? Math.round(secs / 60) + qsTr(" min left")
+                                             : Math.floor(secs / 3600) + " h " + Math.round((secs % 3600) / 60) + qsTr(" min left") }
+                contentItem: ColumnLayout {
+                    spacing: 12
+                    EmptyScene {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.preferredWidth: 240; Layout.preferredHeight: 160
+                        visible: app.downloads.length === 0
+                        theme: win.theme; kind: "cat"
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        visible: app.downloads.length === 0
+                        wrapMode: Text.WordWrap
+                        horizontalAlignment: Text.AlignHCenter
+                        text: qsTr("Nothing is downloading.")
+                        color: theme.onSurfaceVariant; font.pixelSize: 13
+                    }
+                    ListView {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        spacing: 8
+                        model: app.downloads
+                        ScrollBar.vertical: KScrollBar { }
+                        delegate: Rectangle {
+                            required property var modelData
+                            required property int index
+                            width: ListView.view.width
+                            height: 76; radius: 12
+                            color: theme.surfaceContainerHigh
+                            border.width: modelData.state === "running" ? 1 : 0; border.color: theme.primary
+                            RowLayout {
+                                anchors { fill: parent; leftMargin: 10; rightMargin: 8 }
+                                spacing: 12
+                                RoundedArt {
+                                    Layout.preferredWidth: 40; Layout.preferredHeight: 56
+                                    radius: 6
+                                    ArtImage { anchors.fill: parent; sources: modelData.covers || []; sourceSize.width: 80 }
                                 }
-                            }
-                            Rectangle {
-                                Layout.fillWidth: true
-                                height: 5; radius: 3
-                                color: theme.surfaceContainerHighest
-                                Rectangle { height: parent.height; radius: 3; width: parent.width * Math.max(0, modelData.progress) / 100
-                                            color: modelData.state === "running" ? theme.primary : theme.outline }
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 5
+                                    Text { Layout.fillWidth: true; text: modelData.title; color: theme.onSurface; font.pixelSize: 14
+                                           font.weight: Font.DemiBold; elide: Text.ElideRight }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
+                                        color: theme.onSurfaceVariant; font.pixelSize: 12
+                                        text: {
+                                            const d = modelData
+                                            const what = ({ install: qsTr("Installing"), update: qsTr("Updating"), dlc: qsTr("Installing DLC"),
+                                                            verify: qsTr("Checking files"), move: qsTr("Moving"), fix: qsTr("Fixing") })[d.kind] || d.kind
+                                            if (d.state === "queued") return qsTr("Waiting its turn  ·  ") + what
+                                            if (d.state === "tonight") return qsTr("Tonight, %1:00 to %2:00").arg(String(app.settingsMap.auto_update_from).padStart(2, "0")).arg(String(app.settingsMap.auto_update_to).padStart(2, "0"))
+                                            if (d.state === "paused") return qsTr("Paused") + (d.progress >= 0 ? "  ·  " + Math.floor(d.progress) + "%" : "")
+                                            const parts = [what + (d.progress >= 0 ? " " + Math.floor(d.progress) + "%" : "…")]
+                                            if (d.speed > 0) parts.push(d.speed >= 1e6 ? (d.speed / 1e6).toFixed(1) + " MB/s" : Math.round(d.speed / 1e3) + " kB/s")
+                                            if (d.eta >= 0) parts.push(downloadsBox.nice(d.eta))
+                                            return parts.join("  ·  ")
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        height: 5; radius: 3
+                                        color: theme.surfaceContainerHighest
+                                        Rectangle { height: parent.height; radius: 3; width: parent.width * Math.max(0, modelData.progress) / 100
+                                                    color: modelData.state === "running" ? theme.primary : theme.outline }
+                                    }
+                                }
+                                KButton { theme: win.theme; visible: modelData.state === "queued"; iconName: "chevron-up"; text: ""
+                                          enabled: index > 0 && app.downloads[index - 1].state === "queued"
+                                          ToolTip.visible: hovered; ToolTip.text: qsTr("Earlier"); onClicked: app.moveDownload(modelData.key, -1) }
+                                KButton { theme: win.theme; visible: modelData.state === "queued"; iconName: "chevron-down"; text: ""
+                                          enabled: index + 1 < app.downloads.length && app.downloads[index + 1].state === "queued"
+                                          ToolTip.visible: hovered; ToolTip.text: qsTr("Later"); onClicked: app.moveDownload(modelData.key, 1) }
+                                KButton { theme: win.theme; visible: modelData.state === "tonight"; text: qsTr("Install now"); iconName: "download"
+                                          onClicked: { app.installTonight(modelData.key, false); win.install(modelData.key) } }
+                                KButton { theme: win.theme; visible: modelData.pausable && modelData.state !== "paused" && modelData.state !== "tonight"; text: qsTr("Pause")
+                                          onClicked: app.pauseDownload(modelData.key) }
+                                KButton { theme: win.theme; primary: true; visible: modelData.state === "paused"; text: qsTr("Resume"); iconName: "download"
+                                          onClicked: app.resumeDownload(modelData.key) }
+                                KButton { theme: win.theme; iconName: "x"; text: ""; ToolTip.visible: hovered; ToolTip.text: qsTr("Cancel")
+                                          onClicked: app.cancel(modelData.key) }
                             }
                         }
-                        KButton { theme: win.theme; visible: modelData.state === "queued"; iconName: "chevron-up"; text: ""
-                                  enabled: index > 0 && app.downloads[index - 1].state === "queued"
-                                  ToolTip.visible: hovered; ToolTip.text: qsTr("Earlier"); onClicked: app.moveDownload(modelData.key, -1) }
-                        KButton { theme: win.theme; visible: modelData.state === "queued"; iconName: "chevron-down"; text: ""
-                                  enabled: index + 1 < app.downloads.length && app.downloads[index + 1].state === "queued"
-                                  ToolTip.visible: hovered; ToolTip.text: qsTr("Later"); onClicked: app.moveDownload(modelData.key, 1) }
-                        KButton { theme: win.theme; visible: modelData.state === "tonight"; text: qsTr("Install now"); iconName: "download"
-                                  onClicked: { app.installTonight(modelData.key, false); win.install(modelData.key) } }
-                        KButton { theme: win.theme; visible: modelData.pausable && modelData.state !== "paused" && modelData.state !== "tonight"; text: qsTr("Pause")
-                                  onClicked: app.pauseDownload(modelData.key) }
-                        KButton { theme: win.theme; primary: true; visible: modelData.state === "paused"; text: qsTr("Resume"); iconName: "download"
-                                  onClicked: app.resumeDownload(modelData.key) }
-                        KButton { theme: win.theme; iconName: "x"; text: ""; ToolTip.visible: hovered; ToolTip.text: qsTr("Cancel")
-                                  onClicked: app.cancel(modelData.key) }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+                        Text { text: qsTr("Speed limit"); color: theme.onSurface; font.pixelSize: 13 }
+                        KField {
+                            theme: win.theme
+                            Layout.preferredWidth: 90
+                            placeholderText: qsTr("none")
+                            text: app.settingsMap.download_limit > 0 ? String(app.settingsMap.download_limit) : ""
+                            validator: DoubleValidator { bottom: 0; top: 10000; decimals: 1; notation: DoubleValidator.StandardNotation }
+                            onEditingFinished: app.setSetting("download_limit", parseFloat(text.replace(",", ".")) || 0)
+                        }
+                        Text { Layout.fillWidth: true; text: qsTr("MB/s for Epic, GOG and Amazon (empty: as fast as it goes)")
+                               color: theme.onSurfaceVariant; font.pixelSize: 12; elide: Text.ElideRight }
                     }
                 }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 10
-                Text { text: qsTr("Speed limit"); color: theme.onSurface; font.pixelSize: 13 }
-                KField {
-                    theme: win.theme
-                    Layout.preferredWidth: 90
-                    placeholderText: qsTr("none")
-                    text: app.settingsMap.download_limit > 0 ? String(app.settingsMap.download_limit) : ""
-                    validator: DoubleValidator { bottom: 0; top: 10000; decimals: 1; notation: DoubleValidator.StandardNotation }
-                    onEditingFinished: app.setSetting("download_limit", parseFloat(text.replace(",", ".")) || 0)
-                }
-                Text { Layout.fillWidth: true; text: qsTr("MB/s for Epic, GOG and Amazon (empty: as fast as it goes)")
-                       color: theme.onSurfaceVariant; font.pixelSize: 12; elide: Text.ElideRight }
             }
         }
     }
@@ -6502,367 +6627,376 @@ ApplicationWindow {
     }
 
     // -------------------------------------------------------------------- DLC
-    KDialog {
-        id: dlc
-        objectName: "dlc"
-        theme: win.theme
-        property string key: ""
-        property var rows: []
-        property string note: ""
-        property bool loading: false
-        property string error: ""
-        // The copies these DLC go into: this game, and your copies of it on other stores.
-        readonly property var copyKeys: {
-            const out = [key]
-            for (const r of rows) if (r.gameKey && out.indexOf(r.gameKey) === -1) out.push(r.gameKey)
-            return out
-        }
-        property int tick: 0        // bumped when a copy's job changes: re-reads who is busy
-        readonly property var busyKeys: { tick; return copyKeys.filter(k => app.dlcBusy(k)) }
-        readonly property bool busy: busyKeys.length > 0   // a DLC install runs or waits on one of them
-        function copyOf(r) { return r.gameKey || key }
-        function installRows(list) {
-            app.installDlcs(list.map(r => ({ key: copyOf(r), id: r.id })))
-            tick++
-        }
-        property string storeFilter: ""   // "" = every store
-        property bool searching: false     // your own stores' lists are in; the others still coming
-        // All stores: one row per DLC (the same DLC on several stores is one row with each store's
-        // price); one store: that store's rows.
-        readonly property var stores: {   // [{id, name, count}] in list order
-            const out = [], at = {}
-            for (const r of rows) {
-                if (!(r.store in at)) { at[r.store] = out.length; out.push({ id: r.store, name: r.storeName || r.store, count: 0 }) }
-                out[at[r.store]].count++
-            }
-            return out
-        }
-        readonly property var shown: storeFilter ? rows.filter(r => r.store === storeFilter) : rows.filter(r => r.primary !== false)
-        heading: qsTr("DLC")
-        headingIcon: "puzzle"
-        width: Math.min(win.width - 60, 680)
-        function show(k, title) {
-            key = k; rows = []; note = ""; error = ""; loading = true; storeFilter = ""; searching = false
-            dlcList.tallest = 0
-            heading = qsTr("DLC · ") + title
-            open()
-            app.loadDlcs(k)
-            app.dlcsSeen(k)
-        }
-        Connections {
-            target: app
-            function onDlcsReady(key, rows, note) {
-                if (key !== dlc.key) return
-                dlc.rows = rows; dlc.loading = false
-                // with rows the message is a note on the game's own store; without, it is why none came
-                if (rows.length) { dlc.note = note; dlc.error = "" } else { dlc.error = note; dlc.note = "" }
-                if (dlc.storeFilter && !rows.some(r => r.store === dlc.storeFilter)) dlc.storeFilter = ""
-            }
-            function onDlcsSearching(key, on) { if (key === dlc.key) dlc.searching = on }
-            function onGameChanged(key) {
-                // the DLC install finished: show the new state
-                if (dlc.copyKeys.indexOf(key) === -1) return
-                const was = dlc.busyKeys.indexOf(key) !== -1
-                dlc.tick++
-                // a DLC install on one of the copies finished: show the new state
-                if (was && !app.dlcBusy(key) && dlc.opened) app.loadDlcs(dlc.key, true)
-            }
-        }
-        contentItem: ColumnLayout {
-            spacing: 12
-            readonly property var counts: {
-                const c = { installed: 0, owned: 0, missing: 0, available: 0 }
-                for (const r of dlc.shown) c[r.status] = (c[r.status] || 0) + 1
-                return c
-            }
-            // Summary: how many, and what you have.
-            Text {
-                Layout.fillWidth: true
-                visible: dlc.rows.length > 0
-                color: theme.onSurfaceVariant
-                font.pixelSize: 13
-                text: {
-                    const c = parent.counts, parts = [dlc.shown.length + " DLC"]
-                    if (c.installed) parts.push(c.installed + " installed")
-                    if (c.owned) parts.push(c.owned + qsTr(" owned, not installed"))
-                    const elsewhere = dlc.shown.filter(r => (r.ownedOn || []).length).length
-                    if (c.available - elsewhere > 0) parts.push((c.available - elsewhere) + qsTr(" to buy"))
-                    if (elsewhere) parts.push(elsewhere + qsTr(" owned on another store"))
-                    return parts.join("  ·  ")
-                }
-            }
-            // Which store's DLC to show, when more than one store sells some.
-            Flow {
-                Layout.fillWidth: true
-                spacing: 6
-                visible: dlc.stores.length > 1
-                Repeater {
-                    model: [{ id: "", name: qsTr("All stores"), count: dlc.rows.filter(r => r.primary !== false).length }].concat(dlc.stores)
-                    delegate: Chip2 {
-                        required property var modelData
-                        label: modelData.name + "  " + modelData.count
-                        on: dlc.storeFilter === modelData.id
-                        onPicked: dlc.storeFilter = modelData.id
-                    }
-                }
-            }
-            Text {
-                Layout.fillWidth: true
-                visible: dlc.loading || (dlc.rows.length === 0 && !dlc.searching)
-                color: theme.onSurfaceVariant
-                font.pixelSize: 13
-                wrapMode: Text.WordWrap
-                text: dlc.loading ? qsTr("Looking up DLC…") : (dlc.error || qsTr("No DLC found for this game."))
-            }
-            // While it loads: the shape of the list to come.
-            Repeater {
-                model: dlc.loading ? 3 : 0
-                RowLayout {
-                    required property int index
-                    Layout.fillWidth: true
-                    spacing: 14
-                    opacity: 1 - index * 0.25
-                    Skeleton { theme: win.theme; Layout.preferredWidth: 128; Layout.preferredHeight: 60; radius: 8 }
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 8
-                        Skeleton { theme: win.theme; Layout.preferredWidth: 220 - index * 30; Layout.preferredHeight: 14; radius: 7 }
-                        Skeleton { theme: win.theme; Layout.preferredWidth: 120; Layout.preferredHeight: 12; radius: 6 }
-                    }
-                }
-            }
-            Text {
-                Layout.fillWidth: true
-                visible: dlc.searching
-                color: theme.onSurfaceVariant
-                font.pixelSize: 12
-                font.italic: true
-                text: qsTr("Looking for this game's DLC on the other stores…")
-            }
-            // Install all owned DLC at once (GOG installs them together anyway).
-            KButton {
+    // Built the first time it is needed (win.need), then kept: most people never open it,
+    // and every dialog built at start costs memory for the whole session.
+    Loader {
+        id: dlcLoader
+        active: false
+        onLoaded: win.dlc = item
+        sourceComponent: Component {
+            KDialog {
+                id: dlc
+                objectName: "dlc"
                 theme: win.theme
-                primary: true
-                iconName: "download"
-                visible: !dlc.busy && dlc.shown.filter(r => r.canInstall).length > 1
-                text: qsTr("Install all owned DLC")
-                onClicked: dlc.installRows(dlc.shown.filter(r => r.canInstall))
-            }
-            Text {
-                visible: dlc.busy
-                color: theme.primary
-                font.pixelSize: 13
-                font.weight: Font.DemiBold
-                readonly property var g: { dlc.tick; return dlc.busyKeys.length ? app.game(dlc.busyKeys[0]) : ({}) }
-                text: qsTr("Installing DLC… ") + (g.key && g.key !== dlc.key ? qsTr("into your %1 copy ").arg(g.storeName) : "")
-                      + (g.job === "dlc" && g.progress >= 0 ? Math.floor(g.progress) + "%" : g.job === "queued" ? qsTr("(waiting for the current download)") : "")
-            }
-            ListView {
-                id: dlcList
-                Layout.fillWidth: true
-                // as tall as the longest list shown since the window opened: switching stores
-                // doesn't make the window jump
-                property real tallest: 0
-                onContentHeightChanged: tallest = Math.max(tallest, contentHeight)
-                Layout.preferredHeight: Math.min(tallest, Math.max(240, win.height - 320))
-                visible: dlc.shown.length > 0
-                clip: true
-                spacing: 8
-                model: dlc.shown
-                boundsBehavior: Flickable.StopAtBounds
-                ScrollBar.vertical: KScrollBar { }
-                delegate: Rectangle {
-                    id: dlcRow
-                    required property var modelData
-                    readonly property var info: ({
-                        installed: { label: qsTr("Installed"), icon: "check" },
-                        owned: { label: qsTr("Owned"), icon: "check" },
-                        missing: { label: qsTr("Not installed"), icon: "" },
-                        available: { label: qsTr("Not owned"), icon: "" } })[modelData.status] || { label: modelData.status, icon: "" }
-                    readonly property bool have: modelData.status === "installed" || modelData.status === "owned"
-                    // other stores' prices: only for DLC you don't have yet
-                    readonly property var offers: !dlc.storeFilter && !have && (modelData.offers || []).length > 1 ? modelData.offers : []
-                    readonly property var ownedOn: modelData.ownedOn || []
-                    width: dlcList.width - 10
-                    height: Math.max(76, dlcInfo.implicitHeight + 20)
-                    radius: 12
-                    color: theme.surfaceContainerHigh
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.margins: 8
-                        anchors.rightMargin: 12
-                        spacing: 14
-                        // The DLC's own art (wide), or a placeholder tile.
-                        Rectangle {
-                            Layout.preferredWidth: 128
-                            Layout.preferredHeight: 60
-                            radius: 8
-                            color: theme.surfaceContainerHighest
-                            clip: true
-                            Icon { anchors.centerIn: parent; name: "puzzle"; size: 22; color: theme.outline; visible: dlcArt.status !== Image.Ready }
-                            Image {
-                                id: dlcArt
-                                anchors.fill: parent
-                                source: dlcRow.modelData.image || ""
-                                fillMode: Image.PreserveAspectCrop
-                                asynchronous: true
-                                sourceSize.width: 256
-                                // the game's own art standing in (no store had a picture): quieter
-                                opacity: status === Image.Ready ? (dlcRow.modelData.artFromGame ? 0.45 : dlcRow.modelData.status === "available" ? 0.7 : 1) : 0
-                                Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 200 } }
-                            }
-                            Rectangle {
-                                visible: !!dlcRow.modelData.artFromGame && dlcArt.status === Image.Ready
-                                anchors { right: parent.right; bottom: parent.bottom; margins: 5 }
-                                width: 22; height: 22; radius: 11
-                                color: Qt.alpha("black", 0.6)
-                                Icon { anchors.centerIn: parent; name: "puzzle"; size: 12; color: "white" }
-                            }
-                        }
-                        ColumnLayout {
-                            id: dlcInfo
-                            Layout.fillWidth: true
-                            spacing: 5
-                            Text {
-                                Layout.fillWidth: true
-                                text: dlcRow.modelData.title
-                                color: theme.onSurface
-                                font.pixelSize: 14
-                                font.weight: Font.DemiBold
-                                elide: Text.ElideRight
-                            }
-                            Row {
-                                spacing: 8
-                                Rectangle {
-                                    readonly property bool have: dlcRow.modelData.status === "installed" || dlcRow.modelData.status === "owned"
-                                    height: 22; radius: 11
-                                    width: stRow.implicitWidth + 18
-                                    color: have ? theme.primaryContainer : "transparent"
-                                    border.width: have ? 0 : 1
-                                    border.color: theme.outlineVariant
-                                    Row {
-                                        id: stRow
-                                        anchors.centerIn: parent
-                                        spacing: 5
-                                        Icon { visible: dlcRow.info.icon !== ""; name: dlcRow.info.icon; size: 12; color: theme.onPrimaryContainer; anchors.verticalCenter: parent.verticalCenter }
-                                        Text {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            text: dlcRow.info.label
-                                            font.pixelSize: 11
-                                            font.weight: Font.DemiBold
-                                            color: parent.parent.have ? theme.onPrimaryContainer : theme.onSurfaceVariant
-                                        }
-                                    }
-                                }
-                                Text {
-                                    visible: dlc.stores.length > 1 && !!dlcRow.modelData.storeName && dlcRow.offers.length === 0
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: dlcRow.modelData.storeName || ""
-                                    color: theme.primary
-                                    font.pixelSize: 12
-                                    font.weight: Font.DemiBold
-                                }
-                                // Already yours on another store: don't buy it twice.
-                                Rectangle {
-                                    visible: dlcRow.ownedOn.length > 0
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    height: 22; radius: 11
-                                    width: ownTxt.implicitWidth + 18
-                                    color: Qt.alpha(theme.error, 0.16)
-                                    Text { id: ownTxt; anchors.centerIn: parent; font.pixelSize: 11; font.weight: Font.DemiBold
-                                           color: theme.error; text: qsTr("Owned on ") + dlcRow.ownedOn.join(", ") }
-                                }
-                                Text {
-                                    visible: !!dlcRow.modelData.price && dlcRow.offers.length === 0 && dlcRow.ownedOn.length === 0
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: dlcRow.modelData.price || ""
-                                    color: theme.onSurfaceVariant
-                                    font.pixelSize: 12
-                                }
-                            }
-                            // The same DLC on each store that sells it; the cheapest marked.
-                            Flow {
-                                Layout.fillWidth: true
-                                visible: dlcRow.offers.length > 0 && dlcRow.ownedOn.length === 0
-                                spacing: 6
-                                Repeater {
-                                    model: dlcRow.offers
-                                    delegate: Rectangle {
-                                        required property var modelData
-                                        readonly property bool have: modelData.status === "installed" || modelData.status === "owned"
-                                        height: 22; radius: 11
-                                        width: offTxt.implicitWidth + 16
-                                        color: modelData.cheapest ? theme.primaryContainer : "transparent"
-                                        border.width: modelData.cheapest ? 0 : 1
-                                        border.color: theme.outlineVariant
-                                        Text {
-                                            id: offTxt
-                                            anchors.centerIn: parent
-                                            font.pixelSize: 11
-                                            font.weight: parent.modelData.cheapest ? Font.DemiBold : Font.Normal
-                                            color: parent.modelData.cheapest ? theme.onPrimaryContainer : theme.onSurfaceVariant
-                                            text: parent.modelData.storeName + "  " + (parent.have ? qsTr("owned") : (parent.modelData.price || "—"))
-                                                  + (parent.modelData.cheapest ? qsTr("  · cheapest") : "")
-                                        }
-                                        MouseArea { anchors.fill: parent; enabled: !!parent.modelData.url; cursorShape: Qt.PointingHandCursor
-                                                    onClicked: app.openUrl(parent.modelData.url) }
-                                    }
-                                }
-                            }
-                            // IsThereAnyDeal: the best deal on any shop it follows, and the lowest price ever.
-                            Text {
-                                Layout.fillWidth: true
-                                visible: !!dlcRow.modelData.deal && dlcRow.ownedOn.length === 0
-                                readonly property var d: dlcRow.modelData.deal || {}
-                                text: qsTr("Best deal: ") + (d.price || "") + qsTr(" at ") + (d.shop || "")
-                                      + (d.cut ? " (-" + d.cut + "%)" : "") + (d.low ? qsTr("  ·  lowest ever ") + d.low : "")
-                                color: theme.primary
-                                font.pixelSize: 12
-                                elide: Text.ElideRight
-                                MouseArea { anchors.fill: parent; enabled: !!parent.d.url; cursorShape: Qt.PointingHandCursor
-                                            onClicked: app.openUrl(parent.d.url) }
-                            }
-                        }
-                        KButton {
-                            theme: win.theme
-                            implicitHeight: 34
-                            primary: true
-                            iconName: "download"
-                            visible: !!dlcRow.modelData.canInstall && !dlc.busy
-                            // a DLC of your copy on another store goes into that copy
-                            text: dlc.copyOf(dlcRow.modelData) !== dlc.key ? qsTr("Install (%1 copy)").arg(dlcRow.modelData.storeName) : qsTr("Install")
-                            onClicked: dlc.installRows([dlcRow.modelData])
-                        }
-                        KButton {
-                            theme: win.theme
-                            implicitHeight: 34
-                            iconName: "external-link"
-                            visible: !dlcRow.modelData.canInstall && !!dlcRow.modelData.url
-                            text: dlcRow.modelData.url.indexOf("steam://") === 0 ? qsTr("Open in Steam") : qsTr("Store page")
-                            onClicked: app.openUrl(dlcRow.modelData.url)
-                        }
+                property string key: ""
+                property var rows: []
+                property string note: ""
+                property bool loading: false
+                property string error: ""
+                // The copies these DLC go into: this game, and your copies of it on other stores.
+                readonly property var copyKeys: {
+                    const out = [key]
+                    for (const r of rows) if (r.gameKey && out.indexOf(r.gameKey) === -1) out.push(r.gameKey)
+                    return out
+                }
+                property int tick: 0        // bumped when a copy's job changes: re-reads who is busy
+                readonly property var busyKeys: { tick; return copyKeys.filter(k => app.dlcBusy(k)) }
+                readonly property bool busy: busyKeys.length > 0   // a DLC install runs or waits on one of them
+                function copyOf(r) { return r.gameKey || key }
+                function installRows(list) {
+                    app.installDlcs(list.map(r => ({ key: copyOf(r), id: r.id })))
+                    tick++
+                }
+                property string storeFilter: ""   // "" = every store
+                property bool searching: false     // your own stores' lists are in; the others still coming
+                // All stores: one row per DLC (the same DLC on several stores is one row with each store's
+                // price); one store: that store's rows.
+                readonly property var stores: {   // [{id, name, count}] in list order
+                    const out = [], at = {}
+                    for (const r of rows) {
+                        if (!(r.store in at)) { at[r.store] = out.length; out.push({ id: r.store, name: r.storeName || r.store, count: 0 }) }
+                        out[at[r.store]].count++
+                    }
+                    return out
+                }
+                readonly property var shown: storeFilter ? rows.filter(r => r.store === storeFilter) : rows.filter(r => r.primary !== false)
+                heading: qsTr("DLC")
+                headingIcon: "puzzle"
+                width: Math.min(win.width - 60, 680)
+                function show(k, title) {
+                    key = k; rows = []; note = ""; error = ""; loading = true; storeFilter = ""; searching = false
+                    dlcList.tallest = 0
+                    heading = qsTr("DLC · ") + title
+                    open()
+                    app.loadDlcs(k)
+                    app.dlcsSeen(k)
+                }
+                Connections {
+                    target: app
+                    function onDlcsReady(key, rows, note) {
+                        if (key !== dlc.key) return
+                        dlc.rows = rows; dlc.loading = false
+                        // with rows the message is a note on the game's own store; without, it is why none came
+                        if (rows.length) { dlc.note = note; dlc.error = "" } else { dlc.error = note; dlc.note = "" }
+                        if (dlc.storeFilter && !rows.some(r => r.store === dlc.storeFilter)) dlc.storeFilter = ""
+                    }
+                    function onDlcsSearching(key, on) { if (key === dlc.key) dlc.searching = on }
+                    function onGameChanged(key) {
+                        // the DLC install finished: show the new state
+                        if (dlc.copyKeys.indexOf(key) === -1) return
+                        const was = dlc.busyKeys.indexOf(key) !== -1
+                        dlc.tick++
+                        // a DLC install on one of the copies finished: show the new state
+                        if (was && !app.dlcBusy(key) && dlc.opened) app.loadDlcs(dlc.key, true)
                     }
                 }
-            }
-            Text {
-                Layout.fillWidth: true
-                visible: dlc.note !== "" && dlc.rows.length > 0
-                wrapMode: Text.WordWrap
-                color: theme.outline
-                font.pixelSize: 12
-                text: dlc.note
-            }
-            // Steam does not say which of its DLC you own until you sign in to Steam here.
-            Text {
-                Layout.fillWidth: true
-                visible: dlc.rows.some(r => r.store === "steam" && r.status === "missing")
-                wrapMode: Text.WordWrap
-                color: theme.primary
-                font.pixelSize: 12
-                font.underline: steamHint.hovered
-                text: qsTr("Sign in to Steam to see which of its DLC you own")
-                HoverHandler { id: steamHint; cursorShape: Qt.PointingHandCursor }
-                TapHandler { onTapped: { dlc.close(); app.steamWebLink() } }
+                contentItem: ColumnLayout {
+                    spacing: 12
+                    readonly property var counts: {
+                        const c = { installed: 0, owned: 0, missing: 0, available: 0 }
+                        for (const r of dlc.shown) c[r.status] = (c[r.status] || 0) + 1
+                        return c
+                    }
+                    // Summary: how many, and what you have.
+                    Text {
+                        Layout.fillWidth: true
+                        visible: dlc.rows.length > 0
+                        color: theme.onSurfaceVariant
+                        font.pixelSize: 13
+                        text: {
+                            const c = parent.counts, parts = [dlc.shown.length + " DLC"]
+                            if (c.installed) parts.push(c.installed + " installed")
+                            if (c.owned) parts.push(c.owned + qsTr(" owned, not installed"))
+                            const elsewhere = dlc.shown.filter(r => (r.ownedOn || []).length).length
+                            if (c.available - elsewhere > 0) parts.push((c.available - elsewhere) + qsTr(" to buy"))
+                            if (elsewhere) parts.push(elsewhere + qsTr(" owned on another store"))
+                            return parts.join("  ·  ")
+                        }
+                    }
+                    // Which store's DLC to show, when more than one store sells some.
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 6
+                        visible: dlc.stores.length > 1
+                        Repeater {
+                            model: [{ id: "", name: qsTr("All stores"), count: dlc.rows.filter(r => r.primary !== false).length }].concat(dlc.stores)
+                            delegate: Chip2 {
+                                required property var modelData
+                                label: modelData.name + "  " + modelData.count
+                                on: dlc.storeFilter === modelData.id
+                                onPicked: dlc.storeFilter = modelData.id
+                            }
+                        }
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        visible: dlc.loading || (dlc.rows.length === 0 && !dlc.searching)
+                        color: theme.onSurfaceVariant
+                        font.pixelSize: 13
+                        wrapMode: Text.WordWrap
+                        text: dlc.loading ? qsTr("Looking up DLC…") : (dlc.error || qsTr("No DLC found for this game."))
+                    }
+                    // While it loads: the shape of the list to come.
+                    Repeater {
+                        model: dlc.loading ? 3 : 0
+                        RowLayout {
+                            required property int index
+                            Layout.fillWidth: true
+                            spacing: 14
+                            opacity: 1 - index * 0.25
+                            Skeleton { theme: win.theme; Layout.preferredWidth: 128; Layout.preferredHeight: 60; radius: 8 }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Skeleton { theme: win.theme; Layout.preferredWidth: 220 - index * 30; Layout.preferredHeight: 14; radius: 7 }
+                                Skeleton { theme: win.theme; Layout.preferredWidth: 120; Layout.preferredHeight: 12; radius: 6 }
+                            }
+                        }
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        visible: dlc.searching
+                        color: theme.onSurfaceVariant
+                        font.pixelSize: 12
+                        font.italic: true
+                        text: qsTr("Looking for this game's DLC on the other stores…")
+                    }
+                    // Install all owned DLC at once (GOG installs them together anyway).
+                    KButton {
+                        theme: win.theme
+                        primary: true
+                        iconName: "download"
+                        visible: !dlc.busy && dlc.shown.filter(r => r.canInstall).length > 1
+                        text: qsTr("Install all owned DLC")
+                        onClicked: dlc.installRows(dlc.shown.filter(r => r.canInstall))
+                    }
+                    Text {
+                        visible: dlc.busy
+                        color: theme.primary
+                        font.pixelSize: 13
+                        font.weight: Font.DemiBold
+                        readonly property var g: { dlc.tick; return dlc.busyKeys.length ? app.game(dlc.busyKeys[0]) : ({}) }
+                        text: qsTr("Installing DLC… ") + (g.key && g.key !== dlc.key ? qsTr("into your %1 copy ").arg(g.storeName) : "")
+                              + (g.job === "dlc" && g.progress >= 0 ? Math.floor(g.progress) + "%" : g.job === "queued" ? qsTr("(waiting for the current download)") : "")
+                    }
+                    ListView {
+                        id: dlcList
+                        Layout.fillWidth: true
+                        // as tall as the longest list shown since the window opened: switching stores
+                        // doesn't make the window jump
+                        property real tallest: 0
+                        onContentHeightChanged: tallest = Math.max(tallest, contentHeight)
+                        Layout.preferredHeight: Math.min(tallest, Math.max(240, win.height - 320))
+                        visible: dlc.shown.length > 0
+                        clip: true
+                        spacing: 8
+                        model: dlc.shown
+                        boundsBehavior: Flickable.StopAtBounds
+                        ScrollBar.vertical: KScrollBar { }
+                        delegate: Rectangle {
+                            id: dlcRow
+                            required property var modelData
+                            readonly property var info: ({
+                                installed: { label: qsTr("Installed"), icon: "check" },
+                                owned: { label: qsTr("Owned"), icon: "check" },
+                                missing: { label: qsTr("Not installed"), icon: "" },
+                                available: { label: qsTr("Not owned"), icon: "" } })[modelData.status] || { label: modelData.status, icon: "" }
+                            readonly property bool have: modelData.status === "installed" || modelData.status === "owned"
+                            // other stores' prices: only for DLC you don't have yet
+                            readonly property var offers: !dlc.storeFilter && !have && (modelData.offers || []).length > 1 ? modelData.offers : []
+                            readonly property var ownedOn: modelData.ownedOn || []
+                            width: dlcList.width - 10
+                            height: Math.max(76, dlcInfo.implicitHeight + 20)
+                            radius: 12
+                            color: theme.surfaceContainerHigh
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                anchors.rightMargin: 12
+                                spacing: 14
+                                // The DLC's own art (wide), or a placeholder tile.
+                                Rectangle {
+                                    Layout.preferredWidth: 128
+                                    Layout.preferredHeight: 60
+                                    radius: 8
+                                    color: theme.surfaceContainerHighest
+                                    clip: true
+                                    Icon { anchors.centerIn: parent; name: "puzzle"; size: 22; color: theme.outline; visible: dlcArt.status !== Image.Ready }
+                                    Image {
+                                        id: dlcArt
+                                        anchors.fill: parent
+                                        source: dlcRow.modelData.image || ""
+                                        fillMode: Image.PreserveAspectCrop
+                                        asynchronous: true
+                                        sourceSize.width: 256
+                                        // the game's own art standing in (no store had a picture): quieter
+                                        opacity: status === Image.Ready ? (dlcRow.modelData.artFromGame ? 0.45 : dlcRow.modelData.status === "available" ? 0.7 : 1) : 0
+                                        Behavior on opacity { enabled: !app.still; NumberAnimation { duration: 200 } }
+                                    }
+                                    Rectangle {
+                                        visible: !!dlcRow.modelData.artFromGame && dlcArt.status === Image.Ready
+                                        anchors { right: parent.right; bottom: parent.bottom; margins: 5 }
+                                        width: 22; height: 22; radius: 11
+                                        color: Qt.alpha("black", 0.6)
+                                        Icon { anchors.centerIn: parent; name: "puzzle"; size: 12; color: "white" }
+                                    }
+                                }
+                                ColumnLayout {
+                                    id: dlcInfo
+                                    Layout.fillWidth: true
+                                    spacing: 5
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: dlcRow.modelData.title
+                                        color: theme.onSurface
+                                        font.pixelSize: 14
+                                        font.weight: Font.DemiBold
+                                        elide: Text.ElideRight
+                                    }
+                                    Row {
+                                        spacing: 8
+                                        Rectangle {
+                                            readonly property bool have: dlcRow.modelData.status === "installed" || dlcRow.modelData.status === "owned"
+                                            height: 22; radius: 11
+                                            width: stRow.implicitWidth + 18
+                                            color: have ? theme.primaryContainer : "transparent"
+                                            border.width: have ? 0 : 1
+                                            border.color: theme.outlineVariant
+                                            Row {
+                                                id: stRow
+                                                anchors.centerIn: parent
+                                                spacing: 5
+                                                Icon { visible: dlcRow.info.icon !== ""; name: dlcRow.info.icon; size: 12; color: theme.onPrimaryContainer; anchors.verticalCenter: parent.verticalCenter }
+                                                Text {
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    text: dlcRow.info.label
+                                                    font.pixelSize: 11
+                                                    font.weight: Font.DemiBold
+                                                    color: parent.parent.have ? theme.onPrimaryContainer : theme.onSurfaceVariant
+                                                }
+                                            }
+                                        }
+                                        Text {
+                                            visible: dlc.stores.length > 1 && !!dlcRow.modelData.storeName && dlcRow.offers.length === 0
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            text: dlcRow.modelData.storeName || ""
+                                            color: theme.primary
+                                            font.pixelSize: 12
+                                            font.weight: Font.DemiBold
+                                        }
+                                        // Already yours on another store: don't buy it twice.
+                                        Rectangle {
+                                            visible: dlcRow.ownedOn.length > 0
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            height: 22; radius: 11
+                                            width: ownTxt.implicitWidth + 18
+                                            color: Qt.alpha(theme.error, 0.16)
+                                            Text { id: ownTxt; anchors.centerIn: parent; font.pixelSize: 11; font.weight: Font.DemiBold
+                                                   color: theme.error; text: qsTr("Owned on ") + dlcRow.ownedOn.join(", ") }
+                                        }
+                                        Text {
+                                            visible: !!dlcRow.modelData.price && dlcRow.offers.length === 0 && dlcRow.ownedOn.length === 0
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            text: dlcRow.modelData.price || ""
+                                            color: theme.onSurfaceVariant
+                                            font.pixelSize: 12
+                                        }
+                                    }
+                                    // The same DLC on each store that sells it; the cheapest marked.
+                                    Flow {
+                                        Layout.fillWidth: true
+                                        visible: dlcRow.offers.length > 0 && dlcRow.ownedOn.length === 0
+                                        spacing: 6
+                                        Repeater {
+                                            model: dlcRow.offers
+                                            delegate: Rectangle {
+                                                required property var modelData
+                                                readonly property bool have: modelData.status === "installed" || modelData.status === "owned"
+                                                height: 22; radius: 11
+                                                width: offTxt.implicitWidth + 16
+                                                color: modelData.cheapest ? theme.primaryContainer : "transparent"
+                                                border.width: modelData.cheapest ? 0 : 1
+                                                border.color: theme.outlineVariant
+                                                Text {
+                                                    id: offTxt
+                                                    anchors.centerIn: parent
+                                                    font.pixelSize: 11
+                                                    font.weight: parent.modelData.cheapest ? Font.DemiBold : Font.Normal
+                                                    color: parent.modelData.cheapest ? theme.onPrimaryContainer : theme.onSurfaceVariant
+                                                    text: parent.modelData.storeName + "  " + (parent.have ? qsTr("owned") : (parent.modelData.price || "—"))
+                                                          + (parent.modelData.cheapest ? qsTr("  · cheapest") : "")
+                                                }
+                                                MouseArea { anchors.fill: parent; enabled: !!parent.modelData.url; cursorShape: Qt.PointingHandCursor
+                                                            onClicked: app.openUrl(parent.modelData.url) }
+                                            }
+                                        }
+                                    }
+                                    // IsThereAnyDeal: the best deal on any shop it follows, and the lowest price ever.
+                                    Text {
+                                        Layout.fillWidth: true
+                                        visible: !!dlcRow.modelData.deal && dlcRow.ownedOn.length === 0
+                                        readonly property var d: dlcRow.modelData.deal || {}
+                                        text: qsTr("Best deal: ") + (d.price || "") + qsTr(" at ") + (d.shop || "")
+                                              + (d.cut ? " (-" + d.cut + "%)" : "") + (d.low ? qsTr("  ·  lowest ever ") + d.low : "")
+                                        color: theme.primary
+                                        font.pixelSize: 12
+                                        elide: Text.ElideRight
+                                        MouseArea { anchors.fill: parent; enabled: !!parent.d.url; cursorShape: Qt.PointingHandCursor
+                                                    onClicked: app.openUrl(parent.d.url) }
+                                    }
+                                }
+                                KButton {
+                                    theme: win.theme
+                                    implicitHeight: 34
+                                    primary: true
+                                    iconName: "download"
+                                    visible: !!dlcRow.modelData.canInstall && !dlc.busy
+                                    // a DLC of your copy on another store goes into that copy
+                                    text: dlc.copyOf(dlcRow.modelData) !== dlc.key ? qsTr("Install (%1 copy)").arg(dlcRow.modelData.storeName) : qsTr("Install")
+                                    onClicked: dlc.installRows([dlcRow.modelData])
+                                }
+                                KButton {
+                                    theme: win.theme
+                                    implicitHeight: 34
+                                    iconName: "external-link"
+                                    visible: !dlcRow.modelData.canInstall && !!dlcRow.modelData.url
+                                    text: dlcRow.modelData.url.indexOf("steam://") === 0 ? qsTr("Open in Steam") : qsTr("Store page")
+                                    onClicked: app.openUrl(dlcRow.modelData.url)
+                                }
+                            }
+                        }
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        visible: dlc.note !== "" && dlc.rows.length > 0
+                        wrapMode: Text.WordWrap
+                        color: theme.outline
+                        font.pixelSize: 12
+                        text: dlc.note
+                    }
+                    // Steam does not say which of its DLC you own until you sign in to Steam here.
+                    Text {
+                        Layout.fillWidth: true
+                        visible: dlc.rows.some(r => r.store === "steam" && r.status === "missing")
+                        wrapMode: Text.WordWrap
+                        color: theme.primary
+                        font.pixelSize: 12
+                        font.underline: steamHint.hovered
+                        text: qsTr("Sign in to Steam to see which of its DLC you own")
+                        HoverHandler { id: steamHint; cursorShape: Qt.PointingHandCursor }
+                        TapHandler { onTapped: { dlc.close(); app.steamWebLink() } }
+                    }
+                }
             }
         }
     }
@@ -8672,7 +8806,7 @@ ApplicationWindow {
                                     Layout.fillWidth: true; spacing: 8
                                     KButton { visible: !sunRow.st.running; theme: win.theme; primary: true; text: qsTr("Start Sunshine"); iconName: "play"; onClicked: app.startSunshine() }
                                     KButton { theme: win.theme; primary: !!sunRow.st.running; text: qsTr("Add Cornerplay to Sunshine"); iconName: "tv"; onClicked: app.addToSunshine() }
-                                    KButton { visible: !!sunRow.st.login; theme: win.theme; text: qsTr("Pair a device"); iconName: "link"; onClicked: pairBox.open() }
+                                    KButton { visible: !!sunRow.st.login; theme: win.theme; text: qsTr("Pair a device"); iconName: "link"; onClicked: win.need(pairBoxLoader).open() }
                                     KButton { visible: !!sunRow.st.running; theme: win.theme; text: qsTr("Sunshine's page"); iconName: "external-link"; onClicked: app.openSunshinePage() }
                                 }
                                 // Paired devices, each with a way to send it away.
@@ -8739,7 +8873,7 @@ ApplicationWindow {
                                 Flow {
                                     visible: !!app.settingsMap.stream_pc
                                     Layout.fillWidth: true; spacing: 8
-                                    KButton { theme: win.theme; primary: true; text: qsTr("Its games"); iconName: "gamepad-2"; onClicked: { prefs.close(); streamBox.show() } }
+                                    KButton { theme: win.theme; primary: true; text: qsTr("Its games"); iconName: "gamepad-2"; onClicked: { prefs.close(); win.need(streamBoxLoader).show() } }
                                     KButton { visible: app.sunshine.moonlight !== false; theme: win.theme; text: qsTr("Pair with it"); iconName: "link"; onClicked: app.pairWithPc() }
                                     KButton { theme: win.theme; visible: !!app.settingsMap.stream_mac; text: qsTr("Wake it"); onClicked: app.wakePc() }
                                 }
@@ -8801,514 +8935,523 @@ ApplicationWindow {
     }
 
     // -------------------------------------------------------------------- per-game options
-    KDialog {
-        id: gameOpts
-        objectName: "gameOpts"
-        theme: win.theme
-        property string key: ""
-        property var game: ({})
-        property var opts: ({})
-        property var outputs: []   // the PC's sound outputs (Sound output)
-        property var gpus: []      // the graphics cards a game can use (two-card PCs)
-        readonly property var fixes: app.commonFixes()
-        property var steamProton: ({ choices: [], current: "" })
-        // Runs through Proton (Linux only: on Windows every game runs as it is)
-        readonly property bool compat: !app.onWindows && (["epic", "gog", "amazon", "custom", "humble"].includes(game.store) || key === "battlenet:battlenet-app")
-        // Runs without Proton: a GOG Linux version, or a Linux program added by hand.
-        readonly property bool runsNative: game.platform === "linux"
-        heading: qsTr("Options · ") + (game.title || "")
-        width: Math.min(win.width - 60, 600)
-        property string exe: ""
-        function show(k) {
-            key = k
-            game = app.game(k)
-            exe = app.customExe(k)
-            opts = app.gameOptions(k)
-            optProton.select(opts.proton === undefined ? "default" : opts.proton)
-            steamProton = game.store === "steam" ? app.steamProton(k) : ({ choices: [], current: "" })
-            optSteamProton.model = steamProton.choices
-            optSteamProton.select(steamProton.current)
-            optHud.select(opts.mangohud === undefined ? "default" : opts.mangohud)
-            optPerf.select(opts.perf === undefined ? "default" : opts.perf)
-            optPlatform.select(opts.platform === undefined ? "default" : opts.platform)
-            optFps.select(opts.show_fps === undefined ? "default" : opts.show_fps)
-            optCap.select(opts.fps_cap === undefined ? "default" : opts.fps_cap)
-            optTdp.select(opts.tdp === undefined ? "default" : opts.tdp)
-            optPad.select(opts.pad_layout === undefined ? "default" : opts.pad_layout)
-            outputs = app.audioOutputs()
-            optAudio.select(opts.audio_out === undefined ? "default" : opts.audio_out)
-            optKeys.select(opts.pad_keys === undefined ? "default" : opts.pad_keys)
-            optScope.select(opts.gamescope === undefined ? "default" : opts.gamescope)
-            optHdr.select(opts.gamescope_hdr === undefined ? "default" : opts.gamescope_hdr)
-            resetArmed = false
-            optMode.select(opts.gamemode === undefined ? "default" : opts.gamemode)
-            optSaves.select(opts.cloud_saves === undefined ? "default" : opts.cloud_saves)
-            optEnv.text = opts.env || ""
-            gpus = app.gpuChoices()
-            optGpu.select(opts.gpu === undefined ? "default" : opts.gpu)
-            optNtsync.select(opts.ntsync === undefined ? "default" : opts.ntsync)
-            optCores.select(opts.fast_cores === undefined ? "default" : opts.fast_cores)
-            optWayland.select(opts.wayland === undefined ? "default" : opts.wayland)
-            optDlls.text = opts.dll_overrides || ""
-            optAudioLat.select(opts.audio_lowlat === true)
-            optHdrDesk.select(opts.hdr_desktop === true)
-            optBnetDirect.select(opts.bnet_direct === true)
-            optFreeze.select(opts.freeze_away === true)
-            screenModes = app.screenModes()
-            optScreen.select(opts.screen_mode || "")
-            optVrr.select(opts.screen_vrr === true)
-            optArgs.text = opts.args || ""
-            optBefore.text = opts.before || ""
-            optAfter.text = opts.after || ""
-            optCover.text = opts.cover || ""
-            optsScroll.contentY = 0
-            open()
-        }
-        property var screenModes: []
-        readonly property var triState: [{ label: qsTr("Use default"), value: "default" }, { label: qsTr("On"), value: true }, { label: qsTr("Off"), value: false }]
-        property bool resetArmed: false
+    // Built the first time it is needed (win.need), then kept: most people never open it,
+    // and every dialog built at start costs memory for the whole session.
+    Loader {
+        id: gameOptsLoader
+        active: false
+        onLoaded: win.gameOpts = item
+        sourceComponent: Component {
+            KDialog {
+                id: gameOpts
+                objectName: "gameOpts"
+                theme: win.theme
+                property string key: ""
+                property var game: ({})
+                property var opts: ({})
+                property var outputs: []   // the PC's sound outputs (Sound output)
+                property var gpus: []      // the graphics cards a game can use (two-card PCs)
+                readonly property var fixes: app.commonFixes()
+                property var steamProton: ({ choices: [], current: "" })
+                // Runs through Proton (Linux only: on Windows every game runs as it is)
+                readonly property bool compat: !app.onWindows && (["epic", "gog", "amazon", "custom", "humble"].includes(game.store) || key === "battlenet:battlenet-app")
+                // Runs without Proton: a GOG Linux version, or a Linux program added by hand.
+                readonly property bool runsNative: game.platform === "linux"
+                heading: qsTr("Options · ") + (game.title || "")
+                width: Math.min(win.width - 60, 600)
+                property string exe: ""
+                function show(k) {
+                    key = k
+                    game = app.game(k)
+                    exe = app.customExe(k)
+                    opts = app.gameOptions(k)
+                    optProton.select(opts.proton === undefined ? "default" : opts.proton)
+                    steamProton = game.store === "steam" ? app.steamProton(k) : ({ choices: [], current: "" })
+                    optSteamProton.model = steamProton.choices
+                    optSteamProton.select(steamProton.current)
+                    optHud.select(opts.mangohud === undefined ? "default" : opts.mangohud)
+                    optPerf.select(opts.perf === undefined ? "default" : opts.perf)
+                    optPlatform.select(opts.platform === undefined ? "default" : opts.platform)
+                    optFps.select(opts.show_fps === undefined ? "default" : opts.show_fps)
+                    optCap.select(opts.fps_cap === undefined ? "default" : opts.fps_cap)
+                    optTdp.select(opts.tdp === undefined ? "default" : opts.tdp)
+                    optPad.select(opts.pad_layout === undefined ? "default" : opts.pad_layout)
+                    outputs = app.audioOutputs()
+                    optAudio.select(opts.audio_out === undefined ? "default" : opts.audio_out)
+                    optKeys.select(opts.pad_keys === undefined ? "default" : opts.pad_keys)
+                    optScope.select(opts.gamescope === undefined ? "default" : opts.gamescope)
+                    optHdr.select(opts.gamescope_hdr === undefined ? "default" : opts.gamescope_hdr)
+                    resetArmed = false
+                    optMode.select(opts.gamemode === undefined ? "default" : opts.gamemode)
+                    optSaves.select(opts.cloud_saves === undefined ? "default" : opts.cloud_saves)
+                    optEnv.text = opts.env || ""
+                    gpus = app.gpuChoices()
+                    optGpu.select(opts.gpu === undefined ? "default" : opts.gpu)
+                    optNtsync.select(opts.ntsync === undefined ? "default" : opts.ntsync)
+                    optCores.select(opts.fast_cores === undefined ? "default" : opts.fast_cores)
+                    optWayland.select(opts.wayland === undefined ? "default" : opts.wayland)
+                    optDlls.text = opts.dll_overrides || ""
+                    optAudioLat.select(opts.audio_lowlat === true)
+                    optHdrDesk.select(opts.hdr_desktop === true)
+                    optBnetDirect.select(opts.bnet_direct === true)
+                    optFreeze.select(opts.freeze_away === true)
+                    screenModes = app.screenModes()
+                    optScreen.select(opts.screen_mode || "")
+                    optVrr.select(opts.screen_vrr === true)
+                    optArgs.text = opts.args || ""
+                    optBefore.text = opts.before || ""
+                    optAfter.text = opts.after || ""
+                    optCover.text = opts.cover || ""
+                    optsScroll.contentY = 0
+                    open()
+                }
+                property var screenModes: []
+                readonly property var triState: [{ label: qsTr("Use default"), value: "default" }, { label: qsTr("On"), value: true }, { label: qsTr("Off"), value: false }]
+                property bool resetArmed: false
 
-        // Taller than the window on most screens: it scrolls, like Settings.
-        contentItem: Flickable {
-            id: optsScroll
-            implicitWidth: optsCol.implicitWidth
-            implicitHeight: Math.min(optsCol.implicitHeight, win.height - 150)
-            contentHeight: optsCol.implicitHeight
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: KScrollBar { }
-            ColumnLayout {
-                id: optsCol
-                width: optsScroll.width - 12
-                spacing: 14
-                Text {
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    color: theme.onSurfaceVariant
-                    font.pixelSize: 12
-                    visible: !gameOpts.compat && gameOpts.game.store !== "steam"
-                    text: qsTr("Battle.net games all run inside the Battle.net app, so Proton and overlay options are set on the Battle.net tile.")
-                }
-                // Games added by hand: which program Play starts (the launcher or the game itself).
-                Row2 {
-                    visible: gameOpts.game.store === "custom"
-                    label: qsTr("Program")
-                    hint: gameOpts.runsNative ? qsTr("A Linux program: it runs as it is.")
-                                              : qsTr("A Windows program: it runs through Proton.")
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 8
-                        KField { Layout.fillWidth: true; theme: win.theme; readOnly: true; text: gameOpts.exe }
-                        KButton { theme: win.theme; text: qsTr("Change…"); iconName: "folder-open"; onClicked: optExePicker.open() }
-                    }
-                }
-                // Steam games: Steam's own per-game compatibility tool, set from here.
-                Row2 {
-                    visible: gameOpts.game.store === "steam"
-                    label: qsTr("Proton version (Steam's setting)")
-                    hint: gameOpts.steamProton.choices.length
-                          ? qsTr("The same as the game's Properties → Compatibility in Steam. Cornerplay closes and reopens Steam to change it; Steam downloads a Valve Proton the first time a game uses it. Launch options stay in Steam.")
-                          : qsTr("Steam is not set up on this PC yet: start Steam and sign in once.")
-                    KCombo {
-                        id: optSteamProton
-                        theme: win.theme; Layout.fillWidth: true
-                        enabled: gameOpts.steamProton.choices.length > 0 && !app.steamShortcut.busy
-                        onActivated: { const k = gameOpts.key, v = currentValue; win.protonChange(k, () => app.setSteamProton(k, v), () => optSteamProton.select(gameOpts.steamProton.current)) }
-                    }
-                }
-                Row2 {
-                    visible: gameOpts.compat && !gameOpts.runsNative
-                    label: qsTr("Proton version")
-                    KCombo {
-                        id: optProton
-                        theme: win.theme; Layout.fillWidth: true
-                        model: [{ label: qsTr("Use default"), value: "default" }].concat(app.protonVersions)
-                        onActivated: { const k = gameOpts.key, v = currentValue; win.protonChange(k, () => app.setGameOption(k, "proton", v),
-                                                        () => optProton.select(gameOpts.opts.proton === undefined ? "default" : gameOpts.opts.proton)) }
-                    }
-                }
-                RowLayout {
-                    visible: gameOpts.compat
-                    spacing: 14
-                    Row2 {
-                        Layout.fillHeight: true; Layout.preferredWidth: 1
-                        label: qsTr("MangoHud")
-                        KCombo { id: optHud; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
-                                 onActivated: app.setGameOption(gameOpts.key, "mangohud", currentValue) }
-                    }
-                    Row2 {
-                        linuxOnly: true
-                        label: qsTr("GameMode")
-                        KCombo { id: optMode; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
-                                 onActivated: app.setGameOption(gameOpts.key, "gamemode", currentValue) }
-                    }
-                }
-                // GOG games with a Linux version: which one to install.
-                Row2 {
-                    visible: gameOpts.game.store === "gog" && !!gameOpts.game.linuxVersion
-                    label: qsTr("Version")
-                    hint: gameOpts.game.installed
-                          ? qsTr("Installed: the ") + (gameOpts.game.platform === "linux" ? qsTr("Linux") : qsTr("Windows")) + qsTr(" version. To switch, pick the other one, then uninstall and install again.")
-                          : qsTr("The Linux version runs without Proton (lighter, but old ones can need extra libraries); the Windows version runs through Proton.")
-                    KCombo { id: optPlatform; theme: win.theme; Layout.fillWidth: true
-                             model: [{ label: qsTr("Use default (Settings)"), value: "default" }, { label: qsTr("Linux version (native)"), value: "linux" },
-                                     { label: qsTr("Windows version (Proton)"), value: "windows" }]
-                             onActivated: app.setGameOption(gameOpts.key, "platform", currentValue) }
-                }
-                // Performance profile: frame cap + FSR upscaling (Steam games: set in Steam).
-                RowLayout {
-                    visible: gameOpts.compat && gameOpts.game.store !== "battlenet"
-                    spacing: 14
-                    Row2 {
-                        Layout.fillHeight: true; Layout.preferredWidth: 1
-                        label: qsTr("Performance")
-                        hint: qsTr("Battery saver caps at 30 fps, Balanced at 60, both with FSR upscaling when the game runs below your screen's resolution.")
-                        KCombo { id: optPerf; theme: win.theme; Layout.fillWidth: true
-                                 model: [{ label: qsTr("Use default"), value: "default" }, { label: qsTr("No change"), value: "none" },
-                                         { label: qsTr("Battery saver (30 fps)"), value: "battery" },
-                                         { label: qsTr("Balanced (60 fps)"), value: "balanced" },
-                                         { label: qsTr("Max quality (no cap)"), value: "quality" }]
-                                 onActivated: app.setGameOption(gameOpts.key, "perf", currentValue) }
-                    }
-                    Row2 {
-                        Layout.fillHeight: true; Layout.preferredWidth: 1
-                        label: qsTr("FPS counter")
-                        KCombo { id: optFps; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
-                                 onActivated: app.setGameOption(gameOpts.key, "show_fps", currentValue) }
-                    }
-                }
-                RowLayout {
-                    visible: gameOpts.compat && gameOpts.game.store !== "battlenet"
-                    spacing: 14
-                    Row2 {
-                        Layout.fillHeight: true; Layout.preferredWidth: 1
-                        label: qsTr("Frame cap")
-                        KCombo { id: optCap; theme: win.theme; Layout.fillWidth: true
-                                 model: [{ label: qsTr("Use default"), value: "default" }].concat([{ label: qsTr("No cap"), value: 0 }, { label: "30 fps", value: 30 }, { label: "40 fps", value: 40 }, { label: "45 fps", value: 45 }, { label: "60 fps", value: 60 }, { label: "90 fps", value: 90 }, { label: "120 fps", value: 120 }])
-                                 onActivated: app.setGameOption(gameOpts.key, "fps_cap", currentValue) }
-                    }
-                    Row2 {
-                        Layout.fillHeight: true; Layout.preferredWidth: 1
-                        visible: app.tdpAvailable
-                        label: qsTr("Power limit (TDP)")
-                        KCombo { id: optTdp; theme: win.theme; Layout.fillWidth: true
-                                 model: [{ label: qsTr("Use default"), value: "default" }].concat([{ label: qsTr("Leave it to the PC"), value: 0 }, { label: "5 W", value: 5 }, { label: "8 W", value: 8 }, { label: "10 W", value: 10 }, { label: "12 W", value: 12 }, { label: "15 W", value: 15 }, { label: "18 W", value: 18 }, { label: "20 W", value: 20 }, { label: "25 W", value: 25 }, { label: "30 W", value: 30 }])
-                                 onActivated: app.setGameOption(gameOpts.key, "tdp", currentValue) }
-                    }
-                }
-                Row2 {
-                    label: qsTr("Controller as keyboard and mouse")
-                    hint: qsTr("For games that only take a keyboard and mouse: while the game is in front the controller types keys, clicks and moves the mouse. Guide still opens Cornerplay.")
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 10
-                        KCombo { id: optKeys; theme: win.theme; Layout.fillWidth: true
-                                 model: [{ label: qsTr("Off"), value: "default" }].concat((app.padKeysInfo().templates || []).map(t => ({ label: t.name, value: t.id })))
-                                        .concat([{ label: qsTr("My layout"), value: "custom" }])
-                                 onActivated: app.setGameOption(gameOpts.key, "pad_keys", currentValue) }
-                        KButton { theme: win.theme; text: qsTr("Edit my layout"); iconName: "gamepad-2"; onClicked: keysEdit.show() }
-                    }
-                }
-                // Sound output: this game's sound on headphones, speakers or the TV (audioout.py).
-                Row2 {
-                    visible: optAudio.count > 2 || (gameOpts.opts.audio_out || "default") !== "default"
-                    label: qsTr("Sound output")
-                    hint: qsTr("While this game plays, its sound goes here; the usual output comes back when it closes.")
-                    KCombo { id: optAudio; theme: win.theme; Layout.fillWidth: true
-                             model: [{ label: qsTr("The usual output"), value: "default" }].concat(gameOpts.outputs)
-                             onActivated: app.setGameOption(gameOpts.key, "audio_out", currentValue) }
-                }
-                Row2 {
-                    visible: gameOpts.game.store !== "steam"
-                    label: qsTr("Controller layout")
-                    hint: qsTr("For games that read the controller through SDL (most Proton and native games). Steam games use Steam Input.")
-                    KCombo { id: optPad; theme: win.theme; Layout.fillWidth: true
-                             model: [{ label: qsTr("Default (Settings > Games & Proton)"), value: "default" }, { label: qsTr("Standard"), value: "none" },
-                                     { label: qsTr("Swap A and B"), value: "swap_ab" }, { label: qsTr("Nintendo (A/B and X/Y swapped)"), value: "nintendo" },
-                                     { label: qsTr("Southpaw (sticks swapped)"), value: "southpaw" }, { label: qsTr("Bumpers and triggers swapped"), value: "shoulders" }]
-                             onActivated: app.setGameOption(gameOpts.key, "pad_layout", currentValue) }
-                }
-                // Gamescope (not for the Battle.net app, which stays open after its games close).
-                RowLayout {
-                    visible: gameOpts.compat && gameOpts.game.store !== "battlenet"
-                    spacing: 14
-                    Row2 {
-                        Layout.fillHeight: true; Layout.preferredWidth: 1
-                        label: qsTr("Gamescope")
-                        hint: app.hasGamescope ? qsTr("Full screen at your screen's resolution, or drawn at 2/3 size and upscaled with FSR.")
-                                               : qsTr("gamescope is not installed, so this has no effect yet.")
-                        KCombo { id: optScope; theme: win.theme; Layout.fillWidth: true
-                                 model: [{ label: qsTr("Use default"), value: "default" }, { label: qsTr("Off"), value: "off" },
-                                         { label: qsTr("Full screen"), value: "fullscreen" }, { label: qsTr("FSR upscaling"), value: "fsr" }]
-                                 onActivated: app.setGameOption(gameOpts.key, "gamescope", currentValue) }
-                    }
-                    Row2 {
-                        Layout.fillHeight: true; Layout.preferredWidth: 1
-                        label: qsTr("HDR")
-                        KCombo { id: optHdr; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
-                                 onActivated: app.setGameOption(gameOpts.key, "gamescope_hdr", currentValue) }
-                    }
-                }
-                // Linux extras (gpu.py, runner.proton_extras): graphics card, NTSYNC, Wine's Wayland driver, DLL overrides.
-                Row2 {
-                    visible: gameOpts.gpus.length > 0
-                    label: qsTr("Graphics card")
-                    hint: qsTr("On PCs with two: games run on the fast one unless you choose here. Steam games: Steam picks.")
-                    KCombo { id: optGpu; theme: win.theme; Layout.fillWidth: true
-                             model: [{ label: qsTr("Use default"), value: "default" }].concat(gameOpts.gpus)
-                             onActivated: app.setGameOption(gameOpts.key, "gpu", currentValue) }
-                }
-                RowLayout {
-                    visible: gameOpts.compat
-                    Layout.fillWidth: true
-                    spacing: 12
-                    Row2 {
-                        visible: app.fastCores !== ""
-                        label: qsTr("Fast cores")
-                        hint: qsTr("Only on the CPU's fastest cores (%1). Off for games that want every core.").replace("%1", app.fastCores)
-                        KCombo { id: optCores; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
-                                 onActivated: app.setGameOption(gameOpts.key, "fast_cores", currentValue) }
-                    }
-                    Row2 {
-                        visible: app.ntsyncAvailable
-                        label: qsTr("NTSYNC")
-                        hint: qsTr("Smoother Windows games (the kernel does their waiting). Off only if a game misbehaves.")
-                        KCombo { id: optNtsync; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
-                                 onActivated: app.setGameOption(gameOpts.key, "ntsync", currentValue) }
-                    }
-                    Row2 {
-                        linuxOnly: true
-                        label: qsTr("Wayland (no XWayland)")
-                        hint: qsTr("Wine's own Wayland driver: can help HDR, scaling and frame pacing; some games do not like it yet.")
-                        KCombo { id: optWayland; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
-                                 onActivated: app.setGameOption(gameOpts.key, "wayland", currentValue) }
-                    }
-                }
-                // HDR on Hyprland while it plays (playtweaks.py), on a screen that can show it.
-                Row2 {
-                    visible: app.hyprland
-                    label: qsTr("HDR while playing")
-                    hint: qsTr("Turns the screen to HDR while this game runs, if the screen can show it; back to normal after. For games with an HDR option.")
-                    KCombo { id: optHdrDesk; theme: win.theme; Layout.fillWidth: true
-                             model: [{ label: qsTr("Off"), value: false }, { label: qsTr("On"), value: true }]
-                             onActivated: app.setGameOption(gameOpts.key, "hdr_desktop", currentValue) }
-                }
-                // The screen's mode and VRR while this game plays (screenmode.py); gamescope sets its own.
-                RowLayout {
-                    visible: gameOpts.screenModes.length > 1
-                    Layout.fillWidth: true
-                    spacing: 12
-                    Row2 {
-                        visible: gameOpts.screenModes.length > 2  // one mode only: nothing to choose
-                        label: qsTr("Screen while playing")
-                        hint: qsTr("A refresh rate or resolution for this game only; yours again when it closes.")
-                        KCombo { id: optScreen; theme: win.theme; Layout.fillWidth: true; model: gameOpts.screenModes
-                                 onActivated: app.setGameOption(gameOpts.key, "screen_mode", currentValue) }
-                    }
-                    Row2 {
-                        label: qsTr("Variable refresh")
-                        hint: qsTr("Smoother when the game cannot keep up with the screen (VRR, FreeSync, G-Sync).")
-                        KCombo { id: optVrr; theme: win.theme; Layout.fillWidth: true
-                                 model: [{ label: qsTr("As it is"), value: false }, { label: qsTr("On"), value: true }]
-                                 onActivated: app.setGameOption(gameOpts.key, "screen_vrr", currentValue) }
-                    }
-                }
-                // Hyprland: the game stops while another window has the focus (freeze.py).
-                Row2 {
-                    visible: app.hyprland && gameOpts.game.store !== "steam"
-                    label: qsTr("Pause when you switch away")
-                    hint: qsTr("The game stops using the CPU, graphics card and battery while you are in another window, and carries on when you come back. Not for online games: they would lose the connection.")
-                    KCombo { id: optFreeze; theme: win.theme; Layout.fillWidth: true
-                             model: [{ label: qsTr("Off"), value: false }, { label: qsTr("On"), value: true }]
-                             onActivated: app.setGameOption(gameOpts.key, "freeze_away", currentValue) }
-                }
-                // WoW has its own sign-in screen: it can start without the Battle.net app (stores/battlenet.py DIRECT).
-                Row2 {
-                    visible: gameOpts.game.bnetDirect === true
-                    label: qsTr("Start without Battle.net")
-                    hint: qsTr("The game opens straight away and asks for your Blizzard sign-in itself. Battle.net still installs its updates.")
-                    KCombo { id: optBnetDirect; theme: win.theme; Layout.fillWidth: true
-                             model: [{ label: qsTr("Off"), value: false }, { label: qsTr("On"), value: true }]
-                             onActivated: app.setGameOption(gameOpts.key, "bnet_direct", currentValue) }
-                }
-                // Rhythm and fighting games: a small PipeWire buffer while it plays (playtweaks.py).
-                Row2 {
-                    linuxOnly: true
-                    label: qsTr("Low audio latency")
-                    hint: qsTr("Sound in time with your button presses (rhythm and fighting games). Uses a little more CPU.")
-                    KCombo { id: optAudioLat; theme: win.theme; Layout.fillWidth: true
-                             model: [{ label: qsTr("Off"), value: false }, { label: qsTr("On"), value: true }]
-                             onActivated: app.setGameOption(gameOpts.key, "audio_lowlat", currentValue) }
-                }
-                // Tools inside this game's own prefix: a trainer or mod tool beside the game, Wine's settings.
-                Row2 {
-                    visible: gameOpts.key !== "" && app.prefixToolsFor(gameOpts.key)
-                    label: qsTr("In this game's prefix")
-                    hint: qsTr("Runs beside the game, with its Proton: trainers, mod tools, installers, Wine's own settings.")
-                    Flow {
-                        Layout.fillWidth: true
-                        spacing: 8
-                        KButton { theme: win.theme; text: qsTr("Run a program…"); iconName: "play"
-                                  onClicked: { prefixExePick.key = gameOpts.key; prefixExePick.open() } }
-                        KButton { theme: win.theme; text: qsTr("Wine settings"); onClicked: app.runInPrefix(gameOpts.key, "winecfg") }
-                        KButton { theme: win.theme; text: qsTr("Registry"); onClicked: app.runInPrefix(gameOpts.key, "regedit") }
-                        KButton { theme: win.theme; text: qsTr("Command prompt"); onClicked: app.runInPrefix(gameOpts.key, "cmd") }
-                        KButton { theme: win.theme; text: qsTr("Task manager"); onClicked: app.runInPrefix(gameOpts.key, "taskmgr") }
-                    }
-                }
-                // Protontricks-style fixes into this game's own prefix (winetricks through umu).
-                Row2 {
-                    visible: gameOpts.compat && gameOpts.game.installed === true
-                    label: qsTr("Common fixes")
-                    hint: qsTr("Installs a Windows part some games need into this game's own prefix. Takes a few minutes.")
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 8
-                        KCombo { id: optFix; theme: win.theme; Layout.fillWidth: true; model: gameOpts.fixes }
-                        KButton { theme: win.theme; text: qsTr("Install"); iconName: "download"
-                                  onClicked: app.fixProblem(gameOpts.key, "winetricks:" + optFix.currentValue) }
-                    }
-                }
-                Row2 {
-                    visible: gameOpts.compat
-                    label: qsTr("DLL overrides")
-                    hint: qsTr("For mods that load as a DLL, e.g. dinput8=n,b;winhttp=n,b")
-                    KField { id: optDlls; theme: win.theme; Layout.fillWidth: true; placeholderText: "dinput8=n,b"
-                             onEditingFinished: app.setGameOption(gameOpts.key, "dll_overrides", text.trim()) }
-                }
-                Row2 {
-                    visible: gameOpts.compat
-                    label: qsTr("Environment variables")
-                    KField { id: optEnv; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("KEY=value KEY2=value")
-                             onEditingFinished: app.setGameOption(gameOpts.key, "env", text) }
-                }
-                Row2 {
-                    visible: gameOpts.compat && gameOpts.game.store !== "battlenet"
-                    label: qsTr("Launch arguments")
-                    KField { id: optArgs; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("-windowed -skipintro")
-                             onEditingFinished: app.setGameOption(gameOpts.key, "args", text) }
-                }
-                // Before it starts and after it closes: commands, one per line ("&" at the end: leave it running).
-                component StepsBox: Rectangle {
-                    id: sb
-                    property alias text: sbArea.text
-                    property string placeholder: ""
-                    signal saved(string text)
-                    Layout.fillWidth: true
-                    implicitHeight: Math.max(64, sbArea.implicitHeight + 12)
-                    radius: 10
-                    color: theme.surfaceContainerHigh
-                    border.width: sbArea.activeFocus ? 1 : 0; border.color: theme.primary
-                    TextArea {
-                        id: sbArea
-                        anchors.fill: parent; anchors.margins: 2
-                        wrapMode: TextArea.NoWrap
-                        font.family: "monospace"; font.pixelSize: 12
-                        color: theme.onSurface
-                        placeholderText: sb.placeholder; placeholderTextColor: theme.outline
-                        background: null
-                        onEditingFinished: sb.saved(text)
-                    }
-                }
-                Row2 {
-                    label: qsTr("Before it starts")
-                    hint: qsTr("One command per line, each given up to a minute; end a line with & to leave it running (Discord, a server).")
-                    StepsBox { id: optBefore; placeholder: "discord &\nnmcli connection up my-vpn"
-                               onSaved: t => app.setGameOption(gameOpts.key, "before", t) }
-                }
-                Row2 {
-                    label: qsTr("After it closes")
-                    hint: gameOpts.game.store === "prism" || gameOpts.game.store === "battlenet"
-                          ? qsTr("Cornerplay cannot tell when this game closes, so these do not run for it.")
-                          : qsTr("Run one after another once the game has closed.")
-                    StepsBox { id: optAfter; placeholder: "powerprofilesctl set balanced"
-                               onSaved: t => app.setGameOption(gameOpts.key, "after", t) }
-                }
-                Flow {
-                    Layout.fillWidth: true
-                    spacing: 6
-                    Repeater {
-                        model: [{ id: "discord", t: qsTr("+ Open Discord") }, { id: "power", t: qsTr("+ Performance power mode while playing") },
-                                { id: "close_discord", t: qsTr("+ Close Discord after") }]
-                        Chip2 {
-                            required property var modelData
-                            label: modelData.t
-                            onPicked: { app.addStepPreset(gameOpts.key, modelData.id); const o = app.gameOptions(gameOpts.key)
-                                        optBefore.text = o.before || ""; optAfter.text = o.after || "" }
+                // Taller than the window on most screens: it scrolls, like Settings.
+                contentItem: Flickable {
+                    id: optsScroll
+                    implicitWidth: optsCol.implicitWidth
+                    implicitHeight: Math.min(optsCol.implicitHeight, win.height - 150)
+                    contentHeight: optsCol.implicitHeight
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: KScrollBar { }
+                    ColumnLayout {
+                        id: optsCol
+                        width: optsScroll.width - 12
+                        spacing: 14
+                        Text {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            color: theme.onSurfaceVariant
+                            font.pixelSize: 12
+                            visible: !gameOpts.compat && gameOpts.game.store !== "steam"
+                            text: qsTr("Battle.net games all run inside the Battle.net app, so Proton and overlay options are set on the Battle.net tile.")
+                        }
+                        // Games added by hand: which program Play starts (the launcher or the game itself).
+                        Row2 {
+                            visible: gameOpts.game.store === "custom"
+                            label: qsTr("Program")
+                            hint: gameOpts.runsNative ? qsTr("A Linux program: it runs as it is.")
+                                                      : qsTr("A Windows program: it runs through Proton.")
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                KField { Layout.fillWidth: true; theme: win.theme; readOnly: true; text: gameOpts.exe }
+                                KButton { theme: win.theme; text: qsTr("Change…"); iconName: "folder-open"; onClicked: optExePicker.open() }
+                            }
+                        }
+                        // Steam games: Steam's own per-game compatibility tool, set from here.
+                        Row2 {
+                            visible: gameOpts.game.store === "steam"
+                            label: qsTr("Proton version (Steam's setting)")
+                            hint: gameOpts.steamProton.choices.length
+                                  ? qsTr("The same as the game's Properties → Compatibility in Steam. Cornerplay closes and reopens Steam to change it; Steam downloads a Valve Proton the first time a game uses it. Launch options stay in Steam.")
+                                  : qsTr("Steam is not set up on this PC yet: start Steam and sign in once.")
+                            KCombo {
+                                id: optSteamProton
+                                theme: win.theme; Layout.fillWidth: true
+                                enabled: gameOpts.steamProton.choices.length > 0 && !app.steamShortcut.busy
+                                onActivated: { const k = gameOpts.key, v = currentValue; win.protonChange(k, () => app.setSteamProton(k, v), () => optSteamProton.select(gameOpts.steamProton.current)) }
+                            }
+                        }
+                        Row2 {
+                            visible: gameOpts.compat && !gameOpts.runsNative
+                            label: qsTr("Proton version")
+                            KCombo {
+                                id: optProton
+                                theme: win.theme; Layout.fillWidth: true
+                                model: [{ label: qsTr("Use default"), value: "default" }].concat(app.protonVersions)
+                                onActivated: { const k = gameOpts.key, v = currentValue; win.protonChange(k, () => app.setGameOption(k, "proton", v),
+                                                                () => optProton.select(gameOpts.opts.proton === undefined ? "default" : gameOpts.opts.proton)) }
+                            }
+                        }
+                        RowLayout {
+                            visible: gameOpts.compat
+                            spacing: 14
+                            Row2 {
+                                Layout.fillHeight: true; Layout.preferredWidth: 1
+                                label: qsTr("MangoHud")
+                                KCombo { id: optHud; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
+                                         onActivated: app.setGameOption(gameOpts.key, "mangohud", currentValue) }
+                            }
+                            Row2 {
+                                linuxOnly: true
+                                label: qsTr("GameMode")
+                                KCombo { id: optMode; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
+                                         onActivated: app.setGameOption(gameOpts.key, "gamemode", currentValue) }
+                            }
+                        }
+                        // GOG games with a Linux version: which one to install.
+                        Row2 {
+                            visible: gameOpts.game.store === "gog" && !!gameOpts.game.linuxVersion
+                            label: qsTr("Version")
+                            hint: gameOpts.game.installed
+                                  ? qsTr("Installed: the ") + (gameOpts.game.platform === "linux" ? qsTr("Linux") : qsTr("Windows")) + qsTr(" version. To switch, pick the other one, then uninstall and install again.")
+                                  : qsTr("The Linux version runs without Proton (lighter, but old ones can need extra libraries); the Windows version runs through Proton.")
+                            KCombo { id: optPlatform; theme: win.theme; Layout.fillWidth: true
+                                     model: [{ label: qsTr("Use default (Settings)"), value: "default" }, { label: qsTr("Linux version (native)"), value: "linux" },
+                                             { label: qsTr("Windows version (Proton)"), value: "windows" }]
+                                     onActivated: app.setGameOption(gameOpts.key, "platform", currentValue) }
+                        }
+                        // Performance profile: frame cap + FSR upscaling (Steam games: set in Steam).
+                        RowLayout {
+                            visible: gameOpts.compat && gameOpts.game.store !== "battlenet"
+                            spacing: 14
+                            Row2 {
+                                Layout.fillHeight: true; Layout.preferredWidth: 1
+                                label: qsTr("Performance")
+                                hint: qsTr("Battery saver caps at 30 fps, Balanced at 60, both with FSR upscaling when the game runs below your screen's resolution.")
+                                KCombo { id: optPerf; theme: win.theme; Layout.fillWidth: true
+                                         model: [{ label: qsTr("Use default"), value: "default" }, { label: qsTr("No change"), value: "none" },
+                                                 { label: qsTr("Battery saver (30 fps)"), value: "battery" },
+                                                 { label: qsTr("Balanced (60 fps)"), value: "balanced" },
+                                                 { label: qsTr("Max quality (no cap)"), value: "quality" }]
+                                         onActivated: app.setGameOption(gameOpts.key, "perf", currentValue) }
+                            }
+                            Row2 {
+                                Layout.fillHeight: true; Layout.preferredWidth: 1
+                                label: qsTr("FPS counter")
+                                KCombo { id: optFps; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
+                                         onActivated: app.setGameOption(gameOpts.key, "show_fps", currentValue) }
+                            }
+                        }
+                        RowLayout {
+                            visible: gameOpts.compat && gameOpts.game.store !== "battlenet"
+                            spacing: 14
+                            Row2 {
+                                Layout.fillHeight: true; Layout.preferredWidth: 1
+                                label: qsTr("Frame cap")
+                                KCombo { id: optCap; theme: win.theme; Layout.fillWidth: true
+                                         model: [{ label: qsTr("Use default"), value: "default" }].concat([{ label: qsTr("No cap"), value: 0 }, { label: "30 fps", value: 30 }, { label: "40 fps", value: 40 }, { label: "45 fps", value: 45 }, { label: "60 fps", value: 60 }, { label: "90 fps", value: 90 }, { label: "120 fps", value: 120 }])
+                                         onActivated: app.setGameOption(gameOpts.key, "fps_cap", currentValue) }
+                            }
+                            Row2 {
+                                Layout.fillHeight: true; Layout.preferredWidth: 1
+                                visible: app.tdpAvailable
+                                label: qsTr("Power limit (TDP)")
+                                KCombo { id: optTdp; theme: win.theme; Layout.fillWidth: true
+                                         model: [{ label: qsTr("Use default"), value: "default" }].concat([{ label: qsTr("Leave it to the PC"), value: 0 }, { label: "5 W", value: 5 }, { label: "8 W", value: 8 }, { label: "10 W", value: 10 }, { label: "12 W", value: 12 }, { label: "15 W", value: 15 }, { label: "18 W", value: 18 }, { label: "20 W", value: 20 }, { label: "25 W", value: 25 }, { label: "30 W", value: 30 }])
+                                         onActivated: app.setGameOption(gameOpts.key, "tdp", currentValue) }
+                            }
+                        }
+                        Row2 {
+                            label: qsTr("Controller as keyboard and mouse")
+                            hint: qsTr("For games that only take a keyboard and mouse: while the game is in front the controller types keys, clicks and moves the mouse. Guide still opens Cornerplay.")
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+                                KCombo { id: optKeys; theme: win.theme; Layout.fillWidth: true
+                                         model: [{ label: qsTr("Off"), value: "default" }].concat((app.padKeysInfo().templates || []).map(t => ({ label: t.name, value: t.id })))
+                                                .concat([{ label: qsTr("My layout"), value: "custom" }])
+                                         onActivated: app.setGameOption(gameOpts.key, "pad_keys", currentValue) }
+                                KButton { theme: win.theme; text: qsTr("Edit my layout"); iconName: "gamepad-2"; onClicked: keysEdit.show() }
+                            }
+                        }
+                        // Sound output: this game's sound on headphones, speakers or the TV (audioout.py).
+                        Row2 {
+                            visible: optAudio.count > 2 || (gameOpts.opts.audio_out || "default") !== "default"
+                            label: qsTr("Sound output")
+                            hint: qsTr("While this game plays, its sound goes here; the usual output comes back when it closes.")
+                            KCombo { id: optAudio; theme: win.theme; Layout.fillWidth: true
+                                     model: [{ label: qsTr("The usual output"), value: "default" }].concat(gameOpts.outputs)
+                                     onActivated: app.setGameOption(gameOpts.key, "audio_out", currentValue) }
+                        }
+                        Row2 {
+                            visible: gameOpts.game.store !== "steam"
+                            label: qsTr("Controller layout")
+                            hint: qsTr("For games that read the controller through SDL (most Proton and native games). Steam games use Steam Input.")
+                            KCombo { id: optPad; theme: win.theme; Layout.fillWidth: true
+                                     model: [{ label: qsTr("Default (Settings > Games & Proton)"), value: "default" }, { label: qsTr("Standard"), value: "none" },
+                                             { label: qsTr("Swap A and B"), value: "swap_ab" }, { label: qsTr("Nintendo (A/B and X/Y swapped)"), value: "nintendo" },
+                                             { label: qsTr("Southpaw (sticks swapped)"), value: "southpaw" }, { label: qsTr("Bumpers and triggers swapped"), value: "shoulders" }]
+                                     onActivated: app.setGameOption(gameOpts.key, "pad_layout", currentValue) }
+                        }
+                        // Gamescope (not for the Battle.net app, which stays open after its games close).
+                        RowLayout {
+                            visible: gameOpts.compat && gameOpts.game.store !== "battlenet"
+                            spacing: 14
+                            Row2 {
+                                Layout.fillHeight: true; Layout.preferredWidth: 1
+                                label: qsTr("Gamescope")
+                                hint: app.hasGamescope ? qsTr("Full screen at your screen's resolution, or drawn at 2/3 size and upscaled with FSR.")
+                                                       : qsTr("gamescope is not installed, so this has no effect yet.")
+                                KCombo { id: optScope; theme: win.theme; Layout.fillWidth: true
+                                         model: [{ label: qsTr("Use default"), value: "default" }, { label: qsTr("Off"), value: "off" },
+                                                 { label: qsTr("Full screen"), value: "fullscreen" }, { label: qsTr("FSR upscaling"), value: "fsr" }]
+                                         onActivated: app.setGameOption(gameOpts.key, "gamescope", currentValue) }
+                            }
+                            Row2 {
+                                Layout.fillHeight: true; Layout.preferredWidth: 1
+                                label: qsTr("HDR")
+                                KCombo { id: optHdr; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
+                                         onActivated: app.setGameOption(gameOpts.key, "gamescope_hdr", currentValue) }
+                            }
+                        }
+                        // Linux extras (gpu.py, runner.proton_extras): graphics card, NTSYNC, Wine's Wayland driver, DLL overrides.
+                        Row2 {
+                            visible: gameOpts.gpus.length > 0
+                            label: qsTr("Graphics card")
+                            hint: qsTr("On PCs with two: games run on the fast one unless you choose here. Steam games: Steam picks.")
+                            KCombo { id: optGpu; theme: win.theme; Layout.fillWidth: true
+                                     model: [{ label: qsTr("Use default"), value: "default" }].concat(gameOpts.gpus)
+                                     onActivated: app.setGameOption(gameOpts.key, "gpu", currentValue) }
+                        }
+                        RowLayout {
+                            visible: gameOpts.compat
+                            Layout.fillWidth: true
+                            spacing: 12
+                            Row2 {
+                                visible: app.fastCores !== ""
+                                label: qsTr("Fast cores")
+                                hint: qsTr("Only on the CPU's fastest cores (%1). Off for games that want every core.").replace("%1", app.fastCores)
+                                KCombo { id: optCores; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
+                                         onActivated: app.setGameOption(gameOpts.key, "fast_cores", currentValue) }
+                            }
+                            Row2 {
+                                visible: app.ntsyncAvailable
+                                label: qsTr("NTSYNC")
+                                hint: qsTr("Smoother Windows games (the kernel does their waiting). Off only if a game misbehaves.")
+                                KCombo { id: optNtsync; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
+                                         onActivated: app.setGameOption(gameOpts.key, "ntsync", currentValue) }
+                            }
+                            Row2 {
+                                linuxOnly: true
+                                label: qsTr("Wayland (no XWayland)")
+                                hint: qsTr("Wine's own Wayland driver: can help HDR, scaling and frame pacing; some games do not like it yet.")
+                                KCombo { id: optWayland; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
+                                         onActivated: app.setGameOption(gameOpts.key, "wayland", currentValue) }
+                            }
+                        }
+                        // HDR on Hyprland while it plays (playtweaks.py), on a screen that can show it.
+                        Row2 {
+                            visible: app.hyprland
+                            label: qsTr("HDR while playing")
+                            hint: qsTr("Turns the screen to HDR while this game runs, if the screen can show it; back to normal after. For games with an HDR option.")
+                            KCombo { id: optHdrDesk; theme: win.theme; Layout.fillWidth: true
+                                     model: [{ label: qsTr("Off"), value: false }, { label: qsTr("On"), value: true }]
+                                     onActivated: app.setGameOption(gameOpts.key, "hdr_desktop", currentValue) }
+                        }
+                        // The screen's mode and VRR while this game plays (screenmode.py); gamescope sets its own.
+                        RowLayout {
+                            visible: gameOpts.screenModes.length > 1
+                            Layout.fillWidth: true
+                            spacing: 12
+                            Row2 {
+                                visible: gameOpts.screenModes.length > 2  // one mode only: nothing to choose
+                                label: qsTr("Screen while playing")
+                                hint: qsTr("A refresh rate or resolution for this game only; yours again when it closes.")
+                                KCombo { id: optScreen; theme: win.theme; Layout.fillWidth: true; model: gameOpts.screenModes
+                                         onActivated: app.setGameOption(gameOpts.key, "screen_mode", currentValue) }
+                            }
+                            Row2 {
+                                label: qsTr("Variable refresh")
+                                hint: qsTr("Smoother when the game cannot keep up with the screen (VRR, FreeSync, G-Sync).")
+                                KCombo { id: optVrr; theme: win.theme; Layout.fillWidth: true
+                                         model: [{ label: qsTr("As it is"), value: false }, { label: qsTr("On"), value: true }]
+                                         onActivated: app.setGameOption(gameOpts.key, "screen_vrr", currentValue) }
+                            }
+                        }
+                        // Hyprland: the game stops while another window has the focus (freeze.py).
+                        Row2 {
+                            visible: app.hyprland && gameOpts.game.store !== "steam"
+                            label: qsTr("Pause when you switch away")
+                            hint: qsTr("The game stops using the CPU, graphics card and battery while you are in another window, and carries on when you come back. Not for online games: they would lose the connection.")
+                            KCombo { id: optFreeze; theme: win.theme; Layout.fillWidth: true
+                                     model: [{ label: qsTr("Off"), value: false }, { label: qsTr("On"), value: true }]
+                                     onActivated: app.setGameOption(gameOpts.key, "freeze_away", currentValue) }
+                        }
+                        // WoW has its own sign-in screen: it can start without the Battle.net app (stores/battlenet.py DIRECT).
+                        Row2 {
+                            visible: gameOpts.game.bnetDirect === true
+                            label: qsTr("Start without Battle.net")
+                            hint: qsTr("The game opens straight away and asks for your Blizzard sign-in itself. Battle.net still installs its updates.")
+                            KCombo { id: optBnetDirect; theme: win.theme; Layout.fillWidth: true
+                                     model: [{ label: qsTr("Off"), value: false }, { label: qsTr("On"), value: true }]
+                                     onActivated: app.setGameOption(gameOpts.key, "bnet_direct", currentValue) }
+                        }
+                        // Rhythm and fighting games: a small PipeWire buffer while it plays (playtweaks.py).
+                        Row2 {
+                            linuxOnly: true
+                            label: qsTr("Low audio latency")
+                            hint: qsTr("Sound in time with your button presses (rhythm and fighting games). Uses a little more CPU.")
+                            KCombo { id: optAudioLat; theme: win.theme; Layout.fillWidth: true
+                                     model: [{ label: qsTr("Off"), value: false }, { label: qsTr("On"), value: true }]
+                                     onActivated: app.setGameOption(gameOpts.key, "audio_lowlat", currentValue) }
+                        }
+                        // Tools inside this game's own prefix: a trainer or mod tool beside the game, Wine's settings.
+                        Row2 {
+                            visible: gameOpts.key !== "" && app.prefixToolsFor(gameOpts.key)
+                            label: qsTr("In this game's prefix")
+                            hint: qsTr("Runs beside the game, with its Proton: trainers, mod tools, installers, Wine's own settings.")
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                KButton { theme: win.theme; text: qsTr("Run a program…"); iconName: "play"
+                                          onClicked: { prefixExePick.key = gameOpts.key; prefixExePick.open() } }
+                                KButton { theme: win.theme; text: qsTr("Wine settings"); onClicked: app.runInPrefix(gameOpts.key, "winecfg") }
+                                KButton { theme: win.theme; text: qsTr("Registry"); onClicked: app.runInPrefix(gameOpts.key, "regedit") }
+                                KButton { theme: win.theme; text: qsTr("Command prompt"); onClicked: app.runInPrefix(gameOpts.key, "cmd") }
+                                KButton { theme: win.theme; text: qsTr("Task manager"); onClicked: app.runInPrefix(gameOpts.key, "taskmgr") }
+                            }
+                        }
+                        // Protontricks-style fixes into this game's own prefix (winetricks through umu).
+                        Row2 {
+                            visible: gameOpts.compat && gameOpts.game.installed === true
+                            label: qsTr("Common fixes")
+                            hint: qsTr("Installs a Windows part some games need into this game's own prefix. Takes a few minutes.")
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                KCombo { id: optFix; theme: win.theme; Layout.fillWidth: true; model: gameOpts.fixes }
+                                KButton { theme: win.theme; text: qsTr("Install"); iconName: "download"
+                                          onClicked: app.fixProblem(gameOpts.key, "winetricks:" + optFix.currentValue) }
+                            }
+                        }
+                        Row2 {
+                            visible: gameOpts.compat
+                            label: qsTr("DLL overrides")
+                            hint: qsTr("For mods that load as a DLL, e.g. dinput8=n,b;winhttp=n,b")
+                            KField { id: optDlls; theme: win.theme; Layout.fillWidth: true; placeholderText: "dinput8=n,b"
+                                     onEditingFinished: app.setGameOption(gameOpts.key, "dll_overrides", text.trim()) }
+                        }
+                        Row2 {
+                            visible: gameOpts.compat
+                            label: qsTr("Environment variables")
+                            KField { id: optEnv; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("KEY=value KEY2=value")
+                                     onEditingFinished: app.setGameOption(gameOpts.key, "env", text) }
+                        }
+                        Row2 {
+                            visible: gameOpts.compat && gameOpts.game.store !== "battlenet"
+                            label: qsTr("Launch arguments")
+                            KField { id: optArgs; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("-windowed -skipintro")
+                                     onEditingFinished: app.setGameOption(gameOpts.key, "args", text) }
+                        }
+                        // Before it starts and after it closes: commands, one per line ("&" at the end: leave it running).
+                        component StepsBox: Rectangle {
+                            id: sb
+                            property alias text: sbArea.text
+                            property string placeholder: ""
+                            signal saved(string text)
+                            Layout.fillWidth: true
+                            implicitHeight: Math.max(64, sbArea.implicitHeight + 12)
+                            radius: 10
+                            color: theme.surfaceContainerHigh
+                            border.width: sbArea.activeFocus ? 1 : 0; border.color: theme.primary
+                            TextArea {
+                                id: sbArea
+                                anchors.fill: parent; anchors.margins: 2
+                                wrapMode: TextArea.NoWrap
+                                font.family: "monospace"; font.pixelSize: 12
+                                color: theme.onSurface
+                                placeholderText: sb.placeholder; placeholderTextColor: theme.outline
+                                background: null
+                                onEditingFinished: sb.saved(text)
+                            }
+                        }
+                        Row2 {
+                            label: qsTr("Before it starts")
+                            hint: qsTr("One command per line, each given up to a minute; end a line with & to leave it running (Discord, a server).")
+                            StepsBox { id: optBefore; placeholder: "discord &\nnmcli connection up my-vpn"
+                                       onSaved: t => app.setGameOption(gameOpts.key, "before", t) }
+                        }
+                        Row2 {
+                            label: qsTr("After it closes")
+                            hint: gameOpts.game.store === "prism" || gameOpts.game.store === "battlenet"
+                                  ? qsTr("Cornerplay cannot tell when this game closes, so these do not run for it.")
+                                  : qsTr("Run one after another once the game has closed.")
+                            StepsBox { id: optAfter; placeholder: "powerprofilesctl set balanced"
+                                       onSaved: t => app.setGameOption(gameOpts.key, "after", t) }
+                        }
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: 6
+                            Repeater {
+                                model: [{ id: "discord", t: qsTr("+ Open Discord") }, { id: "power", t: qsTr("+ Performance power mode while playing") },
+                                        { id: "close_discord", t: qsTr("+ Close Discord after") }]
+                                Chip2 {
+                                    required property var modelData
+                                    label: modelData.t
+                                    onPicked: { app.addStepPreset(gameOpts.key, modelData.id); const o = app.gameOptions(gameOpts.key)
+                                                optBefore.text = o.before || ""; optAfter.text = o.after || "" }
+                                }
+                            }
+                        }
+                        RowLayout {
+                            visible: app.cloudSaveStores.includes(gameOpts.game.store)
+                            spacing: 14
+                            Row2 {
+                                Layout.fillHeight: true; Layout.preferredWidth: 1
+                                label: qsTr("Cloud saves")
+                                KCombo { id: optSaves; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
+                                         onActivated: app.setGameOption(gameOpts.key, "cloud_saves", currentValue) }
+                            }
+                            KButton {
+                                theme: win.theme
+                                Layout.alignment: Qt.AlignBottom
+                                text: qsTr("Sync saves now")
+                                enabled: !!gameOpts.game.installed
+                                onClicked: app.syncNow(gameOpts.key)
+                            }
+                        }
+                        // When a game misbehaves.
+                        Row2 {
+                            visible: !!gameOpts.game.installed && gameOpts.game.store !== "steam"
+                            label: qsTr("Fix it")
+                            hint: gameOpts.resetArmed
+                                  ? qsTr("A fresh Proton prefix starts Windows settings from scratch. The old one is kept beside it (renamed), so saves stored there are not lost.")
+                                  : ["epic", "gog", "amazon"].includes(gameOpts.game.store)
+                                    ? qsTr("Repair checks every file and downloads the broken or missing ones.")
+                                    : gameOpts.compat && !gameOpts.runsNative
+                                      ? qsTr("Reset Proton prefix gives the game a fresh Windows setup, for when it stopped starting after a change.")
+                                      : ""
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                KButton { theme: win.theme; visible: ["epic", "gog", "amazon"].includes(gameOpts.game.store)
+                                          text: qsTr("Repair files"); iconName: "refresh-cw"
+                                          onClicked: { app.verifyGame(gameOpts.key); gameOpts.close() } }
+                                KButton { theme: win.theme; visible: gameOpts.compat && !gameOpts.runsNative; danger: gameOpts.resetArmed
+                                          text: gameOpts.resetArmed ? qsTr("Really reset?") : qsTr("Reset Proton prefix"); iconName: "trash-2"
+                                          onClicked: { if (!gameOpts.resetArmed) { gameOpts.resetArmed = true; return }
+                                                       gameOpts.resetArmed = false; app.resetPrefix(gameOpts.key) } }
+                                KButton { theme: win.theme; text: qsTr("Open log"); iconName: "folder-open"; onClicked: app.openLog(gameOpts.key) }
+                            }
+                        }
+                        Row2 {
+                            label: qsTr("Custom cover")
+                            hint: qsTr("An image file or a web address. Leave empty to use the automatic cover.")
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                KField { id: optCover; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("Automatic")
+                                         onEditingFinished: app.setGameOption(gameOpts.key, "cover", text) }
+                                KButton { theme: win.theme; text: qsTr("Choose…"); onClicked: coverPicker.open() }
+                                KButton { theme: win.theme; text: qsTr("Reset"); enabled: optCover.text !== ""
+                                          onClicked: { optCover.text = ""; app.setGameOption(gameOpts.key, "cover", "") } }
+                            }
                         }
                     }
                 }
-                RowLayout {
-                    visible: app.cloudSaveStores.includes(gameOpts.game.store)
-                    spacing: 14
-                    Row2 {
-                        Layout.fillHeight: true; Layout.preferredWidth: 1
-                        label: qsTr("Cloud saves")
-                        KCombo { id: optSaves; theme: win.theme; Layout.fillWidth: true; model: gameOpts.triState
-                                 onActivated: app.setGameOption(gameOpts.key, "cloud_saves", currentValue) }
-                    }
-                    KButton {
-                        theme: win.theme
-                        Layout.alignment: Qt.AlignBottom
-                        text: qsTr("Sync saves now")
-                        enabled: !!gameOpts.game.installed
-                        onClicked: app.syncNow(gameOpts.key)
-                    }
-                }
-                // When a game misbehaves.
-                Row2 {
-                    visible: !!gameOpts.game.installed && gameOpts.game.store !== "steam"
-                    label: qsTr("Fix it")
-                    hint: gameOpts.resetArmed
-                          ? qsTr("A fresh Proton prefix starts Windows settings from scratch. The old one is kept beside it (renamed), so saves stored there are not lost.")
-                          : ["epic", "gog", "amazon"].includes(gameOpts.game.store)
-                            ? qsTr("Repair checks every file and downloads the broken or missing ones.")
-                            : gameOpts.compat && !gameOpts.runsNative
-                              ? qsTr("Reset Proton prefix gives the game a fresh Windows setup, for when it stopped starting after a change.")
-                              : ""
-                    Flow {
-                        Layout.fillWidth: true
-                        spacing: 8
-                        KButton { theme: win.theme; visible: ["epic", "gog", "amazon"].includes(gameOpts.game.store)
-                                  text: qsTr("Repair files"); iconName: "refresh-cw"
-                                  onClicked: { app.verifyGame(gameOpts.key); gameOpts.close() } }
-                        KButton { theme: win.theme; visible: gameOpts.compat && !gameOpts.runsNative; danger: gameOpts.resetArmed
-                                  text: gameOpts.resetArmed ? qsTr("Really reset?") : qsTr("Reset Proton prefix"); iconName: "trash-2"
-                                  onClicked: { if (!gameOpts.resetArmed) { gameOpts.resetArmed = true; return }
-                                               gameOpts.resetArmed = false; app.resetPrefix(gameOpts.key) } }
-                        KButton { theme: win.theme; text: qsTr("Open log"); iconName: "folder-open"; onClicked: app.openLog(gameOpts.key) }
-                    }
-                }
-                Row2 {
-                    label: qsTr("Custom cover")
-                    hint: qsTr("An image file or a web address. Leave empty to use the automatic cover.")
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 8
-                        KField { id: optCover; theme: win.theme; Layout.fillWidth: true; placeholderText: qsTr("Automatic")
-                                 onEditingFinished: app.setGameOption(gameOpts.key, "cover", text) }
-                        KButton { theme: win.theme; text: qsTr("Choose…"); onClicked: coverPicker.open() }
-                        KButton { theme: win.theme; text: qsTr("Reset"); enabled: optCover.text !== ""
-                                  onClicked: { optCover.text = ""; app.setGameOption(gameOpts.key, "cover", "") } }
-                    }
+            FileDialog {
+                id: optExePicker
+                title: qsTr("Which program?")
+                currentFolder: gameOpts.exe ? "file://" + gameOpts.exe.substring(0, gameOpts.exe.lastIndexOf("/")) : ""
+                onAccepted: { app.setCustomExe(gameOpts.key, selectedFile.toString()); gameOpts.close() }
+            FileDialog {
+                id: coverPicker
+                title: qsTr("Choose a cover image")
+                nameFilters: [qsTr("Images (*.png *.jpg *.jpeg *.webp)")]
+                onAccepted: {
+                    app.setGameOption(gameOpts.key, "cover", selectedFile.toString())
+                    optCover.text = app.gameOptions(gameOpts.key).cover || ""
                 }
             }
         }
     }
-    FileDialog {
-        id: optExePicker
-        title: qsTr("Which program?")
-        currentFolder: gameOpts.exe ? "file://" + gameOpts.exe.substring(0, gameOpts.exe.lastIndexOf("/")) : ""
-        onAccepted: { app.setCustomExe(gameOpts.key, selectedFile.toString()); gameOpts.close() }
     }
-    FileDialog {
-        id: coverPicker
-        title: qsTr("Choose a cover image")
-        nameFilters: [qsTr("Images (*.png *.jpg *.jpeg *.webp)")]
-        onAccepted: {
-            app.setGameOption(gameOpts.key, "cover", selectedFile.toString())
-            optCover.text = app.gameOptions(gameOpts.key).cover || ""
-        }
     }
 
     // -------------------------------------------------------------------- splash
@@ -9597,7 +9740,7 @@ ApplicationWindow {
             }
         }
         HoverHandler { id: islandHover; cursorShape: island.kind === "clock" ? Qt.ArrowCursor : Qt.PointingHandCursor }
-        TapHandler { onTapped: { if (island.kind === "dl") downloadsBox.open(); else if (island.kind === "play") win.select(island.playing.key) } }
+        TapHandler { onTapped: { if (island.kind === "dl") win.need(downloadsBoxLoader).open(); else if (island.kind === "play") win.select(island.playing.key) } }
     }
 
     // -------------------------------------------------------------------- a cover opening up

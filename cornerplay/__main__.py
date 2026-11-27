@@ -466,6 +466,15 @@ def main():
         from .config import settings as _s
         return bool(_s.get("light_background", True))
     ui = Ui(app, build)
+    # Starting up (reading the stores, compiling the interface, decoding art) leaves tens of MB
+    # freed but still held by the C allocator; hand it back once things have settled, and again
+    # now and then (cheap: a few milliseconds). ~40 MB on a typical start.
+    from PySide6.QtCore import QTimer
+    from .ui import give_back_memory
+    QTimer.singleShot(45_000, give_back_memory)
+    _trim = QTimer(app, interval=10 * 60_000)
+    _trim.timeout.connect(give_back_memory)
+    _trim.start()
     # The game panel, quick access and the launcher live in the interface: build it first if it
     # was let go, then ask (a moment later, once its Connections exist).
     gamepad.overlay.connect(lambda: ui.run(cornerplay.overlayRequested.emit))
